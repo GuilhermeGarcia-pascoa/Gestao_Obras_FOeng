@@ -49,8 +49,12 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
 
   @override
   void dispose() {
-    for (final c in _horasP.values) c.dispose();
-    for (final c in _horasM.values) c.dispose();
+    for (final c in _horasP.values) {
+      c.dispose();
+    }
+    for (final c in _horasM.values) {
+      c.dispose();
+    }
     _toCtrl.dispose(); _combustivelCtrl.dispose();
     _estadiasCtrl.dispose(); _materiaisCtrl.dispose();
     _faturadoCtrl.dispose();
@@ -101,8 +105,12 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       final pessoasAnt  = List<Map<String, dynamic>>.from(ant['horasPessoas']  ?? []);
       final maquinasAnt = List<Map<String, dynamic>>.from(ant['horasMaquinas'] ?? []);
 
-      for (final c in _horasP.values) c.dispose();
-      for (final c in _horasM.values) c.dispose();
+      for (final c in _horasP.values) {
+        c.dispose();
+      }
+      for (final c in _horasM.values) {
+        c.dispose();
+      }
       _horasP.clear(); _horasM.clear();
 
       setState(() {
@@ -118,8 +126,10 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
         }
       });
 
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('✓ Dados da semana anterior copiados'), backgroundColor: Colors.green));
+      }
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
     }
@@ -226,8 +236,10 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       }
     } on ApiException catch (e) {
       setState(() => _saving = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.mensagem), backgroundColor: Colors.red));
+      }
     }
   }
 

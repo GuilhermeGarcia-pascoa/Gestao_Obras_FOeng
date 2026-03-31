@@ -6,6 +6,13 @@ import 'obra_form_screen.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
 
+// Função auxiliar para garantir que o orçamento é sempre um num válido
+num _parseOrcamento(dynamic value) {
+  if (value is num) return value;
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
 class ObrasListScreen extends StatefulWidget {
   const ObrasListScreen({super.key});
 
@@ -107,7 +114,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                                 const SizedBox(height: 4),
                                 Text(o['nome'] ?? ''),
                                 if (o['orcamento'] != null)
-                                  Text('Orçamento: ${_eur.format(o['orcamento'])}',
+                                  Text('Orçamento: ${_eur.format(_parseOrcamento(o['orcamento']))}',
                                       style: const TextStyle(fontSize: 12, color: Colors.grey)),
                               ],
                             ),

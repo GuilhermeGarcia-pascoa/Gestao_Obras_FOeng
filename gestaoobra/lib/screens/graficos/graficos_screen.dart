@@ -5,6 +5,13 @@ import '../../services/api_service.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 0);
 
+// Função auxiliar para garantir que os valores são sempre num válido
+num _parseValor(dynamic value) {
+  if (value is num) return value;
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
 class GraficosScreen extends StatefulWidget {
   const GraficosScreen({super.key});
 
@@ -59,7 +66,7 @@ class _GraficosScreenState extends State<GraficosScreen> {
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
                   child: DropdownButtonFormField<int>(
-                    value: _obraIdSelecionada,
+                    initialValue: _obraIdSelecionada,
                     decoration: const InputDecoration(labelText: 'Obra', isDense: true),
                     items: _obras.map<DropdownMenuItem<int>>((o) =>
                         DropdownMenuItem(value: o['id'] as int, child: Text(o['codigo'] ?? ''))).toList(),
@@ -209,7 +216,7 @@ class _GraficosScreenState extends State<GraficosScreen> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(d['categoria'] ?? '', style: const TextStyle(fontSize: 13)),
-                      Text(_eur.format(d['valor']), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                      Text(_eur.format(_parseValor(d['valor'])), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
                     ],
                   ),
                   const SizedBox(height: 4),

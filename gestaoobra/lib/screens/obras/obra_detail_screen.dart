@@ -6,6 +6,13 @@ import 'obra_form_screen.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
 
+// Função auxiliar para garantir que o orçamento é sempre um num válido
+num _parseOrcamento(dynamic value) {
+  if (value is num) return value;
+  if (value is String) return double.tryParse(value) ?? 0;
+  return 0;
+}
+
 class ObraDetailScreen extends StatefulWidget {
   final Map<String, dynamic> obra;
   const ObraDetailScreen({super.key, required this.obra});
@@ -85,7 +92,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                     style: const TextStyle(color: Colors.white70, fontSize: 13)),
                 if (obra['orcamento'] != null) ...[
                   const SizedBox(height: 4),
-                  Text('Orçamento: ${_eur.format(double.tryParse(obra['orcamento'].toString()) ?? 0)}',
+                  Text('Orçamento: ${_eur.format(_parseOrcamento(obra['orcamento']))}',
                       style: const TextStyle(color: Colors.white60, fontSize: 13)),
                 ],
               ],
@@ -117,7 +124,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                                       style: const TextStyle(fontWeight: FontWeight.w600)),
                                   subtitle: Text(s['estado'] ?? ''),
                                   trailing: s['faturado'] != null
-                                      ? Text(_eur.format(double.tryParse(s['faturado'].toString()) ?? 0),
+                                      ? Text(_eur.format(_parseOrcamento(s['faturado'])),
                                             style: const TextStyle(fontWeight: FontWeight.bold))
                                       : null,
                                   onTap: () => Navigator.push(

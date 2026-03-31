@@ -92,14 +92,14 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _tipo,
+              initialValue: _tipo,
               decoration: const InputDecoration(labelText: 'Tipo de obra'),
               items: _tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
               onChanged: (v) => setState(() => _tipo = v!),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: _estado,
+              initialValue: _estado,
               decoration: const InputDecoration(labelText: 'Estado'),
               items: _estados.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (v) => setState(() => _estado = v!),

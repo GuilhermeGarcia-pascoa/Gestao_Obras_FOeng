@@ -45,7 +45,9 @@ class _SemanaDetailScreenState extends State<SemanaDetailScreen> {
 
   @override
   void dispose() {
-    for (final c in _horasCtrl.values) c.dispose();
+    for (final c in _horasCtrl.values) {
+      c.dispose();
+    }
     _toCtrl.dispose();
     _combustivelCtrl.dispose();
     _estadiasCtrl.dispose();
@@ -171,8 +173,10 @@ class _SemanaDetailScreenState extends State<SemanaDetailScreen> {
       }
     } on ApiException catch (e) {
       setState(() => _saving = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(e.mensagem), backgroundColor: Colors.red));
+      }
     }
   }
 
