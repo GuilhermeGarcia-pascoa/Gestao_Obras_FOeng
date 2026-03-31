@@ -1,0 +1,13 @@
+﻿# Flutter
+gestaoobra/.dart_tool/
+gestaoobra/build/
+gestaoobra/.flutter-plugins
+gestaoobra/.flutter-plugins-dependencies
+
+# Backend
+backend/node_modules/
+backend/.env
+
+# Sistema
+.DS_Store
+Thumbs.db
