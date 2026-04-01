@@ -98,7 +98,18 @@ router.get('/:id/anterior', async (req, res) => {
     const [horasMaquinas] = await pool.query('SELECT * FROM dia_maquinas WHERE dia_id = ?', [anterior.id]);
     const [horasViaturas] = await pool.query('SELECT * FROM dia_viaturas WHERE dia_id = ?', [anterior.id]);
 
-    res.json({ horasPessoas, horasMaquinas, horasViaturas });
+    // Retornar também os gastos guardados
+    res.json({ 
+      horasPessoas, 
+      horasMaquinas, 
+      horasViaturas,
+      gastos: {
+        valor_to: anterior.valor_to || 0,
+        valor_combustivel: anterior.valor_combustivel || 0,
+        valor_estadias: anterior.valor_estadias || 0,
+        valor_materiais: anterior.valor_materiais || 0,
+      }
+    });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }
@@ -107,16 +118,24 @@ router.get('/:id/anterior', async (req, res) => {
 // ── PUT /api/dias/:id
 // Guarda/atualiza os dados de um dia
 router.put('/:id', async (req, res) => {
-  const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas } = req.body;
+  const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas, gastos } = req.body;
   const conn = await pool.getConnection();
 
   try {
     await conn.beginTransaction();
 
-    // Atualiza cabeçalho do dia
+    // Atualiza cabeçalho do dia com todos os gastos
     await conn.query(
-      'UPDATE dias SET estado = ?, faturado = ? WHERE id = ?',
-      [estado, faturado, req.params.id]
+      'UPDATE dias SET estado = ?, faturado = ?, valor_to = ?, valor_combustivel = ?, valor_estadias = ?, valor_materiais = ? WHERE id = ?',
+      [
+        estado, 
+        faturado, 
+        gastos?.valor_to ?? 0,
+        gastos?.valor_combustivel ?? 0,
+        gastos?.valor_estadias ?? 0,
+        gastos?.valor_materiais ?? 0,
+        req.params.id
+      ]
     );
 
     // Limpar e reinserir registos de horas de pessoas
