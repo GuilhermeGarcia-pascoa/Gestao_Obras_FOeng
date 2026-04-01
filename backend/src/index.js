@@ -5,7 +5,7 @@ const cors    = require('cors');
 
 const authRouter      = require('./routes/auth');
 const obrasRouter     = require('./routes/obras');
-const semanasRouter   = require('./routes/semanas');
+const diasRouter      = require('./routes/dias');
 const equipaRouter    = require('./routes/equipa');
 const relatoriosRouter = require('./routes/relatorios');
 
@@ -19,7 +19,7 @@ app.use(express.json());                  // Parse de JSON no body
 // ── Rotas ─────────────────────────────────────────────────────────────────────
 app.use('/api/auth',       authRouter);
 app.use('/api/obras',      obrasRouter);
-app.use('/api/semanas',    semanasRouter);
+app.use('/api/dias',       diasRouter);
 app.use('/api/equipa',     equipaRouter);
 app.use('/api/relatorios', relatoriosRouter);
 

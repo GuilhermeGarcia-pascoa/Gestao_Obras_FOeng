@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:table_calendar/table_calendar.dart';
 import '../../services/api_service.dart';
-import '../semanas/semana_detail_screen.dart';
+import '../dias/dia_registo_screen.dart';
 import 'obra_form_screen.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
@@ -22,42 +23,48 @@ class ObraDetailScreen extends StatefulWidget {
 }
 
 class _ObraDetailScreenState extends State<ObraDetailScreen> {
-  List<dynamic> _semanas = [];
+  DateTime _focusedDay   = DateTime.now();
+  DateTime? _selectedDay;
+  Set<String> _diasComDados = {};   // datas no formato 'YYYY-MM-DD'
   bool _loading = true;
 
   @override
   void initState() {
     super.initState();
-    _carregar();
+    _carregarMes(_focusedDay);
   }
 
-  Future<void> _carregar() async {
+  String _formatMes(DateTime d) => DateFormat('yyyy-MM').format(d);
+  String _formatData(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
+
+  Future<void> _carregarMes(DateTime mes) async {
     setState(() => _loading = true);
     try {
-      final data = await ApiService.listarSemanas(widget.obra['id']);
-      setState(() { _semanas = data; _loading = false; });
-    } on ApiException catch (e) {
+      final lista = await ApiService.getDiasMes(
+        widget.obra['id'], _formatMes(mes));
+      setState(() {
+        _diasComDados = Set<String>.from(lista.map((d) => d['data'] as String));
+        _loading = false;
+      });
+    } catch (_) {
       setState(() => _loading = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
     }
   }
 
-  Future<void> _novaSemana() async {
-    final proxNumero = _semanas.isEmpty ? 1 : (_semanas.first['numero_semana'] as int) + 1;
-    try {
-      final result = await ApiService.criarSemana({
-        'obra_id': widget.obra['id'],
-        'numero_semana': proxNumero,
-      });
-      if (!mounted) return;
-      final semana = await ApiService.getSemanaSemana(result['id']);
-      Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => SemanaDetailScreen(semana: semana['semana'], obraId: widget.obra['id'])),
-      ).then((_) => _carregar());
-    } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
-    }
+  void _abrirDia(DateTime dia) async {
+    final dataStr = _formatData(dia);
+    // Abre o ecrã de registo; o backend cria o dia automaticamente se não existir
+    final resultado = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => DiaRegistoScreen(
+          obraId:      widget.obra['id'],
+          data:        dataStr,
+          obraCodigo:  widget.obra['codigo'] ?? '',
+        ),
+      ),
+    );
+    if (resultado == true) _carregarMes(_focusedDay);
   }
 
   @override
@@ -72,79 +79,122 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
             onPressed: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => ObraFormScreen(obra: obra)),
-            ).then((_) => _carregar()),
+            ).then((_) => _carregarMes(_focusedDay)),
           ),
         ],
       ),
       body: Column(
         children: [
-          // Cabeçalho da obra
+          // Cabeçalho
           Container(
             width: double.infinity,
             color: const Color(0xFF1A1A2E),
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 20),
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(obra['nome'] ?? '', style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500)),
-                const SizedBox(height: 4),
-                Text('Tipo: ${obra['tipo'] ?? 'N/D'}  ·  Estado: ${obra['estado'] ?? ''}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13)),
+                Text(obra['nome'] ?? '',
+                    style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.w500)),
+                const SizedBox(height: 2),
+                Text('${obra['tipo'] ?? 'N/D'}  ·  ${obra['estado'] ?? ''}',
+                    style: const TextStyle(color: Colors.white60, fontSize: 12)),
                 if (obra['orcamento'] != null) ...[
-                  const SizedBox(height: 4),
+                  const SizedBox(height: 3),
                   Text('Orçamento: ${_eur.format(_parseOrcamento(obra['orcamento']))}',
-                      style: const TextStyle(color: Colors.white60, fontSize: 13)),
+                      style: const TextStyle(color: Colors.white60, fontSize: 12)),
                 ],
               ],
             ),
           ),
 
-          // Lista de semanas
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : RefreshIndicator(
-                    onRefresh: _carregar,
-                    child: _semanas.isEmpty
-                        ? const Center(child: Text('Sem semanas. Cria a primeira!'))
-                        : ListView.separated(
-                            padding: const EdgeInsets.all(16),
-                            itemCount: _semanas.length,
-                            separatorBuilder: (_, __) => const SizedBox(height: 8),
-                            itemBuilder: (context, i) {
-                              final s = _semanas[i];
-                              return Card(
-                                child: ListTile(
-                                  leading: CircleAvatar(
-                                    backgroundColor: const Color(0xFF1A1A2E),
-                                    child: Text('S${s['numero_semana']}',
-                                        style: const TextStyle(color: Colors.white, fontSize: 12)),
-                                  ),
-                                  title: Text('Semana ${s['numero_semana']}',
-                                      style: const TextStyle(fontWeight: FontWeight.w600)),
-                                  subtitle: Text(s['estado'] ?? ''),
-                                  trailing: s['faturado'] != null
-                                      ? Text(_eur.format(_parseOrcamento(s['faturado'])),
-                                            style: const TextStyle(fontWeight: FontWeight.bold))
-                                      : null,
-                                  onTap: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                      builder: (_) => SemanaDetailScreen(semana: s, obraId: obra['id']),
-                                    ),
-                                  ).then((_) => _carregar()),
+          // Calendário
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.all(32),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            Expanded(
+              child: RefreshIndicator(
+                onRefresh: () => _carregarMes(_focusedDay),
+                child: ListView(
+                  children: [
+                    TableCalendar(
+                      firstDay:  DateTime(2020),
+                      lastDay:   DateTime(2030),
+                      focusedDay: _focusedDay,
+                      selectedDayPredicate: (d) => _selectedDay != null && isSameDay(d, _selectedDay!),
+                      onDaySelected: (selected, focused) {
+                        setState(() {
+                          _selectedDay  = selected;
+                          _focusedDay   = focused;
+                        });
+                        _abrirDia(selected);
+                      },
+                      onPageChanged: (focused) {
+                        _focusedDay = focused;
+                        _carregarMes(focused);
+                      },
+                      calendarBuilders: CalendarBuilders(
+                        // Ponto verde nos dias com dados
+                        markerBuilder: (context, day, events) {
+                          final str = _formatData(day);
+                          if (_diasComDados.contains(str)) {
+                            return Positioned(
+                              bottom: 4,
+                              child: Container(
+                                width: 6,
+                                height: 6,
+                                decoration: const BoxDecoration(
+                                  color: Color(0xFF1A1A2E),
+                                  shape: BoxShape.circle,
                                 ),
-                              );
-                            },
+                              ),
+                            );
+                          }
+                          return null;
+                        },
+                      ),
+                      headerStyle: const HeaderStyle(
+                        formatButtonVisible: false,
+                        titleCentered: true,
+                        titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                      ),
+                      calendarStyle: const CalendarStyle(
+                        todayDecoration: BoxDecoration(
+                          color: Color(0x331A1A2E),
+                          shape: BoxShape.circle,
+                        ),
+                        selectedDecoration: BoxDecoration(
+                          color: Color(0xFF1A1A2E),
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                    ),
+                    // Legenda
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 8,
+                            height: 8,
+                            decoration: const BoxDecoration(
+                              color: Color(0xFF1A1A2E),
+                              shape: BoxShape.circle,
+                            ),
                           ),
-                  ),
-          ),
+                          const SizedBox(width: 6),
+                          const Text('Dia com registo',
+                              style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _novaSemana,
-        icon: const Icon(Icons.add),
-        label: const Text('Nova semana'),
       ),
     );
   }

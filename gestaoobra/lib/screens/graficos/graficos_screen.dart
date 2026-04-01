@@ -90,12 +90,12 @@ class _GraficosScreenState extends State<GraficosScreen> {
     final distribuicao = List<Map<String, dynamic>>.from(_dados!['distribuicao'] ?? []);
 
     if (evolucao.isEmpty) {
-      return const Center(child: Text('Sem dados para esta obra.\nRegista semanas primeiro.', textAlign: TextAlign.center));
+      return const Center(child: Text('Sem dados para esta obra.\nRegista dias primeiro.', textAlign: TextAlign.center));
     }
 
     // Totais para os cards de métricas
     final totalFaturado   = evolucao.isNotEmpty ? (evolucao.last['acumulado'] as num).toDouble() : 0.0;
-    final totalSemanas    = evolucao.length;
+    final totalDias       = evolucao.length;
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -105,13 +105,13 @@ class _GraficosScreenState extends State<GraficosScreen> {
           children: [
             _metricCard('Faturado total', _eur.format(totalFaturado), Icons.euro),
             const SizedBox(width: 10),
-            _metricCard('Semanas', '$totalSemanas', Icons.calendar_today),
+            _metricCard('Dias', '$totalDias', Icons.calendar_today),
           ],
         ),
         const SizedBox(height: 24),
 
-        // ── Gráfico de evolução semanal ───────────────────────────────────
-        const Text('Faturado por semana', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+        // ── Gráfico de evolução diária ────────────────────────────────────
+        const Text('Faturado por dia', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
         const SizedBox(height: 12),
         SizedBox(
           height: 200,
@@ -132,7 +132,8 @@ class _GraficosScreenState extends State<GraficosScreen> {
                     getTitlesWidget: (value, _) {
                       final idx = value.toInt();
                       if (idx >= evolucao.length) return const SizedBox();
-                      return Text(evolucao[idx]['semana'] ?? '', style: const TextStyle(fontSize: 10));
+                      final data = evolucao[idx]['data'] ?? 'N/D';
+                      return Text(data.toString().substring(5), style: const TextStyle(fontSize: 10));
                     },
                   ),
                 ),
@@ -173,7 +174,8 @@ class _GraficosScreenState extends State<GraficosScreen> {
                     getTitlesWidget: (value, _) {
                       final idx = value.toInt();
                       if (idx >= evolucao.length) return const SizedBox();
-                      return Text(evolucao[idx]['semana'] ?? '', style: const TextStyle(fontSize: 10));
+                      final data = evolucao[idx]['data'] ?? 'N/D';
+                      return Text(data.toString().substring(5), style: const TextStyle(fontSize: 10));
                     },
                   ),
                 ),
@@ -202,7 +204,7 @@ class _GraficosScreenState extends State<GraficosScreen> {
         // ── Distribuição de custos ────────────────────────────────────────
         if (distribuicao.isNotEmpty) ...[
           const SizedBox(height: 28),
-          const Text('Distribuição de custos (última semana)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const Text('Distribuição de custos (último dia)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 12),
           ...distribuicao.map((d) {
             final total = distribuicao.fold<double>(0, (a, b) => a + (b['valor'] as num).toDouble());

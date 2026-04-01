@@ -96,21 +96,23 @@ class ApiService {
   static Future<void> editarObra(int id, Map<String, dynamic> dados) async =>
       await put('/obras/$id', dados);
 
-  // ── SEMANAS ───────────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> listarSemanas(int obraId) async =>
-      await get('/semanas?obra_id=$obraId');
+  // ── DIAS ──────────────────────────────────────────────────────────────────────
+  static Future<List<dynamic>> getDiasMes(int obraId, String mes) async =>
+      await get('/dias/anteriores?obra_id=$obraId&mes=$mes');
+      // mes = "2025-03"
 
-  static Future<Map<String, dynamic>> getSemanaSemana(int id) async =>
-      await get('/semanas/$id');
+  static Future<Map<String, dynamic>> getDiaPorData(int obraId, String data) async =>
+      await get('/dias/por-data?obra_id=$obraId&data=$data');
+      // data = "2025-03-15"
 
-  static Future<Map<String, dynamic>> getSemanaAnterior(int id) async =>
-      await get('/semanas/$id/anterior');
+  static Future<Map<String, dynamic>> getDia(int id) async =>
+      await get('/dias/$id');
 
-  static Future<Map<String, dynamic>> criarSemana(Map<String, dynamic> dados) async =>
-      await post('/semanas', dados);
+  static Future<Map<String, dynamic>> getDiaAnterior(int id) async =>
+      await get('/dias/$id/anterior');
 
-  static Future<void> guardarSemana(int id, Map<String, dynamic> dados) async =>
-      await put('/semanas/$id', dados);
+  static Future<void> guardarDia(int id, Map<String, dynamic> dados) async =>
+      await put('/dias/$id', dados);
 
   // ── EQUIPA ────────────────────────────────────────────────────────────────────
   static Future<List<dynamic>> listarPessoas() async => await get('/equipa/pessoas');
@@ -137,7 +139,7 @@ class ApiService {
       await get('/relatorios/graficos/$obraId');
 
   static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/relatorios/excel/$obraId';
-  static String urlPdf(int semanaId) => '${ApiConfig.baseUrl}/relatorios/pdf/$semanaId';
+  static String urlPdf(int diaId)    => '${ApiConfig.baseUrl}/relatorios/pdf/$diaId';
 }
 
 class ApiException implements Exception {

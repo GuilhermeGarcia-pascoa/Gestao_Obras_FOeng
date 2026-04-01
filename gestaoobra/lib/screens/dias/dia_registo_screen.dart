@@ -4,25 +4,26 @@ import '../../services/api_service.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
 
-/// Ecrã de registo semanal — abre directamente com semanaId
-/// (wrapper simples sobre SemanaDetailScreen que carrega os dados)
-class SemanaRegistoScreen extends StatefulWidget {
-  final int semanaId;
+/// Ecrã de registo diário — abre um dia específico do calendário
+class DiaRegistoScreen extends StatefulWidget {
   final int obraId;
-  final int numSemana;
+  final String data;        // 'YYYY-MM-DD'
+  final String obraCodigo;
 
-  const SemanaRegistoScreen({
+  const DiaRegistoScreen({
     super.key,
-    required this.semanaId,
     required this.obraId,
-    required this.numSemana,
+    required this.data,
+    required this.obraCodigo,
   });
 
   @override
-  State<SemanaRegistoScreen> createState() => _SemanaRegistoScreenState();
+  State<DiaRegistoScreen> createState() => _DiaRegistoScreenState();
 }
 
-class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
+class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
+  int? _diaId;
+
   // ── Estado ────────────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _pessoas   = [];
   List<Map<String, dynamic>> _maquinas  = [];
@@ -55,10 +56,18 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
     for (final c in _horasM.values) {
       c.dispose();
     }
-    _toCtrl.dispose(); _combustivelCtrl.dispose();
-    _estadiasCtrl.dispose(); _materiaisCtrl.dispose();
+    _toCtrl.dispose();
+    _combustivelCtrl.dispose();
+    _estadiasCtrl.dispose();
+    _materiaisCtrl.dispose();
     _faturadoCtrl.dispose();
     super.dispose();
+  }
+
+  // ── Formatação de datas ───────────────────────────────────────────────────
+  String get _tituloDia {
+    final d = DateTime.parse(widget.data);
+    return DateFormat("EEEE, d MMM", 'pt_PT').format(d);
   }
 
   // ── Carregamento inicial ──────────────────────────────────────────────────
@@ -66,7 +75,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
     setState(() => _loading = true);
     try {
       final results = await Future.wait([
-        ApiService.getSemanaSemana(widget.semanaId),
+        ApiService.getDiaPorData(widget.obraId, widget.data),
         ApiService.listarPessoas(),
         ApiService.listarMaquinas(),
       ]);
@@ -74,6 +83,9 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       final detalhe     = results[0] as Map<String, dynamic>;
       _todasPessoas     = results[1] as List<dynamic>;
       _todasMaquinas    = results[2] as List<dynamic>;
+
+      final dia = detalhe['dia'] as Map<String, dynamic>;
+      _diaId = dia['id'] as int;
 
       _pessoas  = List<Map<String, dynamic>>.from(detalhe['horasPessoas']  ?? []);
       _maquinas = List<Map<String, dynamic>>.from(detalhe['horasMaquinas'] ?? []);
@@ -88,8 +100,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       }
 
       // Gastos guardados
-      final semana = detalhe['semana'] as Map<String, dynamic>;
-      _faturadoCtrl.text = semana['faturado']?.toString() ?? '';
+      _faturadoCtrl.text = dia['faturado']?.toString() ?? '';
 
       setState(() => _loading = false);
     } on ApiException catch (e) {
@@ -98,10 +109,11 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
     }
   }
 
-  // ── Copiar semana anterior ────────────────────────────────────────────────
+  // ── Copiar dia anterior ───────────────────────────────────────────────────
   Future<void> _copiarAnterior() async {
+    if (_diaId == null) return;
     try {
-      final ant = await ApiService.getSemanaAnterior(widget.semanaId);
+      final ant = await ApiService.getDiaAnterior(_diaId!);
       final pessoasAnt  = List<Map<String, dynamic>>.from(ant['horasPessoas']  ?? []);
       final maquinasAnt = List<Map<String, dynamic>>.from(ant['horasMaquinas'] ?? []);
 
@@ -111,7 +123,8 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       for (final c in _horasM.values) {
         c.dispose();
       }
-      _horasP.clear(); _horasM.clear();
+      _horasP.clear();
+      _horasM.clear();
 
       setState(() {
         _pessoas  = pessoasAnt;
@@ -128,7 +141,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('✓ Dados da semana anterior copiados'), backgroundColor: Colors.green));
+          const SnackBar(content: Text('✓ Dados do dia anterior copiados'), backgroundColor: Colors.green));
       }
     } on ApiException catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
@@ -204,6 +217,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
 
   // ── Guardar ───────────────────────────────────────────────────────────────
   Future<void> _guardar() async {
+    if (_diaId == null) return;
     setState(() => _saving = true);
 
     final horasPessoas = _pessoas.map((p) {
@@ -226,7 +240,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
     }).toList();
 
     try {
-      await ApiService.guardarSemana(widget.semanaId, {
+      await ApiService.guardarDia(_diaId!, {
         'estado':        'aberta',
         'faturado':      double.tryParse(_faturadoCtrl.text) ?? 0,
         'horasPessoas':  horasPessoas,
@@ -234,7 +248,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
       });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Semana guardada!'), backgroundColor: Colors.green));
+            const SnackBar(content: Text('Dia guardado!'), backgroundColor: Colors.green));
         Navigator.pop(context, true);
       }
     } on ApiException catch (e) {
@@ -251,7 +265,13 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Semana ${widget.numSemana}'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(_tituloDia),
+            Text(widget.obraCodigo, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
         actions: [
           TextButton.icon(
             onPressed: _loading ? null : _copiarAnterior,
@@ -295,7 +315,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
                   label: const Text('Adicionar'),
                 )),
                 if (_maquinas.isEmpty)
-                  _vazioMsg('Sem máquinas registadas para esta semana.'),
+                  _vazioMsg('Sem máquinas registadas para este dia.'),
                 ..._maquinas.map((m) => _linhaHoras(
                   id: m['maquina_id'] as int,
                   lista: _todasMaquinas,
@@ -312,7 +332,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
                 const Divider(),
 
                 // ── Gastos ───────────────────────────────────────────────────
-                _cabecalho('Gastos da semana'),
+                _cabecalho('Gastos do dia'),
                 const SizedBox(height: 8),
                 _campo('T.O. (€)',               _toCtrl),
                 _campo('Combustível (€)',         _combustivelCtrl),
@@ -335,7 +355,7 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
                   child: _saving
                       ? const SizedBox(height: 20, width: 20,
                           child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                      : const Text('Guardar semana'),
+                      : const Text('Guardar dia'),
                 ),
                 const SizedBox(height: 24),
               ],
