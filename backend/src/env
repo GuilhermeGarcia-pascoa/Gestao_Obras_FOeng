@@ -1,0 +1,10 @@
+DB_HOST=localhost
+DB_USER=root
+DB_PASSWORD=Admin@123+
+DB_NAME=gestao_obra
+DB_PORT=3306
+
+JWT_SECRET=chave_secreta_qualquer
+JWT_EXPIRES_IN=7d
+
+PORT=3000

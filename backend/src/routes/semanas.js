@@ -71,8 +71,9 @@ router.get('/:id/anterior', async (req, res) => {
 
     const [horasPessoas]  = await pool.query('SELECT * FROM semana_pessoas  WHERE semana_id = ?', [anterior.id]);
     const [horasMaquinas] = await pool.query('SELECT * FROM semana_maquinas WHERE semana_id = ?', [anterior.id]);
+    const [horasViaturas] = await pool.query('SELECT * FROM semana_viaturas WHERE semana_id = ?', [anterior.id]);
 
-    res.json({ horasPessoas, horasMaquinas });
+    res.json({ semana: anterior, horasPessoas, horasMaquinas, horasViaturas });
   } catch (err) {
     res.status(500).json({ erro: err.message });
   }

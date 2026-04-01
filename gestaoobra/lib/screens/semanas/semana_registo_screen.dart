@@ -209,8 +209,11 @@ class _SemanaRegistoScreenState extends State<SemanaRegistoScreen> {
     final horasPessoas = _pessoas.map((p) {
       final id       = p['pessoa_id'] as int;
       final horas    = double.tryParse(_horasP[id]?.text ?? '0') ?? 0;
-      final custoH   = (_todasPessoas.firstWhere(
-            (tp) => tp['id'] == id, orElse: () => {'custo_hora': 0})['custo_hora'] as num).toDouble();
+      final custoHVal = _todasPessoas.firstWhere(
+            (tp) => tp['id'] == id, orElse: () => {'custo_hora': 0})['custo_hora'];
+      final custoH   = custoHVal is num
+          ? custoHVal.toDouble()
+          : double.tryParse(custoHVal?.toString().replaceAll(',', '.') ?? '') ?? 0;
       return {'pessoa_id': id, 'horas_total': horas, 'custo_total': horas * custoH};
     }).toList();
 

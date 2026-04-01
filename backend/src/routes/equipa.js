@@ -49,6 +49,24 @@ router.put('/pessoas/:id', soGestor, async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
+// DELETE /api/equipa/pessoas/:id
+router.delete('/pessoas/:id', soGestor, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM semana_pessoas WHERE pessoa_id = ?', [req.params.id]);
+    await conn.query('UPDATE viaturas SET motorista_id = NULL WHERE motorista_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM operadores WHERE id = ?', [req.params.id]);
+    await conn.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ erro: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // ─── MÁQUINAS ─────────────────────────────────────────────────────────────────
 
 // GET /api/equipa/maquinas
@@ -85,6 +103,23 @@ router.put('/maquinas/:id', soGestor, async (req, res) => {
   } catch (err) { res.status(500).json({ erro: err.message }); }
 });
 
+// DELETE /api/equipa/maquinas/:id
+router.delete('/maquinas/:id', soGestor, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM semana_maquinas WHERE maquina_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM maquinas WHERE id = ?', [req.params.id]);
+    await conn.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ erro: err.message });
+  } finally {
+    conn.release();
+  }
+});
+
 // ─── VIATURAS ─────────────────────────────────────────────────────────────────
 
 // GET /api/equipa/viaturas
@@ -119,6 +154,23 @@ router.put('/viaturas/:id', soGestor, async (req, res) => {
     );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ erro: err.message }); }
+});
+
+// DELETE /api/equipa/viaturas/:id
+router.delete('/viaturas/:id', soGestor, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query('DELETE FROM semana_viaturas WHERE viatura_id = ?', [req.params.id]);
+    await conn.query('DELETE FROM viaturas WHERE id = ?', [req.params.id]);
+    await conn.commit();
+    res.json({ ok: true });
+  } catch (err) {
+    await conn.rollback();
+    res.status(500).json({ erro: err.message });
+  } finally {
+    conn.release();
+  }
 });
 
 module.exports = router;

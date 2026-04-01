@@ -58,6 +58,15 @@ class ApiService {
     return _parse(res);
   }
 
+  // ── Método genérico DELETE ────────────────────────────────────────────────────
+  static Future<dynamic> delete(String path) async {
+    final res = await http.delete(
+      Uri.parse('${ApiConfig.baseUrl}$path'),
+      headers: await _headers(),
+    );
+    return _parse(res);
+  }
+
   // ── Parse e tratamento de erros ───────────────────────────────────────────────
   static dynamic _parse(http.Response res) {
     final data = jsonDecode(res.body);
@@ -107,6 +116,21 @@ class ApiService {
   static Future<List<dynamic>> listarPessoas() async => await get('/equipa/pessoas');
   static Future<List<dynamic>> listarMaquinas() async => await get('/equipa/maquinas');
   static Future<List<dynamic>> listarViaturas() async => await get('/equipa/viaturas');
+
+  static Future<void> editarPessoa(int id, Map<String, dynamic> dados) async =>
+      await put('/equipa/pessoas/$id', dados);
+  static Future<void> apagarPessoa(int id) async =>
+      await delete('/equipa/pessoas/$id');
+
+  static Future<void> editarMaquina(int id, Map<String, dynamic> dados) async =>
+      await put('/equipa/maquinas/$id', dados);
+  static Future<void> apagarMaquina(int id) async =>
+      await delete('/equipa/maquinas/$id');
+
+  static Future<void> editarViatura(int id, Map<String, dynamic> dados) async =>
+      await put('/equipa/viaturas/$id', dados);
+  static Future<void> apagarViatura(int id) async =>
+      await delete('/equipa/viaturas/$id');
 
   // ── RELATÓRIOS ────────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> getGraficos(int obraId) async =>

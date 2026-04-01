@@ -76,6 +76,13 @@ class _SemanaDetailScreenState extends State<SemanaDetailScreen> {
       _maquinas = List<Map<String, dynamic>>.from(detalhe['horasMaquinas'] ?? []);
       _viaturas = List<Map<String, dynamic>>.from(detalhe['horasViaturas'] ?? []);
 
+      final semanaData = detalhe['semana'] as Map<String, dynamic>? ?? {};
+      _toCtrl.text          = semanaData['to']?.toString()          ?? '';
+      _combustivelCtrl.text = semanaData['combustivel']?.toString() ?? '';
+      _estadiasCtrl.text    = semanaData['estadias']?.toString()    ?? '';
+      _materiaisCtrl.text   = semanaData['materiais']?.toString()   ?? '';
+      _faturadoCtrl.text    = semanaData['faturado']?.toString()    ?? '';
+
       // Cria controllers de horas para cada pessoa já na semana
       for (final p in _pessoas) {
         final id = p['pessoa_id'] as int;
@@ -93,15 +100,33 @@ class _SemanaDetailScreenState extends State<SemanaDetailScreen> {
   Future<void> _copiarAnterior() async {
     try {
       final ant = await ApiService.getSemanaAnterior(widget.semana['id']);
-      final pessoasAnt = List<Map<String, dynamic>>.from(ant['horasPessoas'] ?? []);
+      final pessoasAnt  = List<Map<String, dynamic>>.from(ant['horasPessoas']  ?? []);
+      final maquinasAnt = List<Map<String, dynamic>>.from(ant['horasMaquinas'] ?? []);
+      final viaturasAnt = List<Map<String, dynamic>>.from(ant['horasViaturas'] ?? []);
+      final semanaAnt   = ant['semana'] as Map<String, dynamic>? ?? {};
+
+      for (final c in _horasCtrl.values) {
+        c.dispose();
+      }
+      _horasCtrl.clear();
 
       setState(() {
-        _pessoas = pessoasAnt;
+        _pessoas   = pessoasAnt;
+        _maquinas  = maquinasAnt;
+        _viaturas  = viaturasAnt;
+
         for (final p in _pessoas) {
           final id = p['pessoa_id'] as int;
           _horasCtrl[id] = TextEditingController(text: p['horas_total']?.toString() ?? '0');
         }
+
+        _toCtrl.text          = semanaAnt['to']?.toString()          ?? '';
+        _combustivelCtrl.text = semanaAnt['combustivel']?.toString() ?? '';
+        _estadiasCtrl.text    = semanaAnt['estadias']?.toString()    ?? '';
+        _materiaisCtrl.text   = semanaAnt['materiais']?.toString()   ?? '';
+        _faturadoCtrl.text    = semanaAnt['faturado']?.toString()    ?? '';
       });
+
       ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Dados copiados da semana anterior')));
     } on ApiException catch (e) {
@@ -155,8 +180,11 @@ class _SemanaDetailScreenState extends State<SemanaDetailScreen> {
       final id    = p['pessoa_id'] as int;
       final horas = double.tryParse(_horasCtrl[id]?.text ?? '0') ?? 0;
       // Custo = horas × custo_hora (simplificado; o backend pode recalcular)
-      final custoHora = (_todasPessoas.firstWhere(
-            (tp) => tp['id'] == id, orElse: () => {'custo_hora': 0})['custo_hora'] as num).toDouble();
+      final custoHoraValue = _todasPessoas.firstWhere(
+            (tp) => tp['id'] == id, orElse: () => {'custo_hora': 0})['custo_hora'];
+      final custoHora = custoHoraValue is num
+          ? custoHoraValue.toDouble()
+          : double.tryParse(custoHoraValue?.toString().replaceAll(',', '.') ?? '') ?? 0;
       return {'pessoa_id': id, 'horas_total': horas, 'custo_total': horas * custoHora};
     }).toList();
 
