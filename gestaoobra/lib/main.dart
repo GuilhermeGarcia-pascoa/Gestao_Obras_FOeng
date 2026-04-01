@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
 import 'services/auth_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 
-void main() {
+void main() async {
+  await initializeDateFormatting('pt_PT', null);
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthProvider(),

@@ -54,6 +54,8 @@ router.delete('/pessoas/:id', soGestor, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // Deletar de ambas tabelas (dias e semanas para compatibilidade)
+    await conn.query('DELETE FROM dia_pessoas WHERE pessoa_id = ?', [req.params.id]);
     await conn.query('DELETE FROM semana_pessoas WHERE pessoa_id = ?', [req.params.id]);
     await conn.query('UPDATE viaturas SET motorista_id = NULL WHERE motorista_id = ?', [req.params.id]);
     await conn.query('DELETE FROM operadores WHERE id = ?', [req.params.id]);
@@ -108,6 +110,8 @@ router.delete('/maquinas/:id', soGestor, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // Deletar de ambas tabelas (dias e semanas para compatibilidade)
+    await conn.query('DELETE FROM dia_maquinas WHERE maquina_id = ?', [req.params.id]);
     await conn.query('DELETE FROM semana_maquinas WHERE maquina_id = ?', [req.params.id]);
     await conn.query('DELETE FROM maquinas WHERE id = ?', [req.params.id]);
     await conn.commit();
@@ -161,6 +165,8 @@ router.delete('/viaturas/:id', soGestor, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+    // Deletar de ambas tabelas (dias e semanas para compatibilidade)
+    await conn.query('DELETE FROM dia_viaturas WHERE viatura_id = ?', [req.params.id]);
     await conn.query('DELETE FROM semana_viaturas WHERE viatura_id = ?', [req.params.id]);
     await conn.query('DELETE FROM viaturas WHERE id = ?', [req.params.id]);
     await conn.commit();
