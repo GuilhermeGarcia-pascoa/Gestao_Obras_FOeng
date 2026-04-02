@@ -138,8 +138,12 @@ class ApiService {
   static Future<Map<String, dynamic>> getGraficos(int obraId) async =>
       await get('/relatorios/graficos/$obraId');
 
-  static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/relatorios/excel/$obraId';
-  static String urlPdf(int diaId)    => '${ApiConfig.baseUrl}/relatorios/pdf/$diaId';
+  // ── EXPORTAÇÕES ───────────────────────────────────────────────────────────────
+  static String urlExcel(int obraId) =>
+      '${ApiConfig.baseUrl}/export/excel/$obraId';
+
+  static String urlPdf(String dataInicio, String dataFim) =>
+      '${ApiConfig.baseUrl}/export/pdf?dataInicio=$dataInicio&dataFim=$dataFim';
 }
 
 class ApiException implements Exception {

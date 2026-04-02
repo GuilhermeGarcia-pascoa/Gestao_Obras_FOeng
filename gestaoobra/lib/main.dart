@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
@@ -24,6 +25,19 @@ class ObrasApp extends StatelessWidget {
     return MaterialApp(
       title: 'Obras',
       debugShowCheckedModeBanner: false,
+
+      // ── Localizações (necessário para DateRangePicker) ──────────
+      localizationsDelegates: const [
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [
+        Locale('pt', 'PT'),
+        Locale('en', 'US'),
+      ],
+      locale: const Locale('pt', 'PT'),
+
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(
           seedColor: const Color(0xFF1A1A2E),
