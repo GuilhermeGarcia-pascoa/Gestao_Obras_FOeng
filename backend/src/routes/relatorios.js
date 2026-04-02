@@ -218,7 +218,7 @@ router.get('/graficos/:obra_id', async (req, res) => {
       { categoria: 'Pessoal',     valor: totalPessoal     },
       { categoria: 'Combustível', valor: totalCombustivel },
       { categoria: 'Viaturas',    valor: totalViaturas    },
-      { categoria: 'T.O.',        valor: totalTo          },
+      { categoria: 'M.O.',        valor: totalTo          },
       { categoria: 'Estadias',    valor: totalEstadias    },
       { categoria: 'Materiais',   valor: totalMateriais   },
     ].filter(d => d.valor > 0);

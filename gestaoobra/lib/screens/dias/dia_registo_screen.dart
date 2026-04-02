@@ -521,7 +521,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   // ── Gastos ───────────────────────────────────────────────────
                   _cabecalho('Gastos do dia'),
                   const SizedBox(height: 8),
-                  _campo('T.O. (€)',               _toCtrl),
+                  _campo('M.O. (€)',               _toCtrl),
                   _campo('Combustível (€)',         _combustivelCtrl),
                   _campo('Estadias (€)',            _estadiasCtrl),
                   _campo('Materiais / outros (€)',  _materiaisCtrl),
