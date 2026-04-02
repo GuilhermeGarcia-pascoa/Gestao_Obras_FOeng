@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 
 class EquipaScreen extends StatefulWidget {
@@ -320,10 +321,12 @@ class _FormSheetState extends State<_FormSheet> {
           TextField(controller: _cargoCtrl, decoration: InputDecoration(labelText: isPessoa ? 'Cargo' : isMaquina ? 'Tipo' : 'Matrícula')),
           const SizedBox(height: 10),
           TextField(controller: _custoCtrl, keyboardType: TextInputType.number,
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
               decoration: InputDecoration(labelText: isPessoa || isMaquina ? 'Custo/hora (€)' : 'Custo/km (€)', prefixText: '€ ')),
           if (isMaquina) ...[
             const SizedBox(height: 10),
             TextField(controller: _extraCtrl, keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
                 decoration: const InputDecoration(labelText: 'Combustível/hora (L)', prefixText: 'L ')),
           ],
           const SizedBox(height: 20),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 
 class ObraFormScreen extends StatefulWidget {
@@ -108,6 +109,7 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
             TextFormField(
               controller: _orcCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
               decoration: const InputDecoration(labelText: 'Orçamento (€)', prefixText: '€ '),
             ),
             const SizedBox(height: 28),

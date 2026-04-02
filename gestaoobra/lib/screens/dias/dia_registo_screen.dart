@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 
@@ -592,6 +593,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
             child: TextField(
               controller: ctrl[id],
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
               textAlign: TextAlign.center,
               decoration: const InputDecoration(
                 isDense: true,
@@ -615,6 +617,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     child: TextField(
       controller: ctrl,
       keyboardType: const TextInputType.numberWithOptions(decimal: true),
+      inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
       decoration: InputDecoration(labelText: label, prefixText: '€ '),
       onChanged: (_) => setState(() {}),
     ),

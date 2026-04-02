@@ -23,7 +23,7 @@ class ObrasListScreen extends StatefulWidget {
 class _ObrasListScreenState extends State<ObrasListScreen> {
   List<dynamic> _obras = [];
   bool _loading = true;
-  String? _filtroEstado;
+  String _filtroEstado = ''; // string vazia = "Todas"
 
   @override
   void initState() {
@@ -34,7 +34,8 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
-      final data = await ApiService.listarObras(estado: _filtroEstado);
+      final estado = _filtroEstado.isEmpty ? null : _filtroEstado;
+      final data = await ApiService.listarObras(estado: estado);
       setState(() { _obras = data; _loading = false; });
     } on ApiException catch (e) {
       setState(() => _loading = false);
@@ -66,14 +67,61 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       appBar: AppBar(
         title: const Text('Obras'),
         actions: [
-          PopupMenuButton<String?>(
+          PopupMenuButton<String>(
             icon: const Icon(Icons.filter_list),
-            onSelected: (v) { _filtroEstado = v; _carregar(); },
+            onSelected: (v) async {
+              _filtroEstado = v;
+              await _carregar();
+            },
             itemBuilder: (_) => [
-              const PopupMenuItem(value: null,        child: Text('Todas')),
-              const PopupMenuItem(value: 'em_curso',  child: Text('Em curso')),
-              const PopupMenuItem(value: 'planeada',  child: Text('Planeadas')),
-              const PopupMenuItem(value: 'concluida', child: Text('Concluídas')),
+              PopupMenuItem(
+                value: '',
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('Todas')),
+                    if (_filtroEstado == '') ...[
+                      const SizedBox(width: 12),
+                      const Icon(Icons.check, size: 18, color: Colors.green),
+                    ]
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'em_curso',
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('Em curso')),
+                    if (_filtroEstado == 'em_curso') ...[
+                      const SizedBox(width: 12),
+                      const Icon(Icons.check, size: 18, color: Colors.green),
+                    ]
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'planeada',
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('Planeadas')),
+                    if (_filtroEstado == 'planeada') ...[
+                      const SizedBox(width: 12),
+                      const Icon(Icons.check, size: 18, color: Colors.green),
+                    ]
+                  ],
+                ),
+              ),
+              PopupMenuItem(
+                value: 'concluida',
+                child: Row(
+                  children: [
+                    const Expanded(child: Text('Concluídas')),
+                    if (_filtroEstado == 'concluida') ...[
+                      const SizedBox(width: 12),
+                      const Icon(Icons.check, size: 18, color: Colors.green),
+                    ]
+                  ],
+                ),
+              ),
             ],
           ),
         ],
