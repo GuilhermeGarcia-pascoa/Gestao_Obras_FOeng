@@ -24,9 +24,9 @@ app.use('/api/dias',       diasRouter);
 app.use('/api/equipa',     equipaRouter);
 app.use('/api/relatorios', relatoriosRouter);
 
-// Exportações                                                        // <-- NOVO
-app.get('/api/export/excel/:obraId', exportarExcel);                 // <-- NOVO
-app.get('/api/export/pdf',           exportarPdf);                   // <-- NOVO
+// Exportações                                                       
+app.get('/api/export/excel/:obraId', exportarExcel);                
+app.get('/api/export/pdf',           exportarPdf);                   
 
 // ── Health check ───────────────────────────────────────────────────
 app.get('/api/health', (_, res) => res.json({ status: 'ok', timestamp: new Date() }));

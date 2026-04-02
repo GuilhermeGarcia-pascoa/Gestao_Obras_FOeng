@@ -7,7 +7,6 @@ const { auth } = require('../middleware/auth');
 router.use(auth);
 
 // ─── EXCEL ────────────────────────────────────────────────────────────────────
-// GET /api/relatorios/excel/:obra_id
 router.get('/excel/:obra_id', async (req, res) => {
   try {
     const [[obra]] = await pool.query('SELECT * FROM obras WHERE id = ?', [req.params.obra_id]);
@@ -22,7 +21,6 @@ router.get('/excel/:obra_id', async (req, res) => {
     workbook.creator = 'ObrasApp';
     workbook.created = new Date();
 
-    // ── Folha Resumo ──
     const resumo = workbook.addWorksheet('Resumo');
     resumo.columns = [
       { header: 'Data',       key: 'data',     width: 14 },
@@ -30,12 +28,8 @@ router.get('/excel/:obra_id', async (req, res) => {
       { header: 'Faturado €', key: 'faturado', width: 14 },
     ];
 
-    // Estilo do cabeçalho
     resumo.getRow(1).font = { bold: true };
-    resumo.getRow(1).fill = {
-      type: 'pattern', pattern: 'solid',
-      fgColor: { argb: 'FF1A1A2E' }
-    };
+    resumo.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A1A2E' } };
     resumo.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
 
     let totalFaturado = 0;
@@ -48,20 +42,16 @@ router.get('/excel/:obra_id', async (req, res) => {
       totalFaturado += Number(d.faturado) || 0;
     }
 
-    // Linha de total
     const totalRow = resumo.addRow(['', 'TOTAL', totalFaturado]);
     totalRow.font = { bold: true };
 
-    // ── Folha Detalhe por dia ──
     for (const dia of dias) {
       const sheet = workbook.addWorksheet(new Date(dia.data).toLocaleDateString('pt-PT'));
 
-      // Cabeçalho
       sheet.addRow([`Data: ${new Date(dia.data).toLocaleDateString('pt-PT')}`, `${obra.codigo} — ${obra.nome}`]);
       sheet.getRow(1).font = { bold: true, size: 12 };
       sheet.addRow([]);
 
-      // Pessoas
       sheet.addRow(['Pessoas', 'Horas', 'Custo €']);
       sheet.getRow(3).font = { bold: true };
 
@@ -76,7 +66,6 @@ router.get('/excel/:obra_id', async (req, res) => {
       }
 
       sheet.addRow([]);
-      // Máquinas
       sheet.addRow(['Máquinas', 'Horas', 'Combustível €']);
       sheet.getRow(sheet.lastRow.number).font = { bold: true };
 
@@ -93,10 +82,8 @@ router.get('/excel/:obra_id', async (req, res) => {
       sheet.columns.forEach(col => { col.width = Math.max(col.width || 10, 16); });
     }
 
-    // Envia o ficheiro
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', `attachment; filename=obra_${obra.codigo.replace(/\//g,'_')}.xlsx`);
-
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
@@ -105,7 +92,6 @@ router.get('/excel/:obra_id', async (req, res) => {
 });
 
 // ─── PDF ──────────────────────────────────────────────────────────────────────
-// GET /api/relatorios/pdf/:dia_id
 router.get('/pdf/:dia_id', async (req, res) => {
   try {
     const [[dia]] = await pool.query('SELECT * FROM dias WHERE id = ?', [req.params.dia_id]);
@@ -125,13 +111,11 @@ router.get('/pdf/:dia_id', async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=dia_${new Date(dia.data).toLocaleDateString('pt-PT')}.pdf`);
     doc.pipe(res);
 
-    // Cabeçalho
     doc.fontSize(18).font('Helvetica-Bold').text(`${obra.codigo} — ${new Date(dia.data).toLocaleDateString('pt-PT')}`, { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(11).font('Helvetica').text(`Obra: ${obra.nome}`, { align: 'center' });
     doc.moveDown(1.5);
 
-    // Tabela pessoas
     doc.fontSize(13).font('Helvetica-Bold').text('Equipa — horas trabalhadas');
     doc.moveDown(0.5);
     doc.fontSize(11).font('Helvetica');
@@ -154,46 +138,128 @@ router.get('/pdf/:dia_id', async (req, res) => {
   }
 });
 
-// ─── GRÁFICOS (dados JSON para o Flutter) ─────────────────────────────────────
-// GET /api/relatorios/graficos/:obra_id
+// ─── GRÁFICOS ─────────────────────────────────────────────────────────────────
+// GET /api/relatorios/graficos/:obra_id?dataInicio=2024-01-01&dataFim=2024-12-31
 router.get('/graficos/:obra_id', async (req, res) => {
   try {
+    const obraId = req.params.obra_id;
+    const { dataInicio, dataFim } = req.query;
+
+    // Filtro de datas opcional
+    let filtroData = '';
+    const params = [obraId];
+    if (dataInicio && dataFim) {
+      filtroData = ' AND data BETWEEN ? AND ?';
+      params.push(dataInicio, dataFim);
+    }
+
+    // 1. Evolução diária
     const [dias] = await pool.query(
-      'SELECT data, faturado FROM dias WHERE obra_id = ? ORDER BY data',
-      [req.params.obra_id]
+      `SELECT id, data, faturado, valor_to, valor_combustivel, valor_estadias, valor_materiais
+       FROM dias WHERE obra_id = ?${filtroData} ORDER BY data`,
+      params
     );
 
-    // Custo total acumulado por dia
     let acumulado = 0;
-    const dadosAcumulados = dias.map(d => {
+    const evolucao = dias.map(d => {
       acumulado += Number(d.faturado) || 0;
-      return { 
-        data: new Date(d.data).toLocaleDateString('pt-PT'), 
-        faturado: Number(d.faturado) || 0, 
-        acumulado 
+      return {
+        data:      new Date(d.data).toISOString().substring(0, 10),
+        faturado:  Number(d.faturado)           || 0,
+        acumulado,
       };
     });
 
-    // Distribuição de custos do dia mais recente
-    const ultimoDia = dias[dias.length - 1];
-    let distribuicao = [];
-    if (ultimoDia) {
-      const [pessoas]  = await pool.query(
-        'SELECT SUM(custo_total) as total FROM dia_pessoas WHERE dia_id=(SELECT id FROM dias WHERE obra_id=? ORDER BY data DESC LIMIT 1)',
-        [req.params.obra_id]
-      );
-      const [maquinas] = await pool.query(
-        'SELECT SUM(combustivel_total) as total FROM dia_maquinas WHERE dia_id=(SELECT id FROM dias WHERE obra_id=? ORDER BY data DESC LIMIT 1)',
-        [req.params.obra_id]
-      );
-      distribuicao = [
-        { categoria: 'Pessoal',     valor: Number(pessoas[0].total)  || 0 },
-        { categoria: 'Combustível', valor: Number(maquinas[0].total) || 0 },
-      ];
-    }
+    // 2. Métricas globais de pessoas
+    const [metricasPessoas] = await pool.query(
+      `SELECT 
+         SUM(dp.horas_total) AS total_horas,
+         SUM(dp.custo_total) AS total_custo,
+         COUNT(DISTINCT dp.pessoa_id) AS total_pessoas
+       FROM dia_pessoas dp
+       JOIN dias d ON d.id = dp.dia_id
+       WHERE d.obra_id = ?${filtroData.replace(/data/g, 'd.data')}`,
+      params
+    );
 
-    res.json({ evolucao: dadosAcumulados, distribuicao });
+    // 3. Métricas globais de máquinas
+    const [metricasMaquinas] = await pool.query(
+      `SELECT
+         SUM(dm.horas_total)       AS total_horas,
+         SUM(dm.combustivel_total) AS total_combustivel,
+         COUNT(DISTINCT dm.maquina_id) AS total_maquinas
+       FROM dia_maquinas dm
+       JOIN dias d ON d.id = dm.dia_id
+       WHERE d.obra_id = ?${filtroData.replace(/data/g, 'd.data')}`,
+      params
+    );
+
+    // 4. Métricas globais de viaturas
+    const [metricasViaturas] = await pool.query(
+      `SELECT
+         SUM(dv.km_total)    AS total_km,
+         SUM(dv.custo_total) AS total_custo,
+         COUNT(DISTINCT dv.viatura_id) AS total_viaturas
+       FROM dia_viaturas dv
+       JOIN dias d ON d.id = dv.dia_id
+       WHERE d.obra_id = ?${filtroData.replace(/data/g, 'd.data')}`,
+      params
+    );
+
+    // 5. Distribuição de custos acumulada (todos os dias do filtro)
+    const totalPessoal      = Number(metricasPessoas[0]?.total_custo)       || 0;
+    const totalCombustivel  = Number(metricasMaquinas[0]?.total_combustivel) || 0;
+    const totalViaturas     = Number(metricasViaturas[0]?.total_custo)       || 0;
+    const totalTo           = dias.reduce((s, d) => s + (Number(d.valor_to)          || 0), 0);
+    const totalEstadias     = dias.reduce((s, d) => s + (Number(d.valor_estadias)    || 0), 0);
+    const totalMateriais    = dias.reduce((s, d) => s + (Number(d.valor_materiais)   || 0), 0);
+
+    const distribuicao = [
+      { categoria: 'Pessoal',     valor: totalPessoal     },
+      { categoria: 'Combustível', valor: totalCombustivel },
+      { categoria: 'Viaturas',    valor: totalViaturas    },
+      { categoria: 'T.O.',        valor: totalTo          },
+      { categoria: 'Estadias',    valor: totalEstadias    },
+      { categoria: 'Materiais',   valor: totalMateriais   },
+    ].filter(d => d.valor > 0);
+
+    // 6. Comparação entre obras (top 5 por faturado)
+    const [comparacao] = await pool.query(
+      `SELECT o.codigo, o.nome,
+              COALESCE(SUM(d.faturado), 0)          AS total_faturado,
+              COUNT(d.id)                            AS total_dias,
+              COALESCE(SUM(d.valor_materiais), 0)   AS total_materiais
+       FROM obras o
+       LEFT JOIN dias d ON d.obra_id = o.id
+       GROUP BY o.id, o.codigo, o.nome
+       ORDER BY total_faturado DESC
+       LIMIT 5`
+    );
+
+    res.json({
+      evolucao,
+      distribuicao,
+      metricas: {
+        pessoas: {
+          total_horas:   Number(metricasPessoas[0]?.total_horas)    || 0,
+          total_custo:   Number(metricasPessoas[0]?.total_custo)    || 0,
+          total_pessoas: Number(metricasPessoas[0]?.total_pessoas)  || 0,
+        },
+        maquinas: {
+          total_horas:        Number(metricasMaquinas[0]?.total_horas)        || 0,
+          total_combustivel:  Number(metricasMaquinas[0]?.total_combustivel)  || 0,
+          total_maquinas:     Number(metricasMaquinas[0]?.total_maquinas)     || 0,
+        },
+        viaturas: {
+          total_km:      Number(metricasViaturas[0]?.total_km)      || 0,
+          total_custo:   Number(metricasViaturas[0]?.total_custo)   || 0,
+          total_viaturas: Number(metricasViaturas[0]?.total_viaturas) || 0,
+        },
+      },
+      comparacao,
+    });
   } catch (err) {
+    console.error('Erro graficos:', err);
     res.status(500).json({ erro: err.message });
   }
 });
