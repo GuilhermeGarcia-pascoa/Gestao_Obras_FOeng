@@ -74,6 +74,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getObra(int id) async => await get('/obras/$id');
   static Future<Map<String, dynamic>> criarObra(Map<String, dynamic> dados) async => await post('/obras', dados);
   static Future<void> editarObra(int id, Map<String, dynamic> dados) async => await put('/obras/$id', dados);
+  static Future<void> apagarObra(int id) async => await delete('/obras/$id');
 
   // ── DIAS ──────────────────────────────────────────────────────────────────────
 
@@ -127,8 +128,8 @@ class ApiService {
       await get('/relatorios/todas-obras');
 
   // ── EXPORTAÇÕES ───────────────────────────────────────────────────────────────
-  static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/relatorios/excel/$obraId';
-  static String urlPdf(int diaId)    => '${ApiConfig.baseUrl}/relatorios/pdf/$diaId';
+  static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/export/excel/$obraId';
+  static String urlPdf(String dataInicio, String dataFim) => '${ApiConfig.baseUrl}/export/pdf?dataInicio=$dataInicio&dataFim=$dataFim';
 }
 
 class ApiException implements Exception {

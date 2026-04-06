@@ -41,6 +41,9 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   // custo extra editável por pessoa (valor neste dia)
   final Map<int, TextEditingController> _custoExtraP = {};
 
+  // override do custo/hora base para este dia (null = usa o valor base do operador)
+  final Map<int, double> _custoHoraOverride = {};
+
   // Gastos gerais
   final _moCtrl         = TextEditingController(); // Mão de obra
   final _combustivelCtrl = TextEditingController();
@@ -107,6 +110,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id = p['pessoa_id'] as int;
         _horasP[id]      = TextEditingController(text: (p['horas_total'] ?? 0).toString());
         _custoExtraP[id] = TextEditingController(text: (p['custo_extra']  ?? 0).toString());
+        // carrega override do custo/hora se existir
+        if (p['custo_hora_override'] != null && _p(p['custo_hora_override']) > 0) {
+          _custoHoraOverride[id] = _p(p['custo_hora_override']);
+        }
       }
       for (final m in _maquinas) {
         final id = m['maquina_id'] as int;
@@ -140,7 +147,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final c in _horasM.values)      c.dispose();
     for (final c in _kmV.values)         c.dispose();
     for (final c in _custoExtraP.values) c.dispose();
-    _horasP.clear(); _horasM.clear(); _kmV.clear(); _custoExtraP.clear();
+    _horasP.clear(); _horasM.clear(); _kmV.clear(); _custoExtraP.clear(); _custoHoraOverride.clear();
   }
 
   // ── Copiar anterior (dia mais recente) ────────────────────────────────────
@@ -322,7 +329,8 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final id = p['pessoa_id'] as int;
       final horas = _p(_horasP[id]?.text);
       final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
-      final custoH = _p(pessoa['custo_hora']);
+      // usa override se existir, caso contrário usa o valor base do operador
+      final custoH = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : _p(pessoa['custo_hora']);
       final extra  = _p(_custoExtraP[id]?.text);
       total += horas * custoH + extra;
     }
@@ -369,11 +377,13 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final horas = _p(_horasP[id]?.text);
         if (horas <= 0) continue;
         final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
+        final custoH = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : _p(pessoa['custo_hora']);
         horasPessoas.add({
-          'pessoa_id':  id,
-          'horas_total': horas,
-          'custo_total': horas * _p(pessoa['custo_hora']),
-          'custo_extra': _p(_custoExtraP[id]?.text),
+          'pessoa_id':         id,
+          'horas_total':        horas,
+          'custo_total':        horas * custoH,
+          'custo_extra':        _p(_custoExtraP[id]?.text),
+          'custo_hora_override': _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id] : null,
         });
       }
 
@@ -615,11 +625,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     );
   }
 
-  // ── Linha de pessoa (com campo de custo extra) ────────────────────────────
+  // ── Linha de pessoa (com override de custo/hora) ─────────────────────────
   Widget _linhaPessoa(Map<String, dynamic> p) {
     final id   = p['pessoa_id'] as int;
     final item = _todasPessoas.firstWhere((x) => x['id'] == id, orElse: () => {'nome': 'Desconhecido', 'custo_hora': 0});
-    final nome = (item['nome'] ?? '') as String;
+    final nome      = (item['nome'] ?? '') as String;
+    final custoBase = _p(item['custo_hora']);
+    final custoAtivo = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : custoBase;
+    final temOverride = _custoHoraOverride.containsKey(id);
 
     return Card(
       margin: const EdgeInsets.symmetric(vertical: 4),
@@ -645,16 +658,70 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                     _pessoas.removeWhere((x) => x['pessoa_id'] == id);
                     _horasP.remove(id)?.dispose();
                     _custoExtraP.remove(id)?.dispose();
+                    _custoHoraOverride.remove(id);
                     _temAlteracoes = true;
                   }),
                 ),
               ],
             ),
-            // Linha de custo extra (valor neste dia)
+            // Linha do custo/hora com botão de editar
             Row(
               children: [
                 const SizedBox(width: 44),
-                Text('€${_p(item['custo_hora'])}/h base  ·  extra neste dia:',
+                // Se tem override, mostra tachado o valor base
+                if (temOverride) ...[
+                  Text(
+                    '€${custoBase.toStringAsFixed(2)}/h',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      decoration: TextDecoration.lineThrough,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  Text(
+                    '€${custoAtivo.toStringAsFixed(2)}/h',
+                    style: const TextStyle(fontSize: 11, color: Color(0xFF185FA5), fontWeight: FontWeight.w600),
+                  ),
+                ] else
+                  Text(
+                    '€${custoBase.toStringAsFixed(2)}/h base',
+                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                const SizedBox(width: 4),
+                // Botão editar
+                GestureDetector(
+                  onTap: () => _editarCustoHora(id, custoBase, custoAtivo),
+                  child: Icon(
+                    temOverride ? Icons.edit : Icons.edit_outlined,
+                    size: 14,
+                    color: temOverride ? const Color(0xFF185FA5) : Colors.grey,
+                  ),
+                ),
+                // Botão repor base (só aparece se tiver override)
+                if (temOverride) ...[
+                  const SizedBox(width: 4),
+                  GestureDetector(
+                    onTap: () => setState(() {
+                      _custoHoraOverride.remove(id);
+                      _temAlteracoes = true;
+                    }),
+                    child: const Icon(Icons.refresh, size: 14, color: Colors.grey),
+                  ),
+                ],
+                const Spacer(),
+                // Custo total desta pessoa
+                Text(
+                  _eur.format(_p(_horasP[id]?.text) * custoAtivo + _p(_custoExtraP[id]?.text)),
+                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                ),
+              ],
+            ),
+            // Linha de custo extra (horas extras — inalterada)
+            Row(
+              children: [
+                const SizedBox(width: 44),
+                Text('extra neste dia:',
                     style: const TextStyle(fontSize: 11, color: Colors.grey)),
                 const SizedBox(width: 8),
                 _miniCampo(_custoExtraP[id], '€', 72),
@@ -664,6 +731,69 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         ),
       ),
     );
+  }
+
+  // ── Dialog para editar o custo/hora neste dia ────────────────────────────
+  Future<void> _editarCustoHora(int pessoaId, double custoBase, double custoAtual) async {
+    final ctrl = TextEditingController(text: custoAtual.toStringAsFixed(2));
+
+    final resultado = await showDialog<double>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Custo/hora neste dia'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Valor base: €${custoBase.toStringAsFixed(2)}/h',
+                style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
+              decoration: const InputDecoration(
+                labelText: 'Custo/hora para este dia',
+                prefixText: '€ ',
+                suffixText: '/h',
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          // Repor valor base
+          TextButton(
+            onPressed: () => Navigator.pop(context, -1),
+            child: const Text('Repor base', style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              final val = double.tryParse(ctrl.text.replaceAll(',', '.'));
+              if (val != null && val > 0) Navigator.pop(context, val);
+            },
+            child: const Text('Confirmar'),
+          ),
+        ],
+      ),
+    );
+
+    ctrl.dispose();
+
+    if (resultado == null) return;
+    setState(() {
+      if (resultado < 0) {
+        // -1 = repor base
+        _custoHoraOverride.remove(pessoaId);
+      } else {
+        _custoHoraOverride[pessoaId] = resultado;
+      }
+      _temAlteracoes = true;
+    });
   }
 
   // ── Linha genérica (máquinas / viaturas) ─────────────────────────────────

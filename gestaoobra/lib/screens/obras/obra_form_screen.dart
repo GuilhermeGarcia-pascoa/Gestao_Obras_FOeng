@@ -20,7 +20,7 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
   String _estado = 'planeada';
   bool _saving   = false;
 
-  static const _tipos   = ['AC', 'DC', 'AC/DC', 'ACTIV', 'Mecânica', 'Inst. Elétrica'];
+  static const _tipos   = ['AC', 'DC', 'AC/DC', 'Mecânica', 'Inst. Elétrica'];
   static const _estados = ['planeada', 'em_curso', 'concluida'];
 
   @override
@@ -31,7 +31,8 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
       _codigoCtrl.text = o['codigo'] ?? '';
       _nomeCtrl.text   = o['nome']   ?? '';
       _orcCtrl.text    = o['orcamento']?.toString() ?? '';
-      _tipo   = o['tipo']   ?? 'AC';
+      final tipoExistente = o['tipo'] as String?;
+      _tipo   = _tipos.contains(tipoExistente) ? tipoExistente! : 'AC';
       _estado = o['estado'] ?? 'planeada';
     }
   }

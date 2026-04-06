@@ -61,7 +61,11 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     try {
       final obras = await ApiService.listarObras();
       setState(() { _obras = obras; _loadingObras = false; });
-      if (obras.isNotEmpty) _selecionarObra(obras.first['id']);
+      if (obras.isNotEmpty) {
+        final seletorValido = _obraId != null && obras.any((o) => o['id'] == _obraId);
+        final id = seletorValido ? _obraId! : obras.first['id'] as int;
+        _selecionarObra(id);
+      }
     } on ApiException catch (e) {
       setState(() => _loadingObras = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
@@ -132,6 +136,11 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
       appBar: AppBar(
         title: const Text('Gráficos'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Atualizar gráficos',
+            onPressed: _carregarObras,
+          ),
           if (_intervalo != null)
             IconButton(icon: const Icon(Icons.filter_alt_off), tooltip: 'Limpar filtro', onPressed: _limparFiltro),
           IconButton(

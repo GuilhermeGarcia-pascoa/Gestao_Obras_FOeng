@@ -9,6 +9,7 @@ const diasRouter      = require('./routes/dias');
 const equipaRouter    = require('./routes/equipa');
 const relatoriosRouter = require('./routes/relatorios');
 const { exportarExcel, exportarPdf } = require('./routes/export');
+const { auth } = require('./middleware/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;

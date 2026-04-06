@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
 import 'package:table_calendar/table_calendar.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_provider.dart';
 import '../dias/dia_registo_screen.dart';
 import 'obra_form_screen.dart';
 
@@ -67,9 +69,36 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
     if (resultado == true) _carregarMes(_focusedDay);
   }
 
+  Future<void> _deletarObra(BuildContext context) async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Apagar obra'),
+        content: const Text('Tens a certeza que queres apagar esta obra? Esta ação não pode ser desfeita.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apagar', style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    try {
+      await ApiService.apagarObra(widget.obra['id'] as int);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Obra apagada com sucesso'), backgroundColor: Colors.green));
+      Navigator.pop(context, true);
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: ${e.mensagem}'), backgroundColor: Colors.red));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final obra = widget.obra;
+    final role = context.watch<AuthProvider>().utilizador?['role'] as String?;
     return Scaffold(
       appBar: AppBar(
         title: Text(obra['codigo'] ?? ''),
@@ -81,6 +110,12 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
               MaterialPageRoute(builder: (_) => ObraFormScreen(obra: obra)),
             ).then((_) => _carregarMes(_focusedDay)),
           ),
+          if (role == 'admin')
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              tooltip: 'Apagar obra',
+              onPressed: () => _deletarObra(context),
+            ),
         ],
       ),
       body: Column(

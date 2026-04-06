@@ -156,7 +156,7 @@ class ConfigScreen extends StatelessWidget {
 
       await _abrirUrl(
         context,
-        url: ApiService.urlExcel(obra['id'] as int),
+        url: ApiService.urlExcel(int.parse(obra['id'].toString())),
         successMsg: 'Excel da obra "${obra['codigo']}" aberto!',
       );
     } on ApiException catch (e) {
