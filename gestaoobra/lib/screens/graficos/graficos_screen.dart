@@ -13,9 +13,9 @@ num _parseValor(dynamic v) {
 }
 
 const _coresPizza = [
-  Color(0xFF1A1A2E), Color(0xFF185FA5), Color(0xFF2E86AB),
-  Color(0xFF4CAF82), Color(0xFFF4A261), Color(0xFFE76F51),
-  Color(0xFF9C6ADE),
+  Color(0xFF185FA5), Color(0xFF2E86AB), Color(0xFF4CAF82),
+  Color(0xFFF4A261), Color(0xFFE76F51), Color(0xFF9C6ADE),
+  Color(0xFF8E44AD),
 ];
 
 class GraficosScreen extends StatefulWidget {
@@ -130,6 +130,10 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   String _fmtApi(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  Color get _primaryColor => Theme.of(context).colorScheme.primary;
+  Color get _accentColor => const Color(0xFFE76F51);
+  Color get _progressBackground => Theme.of(context).colorScheme.onSurface.withOpacity(0.08);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -178,7 +182,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               DropdownButtonFormField<int>(
-                                value: _obraId,
+                                initialValue: _obraId,
                                 decoration: const InputDecoration(labelText: 'Obra', isDense: true),
                                 items: _obras.map<DropdownMenuItem<int>>((o) =>
                                     DropdownMenuItem(value: o['id'] as int, child: Text(o['codigo'] ?? ''))).toList(),
@@ -320,7 +324,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
               x: e.key,
               barRods: [BarChartRodData(
                 toY: _parseValor(e.value['faturado']).toDouble(),
-                color: const Color(0xFF1A1A2E),
+                color: _primaryColor,
                 width: 16,
                 borderRadius: BorderRadius.circular(4),
               )],
@@ -357,10 +361,10 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
               spots: evolucao.asMap().entries.map((e) =>
                   FlSpot(e.key.toDouble(), _parseValor(e.value['acumulado']).toDouble())).toList(),
               isCurved: true,
-              color: const Color(0xFF185FA5),
+              color: _primaryColor,
               barWidth: 3,
               dotData: const FlDotData(show: false),
-              belowBarData: BarAreaData(show: true, color: const Color(0xFF185FA5).withOpacity(0.08)),
+              belowBarData: BarAreaData(show: true, color: _primaryColor.withOpacity(0.08)),
             )],
           )),
         ),
@@ -420,7 +424,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: pct, minHeight: 6,
-                    backgroundColor: const Color(0xFFF1EFE8),
+                    backgroundColor: _progressBackground,
                     valueColor: AlwaysStoppedAnimation(cor),
                   ),
                 ),
@@ -467,7 +471,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                   borderRadius: BorderRadius.circular(4),
                   child: LinearProgressIndicator(
                     value: pct, minHeight: 10,
-                    backgroundColor: const Color(0xFFF1EFE8),
+                    backgroundColor: _progressBackground,
                     valueColor: AlwaysStoppedAnimation(cor),
                   ),
                 ),
@@ -527,9 +531,9 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           const Text('Faturado vs Gasto por obra', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 4),
           Row(children: [
-            _legendaDot(const Color(0xFF1A1A2E), 'Faturado'),
+            _legendaDot(_primaryColor, 'Faturado'),
             const SizedBox(width: 16),
-            _legendaDot(const Color(0xFFE76F51), 'Gasto'),
+            _legendaDot(_accentColor, 'Gasto'),
           ]),
           const SizedBox(height: 12),
           SizedBox(
@@ -577,13 +581,13 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                 barRods: [
                   BarChartRodData(
                     toY: _parseValor(e.value['total_faturado']).toDouble(),
-                    color: const Color(0xFF1A1A2E),
+                    color: _primaryColor,
                     width: 12,
                     borderRadius: BorderRadius.circular(3),
                   ),
                   BarChartRodData(
                     toY: _parseValor(e.value['total_gastos']).toDouble(),
-                    color: const Color(0xFFE76F51),
+                    color: _accentColor,
                     width: 12,
                     borderRadius: BorderRadius.circular(3),
                   ),
@@ -632,8 +636,8 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                       borderRadius: BorderRadius.circular(4),
                       child: LinearProgressIndicator(
                         value: pct, minHeight: 6,
-                        backgroundColor: const Color(0xFFF1EFE8),
-                        valueColor: const AlwaysStoppedAnimation(Color(0xFF1A1A2E)),
+                        backgroundColor: _progressBackground,
+                        valueColor: AlwaysStoppedAnimation(_primaryColor),
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -657,7 +661,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              color: const Color(0xFF1A1A2E),
+              color: _primaryColor,
               borderRadius: BorderRadius.circular(10),
             ),
             child: Row(

@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_provider.dart';
 import '../services/api_service.dart';
+import '../services/theme_provider.dart';
 
 class ConfigScreen extends StatelessWidget {
   const ConfigScreen({super.key});
@@ -11,6 +12,7 @@ class ConfigScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final auth = context.watch<AuthProvider>();
+    final theme = context.watch<ThemeProvider>();
     final user = auth.utilizador;
 
     return Scaffold(
@@ -67,6 +69,31 @@ class ConfigScreen extends StatelessWidget {
                   onTap: () => _exportarPdf(context),
                 ),
               ],
+            ),
+          ),
+
+          const SizedBox(height: 20),
+          const Text('Aparência', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.grey)),
+          const SizedBox(height: 8),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: DropdownButtonFormField<ThemeMode>(
+                initialValue: theme.themeMode,
+                decoration: const InputDecoration(
+                  labelText: 'Modo de tema',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: ThemeMode.system, child: Text('Sistema')),
+                  DropdownMenuItem(value: ThemeMode.light, child: Text('Claro')),
+                  DropdownMenuItem(value: ThemeMode.dark, child: Text('Escuro')),
+                ],
+                onChanged: (value) {
+                  if (value != null) context.read<ThemeProvider>().setThemeMode(value);
+                },
+              ),
             ),
           ),
 
@@ -270,7 +297,7 @@ class ConfigScreen extends StatelessWidget {
 
   Widget _opcao(BuildContext context, {required IconData icon, required String label, required VoidCallback? onTap}) =>
       ListTile(
-        leading: Icon(icon, size: 20, color: const Color(0xFF1A1A2E)),
+        leading: Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
         title: Text(label, style: const TextStyle(fontSize: 14)),
         trailing: onTap != null ? const Icon(Icons.chevron_right, size: 18, color: Colors.grey) : null,
         onTap: onTap,

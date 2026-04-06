@@ -2,6 +2,7 @@ const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const pool = require('../db/pool');
+const { auth } = require('../middleware/auth');
 
 // POST /api/auth/login
 router.post('/login', async (req, res) => {
@@ -36,7 +37,13 @@ router.post('/login', async (req, res) => {
 
     res.json({
       token,
-      utilizador: { id: user.id, nome: user.nome, email: user.email, role: user.role },
+      utilizador: { 
+        id: user.id, 
+        nome: user.nome, 
+        email: user.email, 
+        role: user.role,
+        tema_preferido: user.tema_preferido || 'system',
+      },
     });
   } catch (err) {
     res.status(500).json({ erro: err.message });
@@ -63,6 +70,30 @@ router.post('/registar', async (req, res) => {
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ erro: 'Email já registado' });
     }
+    res.status(500).json({ erro: err.message });
+  }
+});
+
+// PUT /api/auth/prefs/tema — atualizar tema do utilizador (protegido)
+router.put('/prefs/tema', auth, async (req, res) => {
+  const { tema_preferido } = req.body;
+  const userId = req.user?.id;
+
+  if (!userId) {
+    return res.status(401).json({ erro: 'Token inválido' });
+  }
+
+  if (!tema_preferido || !['light', 'dark', 'system'].includes(tema_preferido)) {
+    return res.status(400).json({ erro: 'Tema inválido' });
+  }
+
+  try {
+    await pool.query(
+      'UPDATE utilizadores SET tema_preferido = ? WHERE id = ?',
+      [tema_preferido, userId]
+    );
+    res.json({ sucesso: true, tema_preferido });
+  } catch (err) {
     res.status(500).json({ erro: err.message });
   }
 });
