@@ -212,15 +212,15 @@ class ConfigScreen extends StatelessWidget {
   Future<void> _abrirUrl(BuildContext context, {required String url, required String successMsg}) async {
     // Mostrar loading
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
+      const SnackBar(
         content: Row(
-          children: const [
+          children: [
             SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
             SizedBox(width: 16),
             Text('A abrir ficheiro...'),
           ],
         ),
-        duration: const Duration(seconds: 4),
+        duration: Duration(seconds: 4),
       ),
     );
 
