@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
+import '../../widgets/search_bar_widget.dart';
 import 'obra_detail_screen.dart';
 import 'obra_form_screen.dart';
 
@@ -22,8 +23,21 @@ class ObrasListScreen extends StatefulWidget {
 
 class _ObrasListScreenState extends State<ObrasListScreen> {
   List<dynamic> _obras = [];
+  List<dynamic> _obrasFiltradas = [];
   bool _loading = true;
   String _filtroEstado = ''; // string vazia = "Todas"
+  String _searchText = '';
+
+  void _filtrarObras() {
+    setState(() {
+      _obrasFiltradas = _obras.where((obra) {
+        final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
+        final nome = (obra['nome'] ?? '').toString().toLowerCase();
+        final search = _searchText.toLowerCase();
+        return codigo.contains(search) || nome.contains(search);
+      }).toList();
+    });
+  }
 
   @override
   void initState() {
@@ -36,7 +50,11 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     try {
       final estado = _filtroEstado.isEmpty ? null : _filtroEstado;
       final data = await ApiService.listarObras(estado: estado);
-      setState(() { _obras = data; _loading = false; });
+      setState(() {
+        _obras = data;
+        _loading = false;
+        _filtrarObras();
+      });
     } on ApiException catch (e) {
       setState(() => _loading = false);
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
@@ -132,47 +150,62 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
               onRefresh: _carregar,
               child: _obras.isEmpty
                   ? const Center(child: Text('Sem obras. Cria a primeira!'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: _obras.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 8),
-                      itemBuilder: (context, i) {
-                        final o = _obras[i];
-                        return Card(
-                          child: ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                            title: Row(
-                              children: [
-                                Expanded(child: Text(o['codigo'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: _corEstado(o['estado']).withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                    border: Border.all(color: _corEstado(o['estado']).withOpacity(0.4)),
-                                  ),
-                                  child: Text(_textoEstado(o['estado']),
-                                      style: TextStyle(fontSize: 11, color: _corEstado(o['estado']), fontWeight: FontWeight.w600)),
+                  : Column(
+                      children: [
+                        SearchBarWidget(
+                          hintText: 'Pesquisar por código ou nome...',
+                          onChanged: (value) {
+                            _searchText = value;
+                            _filtrarObras();
+                          },
+                        ),
+                        Expanded(
+                          child: _obrasFiltradas.isEmpty
+                              ? const Center(child: Text('Nenhuma obra corresponde à pesquisa.'))
+                              : ListView.separated(
+                                  padding: const EdgeInsets.all(16),
+                                  itemCount: _obrasFiltradas.length,
+                                  separatorBuilder: (_, __) => const SizedBox(height: 8),
+                                  itemBuilder: (context, i) {
+                                    final o = _obrasFiltradas[i];
+                                    return Card(
+                                      child: ListTile(
+                                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                        title: Row(
+                                          children: [
+                                            Expanded(child: Text(o['codigo'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold))),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: _corEstado(o['estado']).withOpacity(0.1),
+                                                borderRadius: BorderRadius.circular(12),
+                                                border: Border.all(color: _corEstado(o['estado']).withOpacity(0.4)),
+                                              ),
+                                              child: Text(_textoEstado(o['estado']),
+                                                  style: TextStyle(fontSize: 11, color: _corEstado(o['estado']), fontWeight: FontWeight.w600)),
+                                            ),
+                                          ],
+                                        ),
+                                        subtitle: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            const SizedBox(height: 4),
+                                            Text(o['nome'] ?? ''),
+                                            if (o['orcamento'] != null)
+                                              Text('Orçamento: ${_eur.format(_parseOrcamento(o['orcamento']))}',
+                                                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                          ],
+                                        ),
+                                        onTap: () => Navigator.push(
+                                          context,
+                                          MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: o)),
+                                        ).then((_) => _carregar()),
+                                      ),
+                                    );
+                                  },
                                 ),
-                              ],
-                            ),
-                            subtitle: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SizedBox(height: 4),
-                                Text(o['nome'] ?? ''),
-                                if (o['orcamento'] != null)
-                                  Text('Orçamento: ${_eur.format(_parseOrcamento(o['orcamento']))}',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                              ],
-                            ),
-                            onTap: () => Navigator.push(
-                              context,
-                              MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: o)),
-                            ).then((_) => _carregar()),
-                          ),
-                        );
-                      },
+                        ),
+                      ],
                     ),
             ),
       floatingActionButton: FloatingActionButton(
@@ -184,4 +217,4 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       ),
     );
   }
-} 
+}

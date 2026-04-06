@@ -5,6 +5,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/theme_provider.dart';
+import 'admin_panel_screen.dart';
 
 class ConfigScreen extends StatelessWidget {
   const ConfigScreen({super.key});
@@ -134,6 +135,22 @@ class ConfigScreen extends StatelessWidget {
               minimumSize: const Size.fromHeight(48),
             ),
           ),
+          const SizedBox(height: 40),
+          // Botão de admin (discreto)
+          if (user?['role'] == 'admin')
+            Center(
+              child: TextButton.icon(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const AdminPanelScreen()),
+                ),
+                icon: const Icon(Icons.admin_panel_settings, size: 18),
+                label: const Text('Painel de administrador'),
+                style: TextButton.styleFrom(
+                  foregroundColor: Colors.grey,
+                ),
+              ),
+            ),
         ],
       ),
     );
@@ -210,9 +227,11 @@ class ConfigScreen extends StatelessWidget {
       confirmText: 'Exportar',
       saveText: 'Exportar',
       builder: (context, child) {
+        final baseTheme = Theme.of(context);
+        final isDark = baseTheme.brightness == Brightness.dark;
         return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
+          data: baseTheme.copyWith(
+            colorScheme: isDark ? baseTheme.colorScheme : const ColorScheme.light(
               primary: Color(0xFF185FA5),
               onPrimary: Colors.white,
               surface: Colors.white,

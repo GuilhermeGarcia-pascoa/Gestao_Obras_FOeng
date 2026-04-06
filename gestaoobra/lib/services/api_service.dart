@@ -130,6 +130,17 @@ class ApiService {
   // ── EXPORTAÇÕES ───────────────────────────────────────────────────────────────
   static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/export/excel/$obraId';
   static String urlPdf(String dataInicio, String dataFim) => '${ApiConfig.baseUrl}/export/pdf?dataInicio=$dataInicio&dataFim=$dataFim';
+
+  // ── ADMIN: Utilizadores ───────────────────────────────────────────────────────
+  static Future<List<dynamic>> listarUtilizadores() async => await get('/admin/utilizadores');
+  
+  static Future<Map<String, dynamic>> criarUtilizador(Map<String, dynamic> dados) async =>
+      await post('/admin/utilizadores', dados);
+  
+  static Future<void> apagarUtilizador(int id) async => await delete('/admin/utilizadores/$id');
+  
+  static Future<void> alterarSenhaUtilizador(int id, String novaSenha) async =>
+      await put('/admin/utilizadores/$id/senha', {'password': novaSenha});
 }
 
 class ApiException implements Exception {

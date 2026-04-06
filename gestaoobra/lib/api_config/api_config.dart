@@ -7,7 +7,7 @@ import 'dart:io' show Platform;
 // isLocalhost = true  → usa o servidor local (desenvolvimento)
 // isLocalhost = false → usa o servidor de produção (servidor real)
 const bool isLocalhost = true;
-const String meuIpDoPC = '192.168.1.87'; // O teu IP local (para telemóvel via Wi-Fi)
+const String meuIpDoPC = '192.168.1.138'; // O teu IP local (para telemóvel via Wi-Fi)
 const int port = 3000;
 const String servidorProducao = 'https://o-teu-dominio-real.com/api';
 

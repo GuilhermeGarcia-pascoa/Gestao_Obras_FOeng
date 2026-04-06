@@ -99,6 +99,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
 
   Future<void> _escolherIntervalo() async {
     final hoje = DateTime.now();
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final resultado = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
@@ -109,12 +110,15 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
       helpText: 'Filtrar por intervalo',
       cancelText: 'Cancelar',
       confirmText: 'Aplicar',
-      builder: (ctx, child) => Theme(
-        data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(primary: Color(0xFF185FA5), onPrimary: Colors.white),
-        ),
-        child: child!,
-      ),
+      builder: (ctx, child) {
+        final baseTheme = Theme.of(ctx);
+        return Theme(
+          data: baseTheme.copyWith(
+            colorScheme: (isDark ? baseTheme.colorScheme : const ColorScheme.light(primary: Color(0xFF185FA5), onPrimary: Colors.white)),
+          ),
+          child: child!,
+        );
+      },
     );
     if (resultado != null) {
       setState(() => _intervalo = resultado);
@@ -181,12 +185,21 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              DropdownButtonFormField<int>(
-                                initialValue: _obraId,
-                                decoration: const InputDecoration(labelText: 'Obra', isDense: true),
-                                items: _obras.map<DropdownMenuItem<int>>((o) =>
-                                    DropdownMenuItem(value: o['id'] as int, child: Text(o['codigo'] ?? ''))).toList(),
-                                onChanged: (v) { if (v != null) _selecionarObra(v); },
+                              Builder(
+                                builder: (ctx) {
+                                  final isDark = Theme.of(ctx).brightness == Brightness.dark;
+                                  return DropdownButtonFormField<int>(
+                                    initialValue: _obraId,
+                                    decoration: InputDecoration(
+                                      labelText: 'Obra',
+                                      isDense: true,
+                                      labelStyle: TextStyle(color: isDark ? Colors.grey[400] : null),
+                                    ),
+                                    items: _obras.map<DropdownMenuItem<int>>((o) =>
+                                        DropdownMenuItem(value: o['id'] as int, child: Text(o['codigo'] ?? ''))).toList(),
+                                    onChanged: (v) { if (v != null) _selecionarObra(v); },
+                                  );
+                                },
                               ),
                               if (_intervalo != null) ...[
                                 const SizedBox(height: 6),

@@ -3,18 +3,30 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:provider/provider.dart';
 
+// Caminhos corrigidos para a estrutura lib/services/
 import 'services/auth_provider.dart';
 import 'services/theme_provider.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_shell.dart';
 
 void main() async {
+  // Garante que os plugins (como SharedPreferences e intl) sejam inicializados 
+  // antes de rodar o runApp
+  WidgetsFlutterBinding.ensureInitialized();
+  
   await initializeDateFormatting('pt_PT', null);
+
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
-        ChangeNotifierProvider(create: (_) => ThemeProvider()),
+        // Adicionada a chamada verificarLoginInicial() para carregar o 
+        // utilizador automaticamente se ele já estiver logado.
+        ChangeNotifierProvider(
+          create: (_) => AuthProvider()..verificarLoginInicial(),
+        ),
+        ChangeNotifierProvider(
+          create: (_) => ThemeProvider(),
+        ),
       ],
       child: const ObrasApp(),
     ),
@@ -34,11 +46,15 @@ class _ObrasAppState extends State<ObrasApp> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // Obtemos as instâncias dos Providers
     final auth = Provider.of<AuthProvider>(context);
     final theme = Provider.of<ThemeProvider>(context, listen: false);
+    
+    // Extraímos os dados do utilizador logado
     final userId = auth.utilizador?['id'] as int?;
     final temaBD = auth.utilizador?['tema_preferido'] as String?;
     
+    // Se o utilizador mudou (login ou logout), atualizamos o tema
     if (userId != _lastUserId) {
       _lastUserId = userId;
       theme.setUserId(userId, temaBD: temaBD);
@@ -49,92 +65,97 @@ class _ObrasAppState extends State<ObrasApp> {
   Widget build(BuildContext context) {
     return Consumer2<AuthProvider, ThemeProvider>(
       builder: (_, auth, theme, __) => MaterialApp(
-      title: 'Obras',
-      debugShowCheckedModeBanner: false,
-      themeMode: theme.themeMode,
-      theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A1A2E),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFFF4F6F8),
-        cardColor: Colors.white,
-        dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF1A1A2E),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF1A1A2E),
-          foregroundColor: Colors.white,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A1A2E),
+        title: 'Obras',
+        debugShowCheckedModeBanner: false,
+        themeMode: theme.themeMode,
+        
+        // --- TEMA CLARO ---
+        theme: ThemeData(
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1A1A2E),
+            brightness: Brightness.light,
+          ),
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFFF4F6F8),
+          cardColor: Colors.white,
+          dialogTheme: const DialogThemeData(backgroundColor: Colors.white),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF1A1A2E),
             foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            elevation: 0,
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            backgroundColor: Color(0xFF1A1A2E),
+            foregroundColor: Colors.white,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A2E),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: const Color(0xFFF1F3F6),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
         ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFFF1F3F6),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-      ),
-      darkTheme: ThemeData(
-        brightness: Brightness.dark,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF1A1A2E),
-          brightness: Brightness.dark,
-        ),
-        useMaterial3: true,
-        scaffoldBackgroundColor: const Color(0xFF121212),
-        cardColor: const Color(0xFF1E1F2A),
-        dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1E1F2A)),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF121212),
-          foregroundColor: Colors.white,
-          elevation: 0,
-        ),
-        floatingActionButtonTheme: const FloatingActionButtonThemeData(
-          backgroundColor: Color(0xFF1A1A2E),
-          foregroundColor: Colors.white,
-        ),
-        elevatedButtonTheme: ElevatedButtonThemeData(
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF1A1A2E),
-            foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(48),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          ),
-        ),
-        inputDecorationTheme: InputDecorationTheme(
-          filled: true,
-          fillColor: const Color(0xFF232430),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        ),
-      ),
 
-      // ── Localizações (necessário para DateRangePicker) ──────────
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
-      ],
-      supportedLocales: const [
-        Locale('pt', 'PT'),
-        Locale('en', 'US'),
-      ],
-      locale: const Locale('pt', 'PT'),
-      home: Consumer<AuthProvider>(
-        builder: (_, auth, __) =>
-            auth.estaAutenticado ? const MainShell() : const LoginScreen(),
+        // --- TEMA ESCURO ---
+        darkTheme: ThemeData(
+          brightness: Brightness.dark,
+          colorScheme: ColorScheme.fromSeed(
+            seedColor: const Color(0xFF1A1A2E),
+            brightness: Brightness.dark,
+          ),
+          useMaterial3: true,
+          scaffoldBackgroundColor: const Color(0xFF121212),
+          cardColor: const Color(0xFF1E1F2A),
+          dialogTheme: const DialogThemeData(backgroundColor: Color(0xFF1E1F2A)),
+          appBarTheme: const AppBarTheme(
+            backgroundColor: Color(0xFF121212),
+            foregroundColor: Colors.white,
+            elevation: 0,
+          ),
+          floatingActionButtonTheme: const FloatingActionButtonThemeData(
+            backgroundColor: Color(0xFF1A1A2E),
+            foregroundColor: Colors.white,
+          ),
+          elevatedButtonTheme: ElevatedButtonThemeData(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF1A1A2E),
+              foregroundColor: Colors.white,
+              minimumSize: const Size.fromHeight(48),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          ),
+          inputDecorationTheme: InputDecorationTheme(
+            filled: true,
+            fillColor: const Color(0xFF232430),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          ),
+        ),
+
+        // --- LOCALIZAÇÃO ---
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('pt', 'PT'),
+          Locale('en', 'US'),
+        ],
+        locale: const Locale('pt', 'PT'),
+
+        // --- NAVEGAÇÃO INICIAL ---
+        // Se estiver autenticado vai para a shell principal, senão vai para o Login
+        home: auth.estaAutenticado ? const MainShell() : const LoginScreen(),
       ),
-    ));
+    );
   }
 }

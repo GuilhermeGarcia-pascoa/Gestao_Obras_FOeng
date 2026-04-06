@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
+import '../../widgets/search_bar_widget.dart';
 
 class EquipaScreen extends StatefulWidget {
   const EquipaScreen({super.key});
@@ -14,7 +14,49 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
   List<dynamic> _pessoas  = [];
   List<dynamic> _maquinas = [];
   List<dynamic> _viaturas = [];
+  
+  List<dynamic> _pessoasFiltradas = [];
+  List<dynamic> _maquinasFiltradas = [];
+  List<dynamic> _viaturasFiltradas = [];
+  
+  String _searchPessoas = '';
+  String _searchMaquinas = '';
+  String _searchViaturas = '';
+  
   bool _loading = true;
+
+  void _filtrarPessoas() {
+    setState(() {
+      _pessoasFiltradas = _pessoas.where((p) {
+        final nome = (p['nome'] ?? '').toString().toLowerCase();
+        final cargo = (p['cargo'] ?? '').toString().toLowerCase();
+        final search = _searchPessoas.toLowerCase();
+        return nome.contains(search) || cargo.contains(search);
+      }).toList();
+    });
+  }
+
+  void _filtrarMaquinas() {
+    setState(() {
+      _maquinasFiltradas = _maquinas.where((m) {
+        final nome = (m['nome'] ?? '').toString().toLowerCase();
+        final tipo = (m['tipo'] ?? '').toString().toLowerCase();
+        final search = _searchMaquinas.toLowerCase();
+        return nome.contains(search) || tipo.contains(search);
+      }).toList();
+    });
+  }
+
+  void _filtrarViaturas() {
+    setState(() {
+      _viaturasFiltradas = _viaturas.where((v) {
+        final modelo = (v['modelo'] ?? '').toString().toLowerCase();
+        final matricula = (v['matricula'] ?? '').toString().toLowerCase();
+        final search = _searchViaturas.toLowerCase();
+        return modelo.contains(search) || matricula.contains(search);
+      }).toList();
+    });
+  }
 
   @override
   void initState() {
@@ -42,6 +84,9 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
         _maquinas = results[1];
         _viaturas = results[2];
         _loading  = false;
+        _filtrarPessoas();
+        _filtrarMaquinas();
+        _filtrarViaturas();
       });
     } on ApiException catch (e) {
       setState(() => _loading = false);
@@ -126,9 +171,9 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
           : TabBarView(
               controller: _tabs,
               children: [
-                _listaRecursos(_pessoas,  (p) => '${p['cargo'] ?? ''} · €${p['custo_hora'] ?? 0}/h'),
-                _listaRecursos(_maquinas, (m) => '${m['tipo'] ?? ''}  · €${m['custo_hora'] ?? 0}/h'),
-                _listaRecursos(_viaturas, (v) => '${v['matricula'] ?? ''} · €${v['custo_km'] ?? 0}/km'),
+                _abaPessoas(),
+                _abaMaquinas(),
+                _abaViaturas(),
               ],
             ),
       floatingActionButton: FloatingActionButton(
@@ -138,44 +183,109 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
     );
   }
 
+  Widget _abaPessoas() {
+    if (_pessoas.isEmpty) return const Center(child: Text('Sem registos.'));
+    return Column(
+      children: [
+        SearchBarWidget(
+          hintText: 'Pesquisar pessoas...',
+          onChanged: (value) {
+            _searchPessoas = value;
+            _filtrarPessoas();
+          },
+        ),
+        Expanded(
+          child: _pessoasFiltradas.isEmpty
+              ? const Center(child: Text('Nenhuma pessoa encontrada.'))
+              : RefreshIndicator(
+                  onRefresh: _carregar,
+                  child: _listaRecursos(_pessoasFiltradas, (p) => '${p['cargo'] ?? ''} · €${p['custo_hora'] ?? 0}/h'),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _abaMaquinas() {
+    if (_maquinas.isEmpty) return const Center(child: Text('Sem registos.'));
+    return Column(
+      children: [
+        SearchBarWidget(
+          hintText: 'Pesquisar máquinas...',
+          onChanged: (value) {
+            _searchMaquinas = value;
+            _filtrarMaquinas();
+          },
+        ),
+        Expanded(
+          child: _maquinasFiltradas.isEmpty
+              ? const Center(child: Text('Nenhuma máquina encontrada.'))
+              : RefreshIndicator(
+                  onRefresh: _carregar,
+                  child: _listaRecursos(_maquinasFiltradas, (m) => '${m['tipo'] ?? ''}  · €${m['custo_hora'] ?? 0}/h'),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _abaViaturas() {
+    if (_viaturas.isEmpty) return const Center(child: Text('Sem registos.'));
+    return Column(
+      children: [
+        SearchBarWidget(
+          hintText: 'Pesquisar viaturas...',
+          onChanged: (value) {
+            _searchViaturas = value;
+            _filtrarViaturas();
+          },
+        ),
+        Expanded(
+          child: _viaturasFiltradas.isEmpty
+              ? const Center(child: Text('Nenhuma viatura encontrada.'))
+              : RefreshIndicator(
+                  onRefresh: _carregar,
+                  child: _listaRecursos(_viaturasFiltradas, (v) => '${v['matricula'] ?? ''} · €${v['custo_km'] ?? 0}/km'),
+                ),
+        ),
+      ],
+    );
+  }
+
   Widget _listaRecursos(List<dynamic> lista, String Function(dynamic) subtitulo) {
-    if (lista.isEmpty) return const Center(child: Text('Sem registos.'));
-    return RefreshIndicator(
-      onRefresh: _carregar,
-      child: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: lista.length,
-        separatorBuilder: (_, __) => const SizedBox(height: 8),
-        itemBuilder: (context, i) {
-          final item = lista[i];
-          final nome = item['nome'] ?? item['modelo'] ?? '';
-          return Card(
-            child: ListTile(
-              onTap: () => _editar(item),
-              leading: CircleAvatar(
-                backgroundColor: const Color(0xFFE6F1FB),
-                child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
-                    style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.bold)),
-              ),
-              title: Text(nome, style: const TextStyle(fontWeight: FontWeight.w600)),
-              subtitle: Text(subtitulo(item)),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(Icons.edit, size: 20),
-                    onPressed: () => _editar(item),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.delete, size: 20, color: Colors.redAccent),
-                    onPressed: () => _apagar(item),
-                  ),
-                ],
-              ),
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: lista.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, i) {
+        final item = lista[i];
+        final nome = item['nome'] ?? item['modelo'] ?? '';
+        return Card(
+          child: ListTile(
+            onTap: () => _editar(item),
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xFFE6F1FB),
+              child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
+                  style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.bold)),
             ),
-          );
-        },
-      ),
+            title: Text(nome, style: const TextStyle(fontWeight: FontWeight.w600)),
+            subtitle: Text(subtitulo(item)),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit, size: 20),
+                  onPressed: () => _editar(item),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete, size: 20, color: Colors.redAccent),
+                  onPressed: () => _apagar(item),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -299,42 +409,63 @@ class _FormSheetState extends State<_FormSheet> {
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Text(
-            widget.item == null
-                ? isPessoa
-                    ? 'Nova pessoa'
-                    : isMaquina
-                        ? 'Nova máquina'
-                        : 'Nova viatura'
-                : isPessoa
-                    ? 'Editar pessoa'
-                    : isMaquina
-                        ? 'Editar máquina'
-                        : 'Editar viatura',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text('${widget.item == null ? 'Adicionar' : 'Editar'} ${widget.tipo}',
+              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          TextField(controller: _nomeCtrl,  decoration: InputDecoration(labelText: isPessoa ? 'Nome' : isMaquina ? 'Nome da máquina' : 'Modelo')),
-          const SizedBox(height: 10),
-          TextField(controller: _cargoCtrl, decoration: InputDecoration(labelText: isPessoa ? 'Cargo' : isMaquina ? 'Tipo' : 'Matrícula')),
-          const SizedBox(height: 10),
-          TextField(controller: _custoCtrl, keyboardType: TextInputType.number,
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
-              decoration: InputDecoration(labelText: isPessoa || isMaquina ? 'Custo/hora (€)' : 'Custo/km (€)', prefixText: '€ ')),
+          TextField(
+            controller: _nomeCtrl,
+            decoration: InputDecoration(
+              labelText: isPessoa ? 'Nome' : isMaquina ? 'Nome' : 'Modelo',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _cargoCtrl,
+            decoration: InputDecoration(
+              labelText: isPessoa ? 'Cargo' : isMaquina ? 'Tipo' : 'Matrícula',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _custoCtrl,
+            decoration: InputDecoration(
+              labelText: isPessoa ? 'Custo por hora' : isMaquina ? 'Custo por hora' : 'Custo por km',
+              border: const OutlineInputBorder(),
+              isDense: true,
+            ),
+            keyboardType: TextInputType.number,
+          ),
           if (isMaquina) ...[
-            const SizedBox(height: 10),
-            TextField(controller: _extraCtrl, keyboardType: TextInputType.number,
-                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
-                decoration: const InputDecoration(labelText: 'Combustível/hora (L)', prefixText: 'L ')),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _extraCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Combustível por hora',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+            ),
           ],
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _saving ? null : _guardar,
-            child: _saving
-                ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                : const Text('Guardar'),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              const SizedBox(width: 8),
+              ElevatedButton(
+                onPressed: _saving ? null : _guardar,
+                child: _saving ? const SizedBox(height: 18, width: 18, child: CircularProgressIndicator(strokeWidth: 2)) : const Text('Guardar'),
+              ),
+            ],
           ),
         ],
       ),
