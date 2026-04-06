@@ -302,11 +302,14 @@ class _FormSheet extends StatefulWidget {
 }
 
 class _FormSheetState extends State<_FormSheet> {
-  final _nomeCtrl     = TextEditingController();
-  final _cargoCtrl    = TextEditingController();
-  final _custoCtrl    = TextEditingController();
-  final _extraCtrl    = TextEditingController();
-  bool _saving        = false;
+  final _nomeCtrl       = TextEditingController();
+  final _cargoCtrl      = TextEditingController();
+  final _matriculaCtrl  = TextEditingController();
+  final _custoCtrl      = TextEditingController();
+  final _extraCtrl      = TextEditingController();
+  final _categoriaCtrl  = TextEditingController();
+  final _nifCtrl        = TextEditingController();
+  bool _saving          = false;
 
   @override
   void initState() {
@@ -314,18 +317,22 @@ class _FormSheetState extends State<_FormSheet> {
     final item = widget.item;
     if (item != null) {
       if (widget.tipo == 'pessoa') {
-        _nomeCtrl.text  = item['nome']?.toString() ?? '';
-        _cargoCtrl.text = item['cargo']?.toString() ?? '';
-        _custoCtrl.text = item['custo_hora']?.toString() ?? '';
+        _nomeCtrl.text      = item['nome']?.toString() ?? '';
+        _cargoCtrl.text     = item['cargo']?.toString() ?? '';
+        _custoCtrl.text     = item['custo_hora']?.toString() ?? '';
+        _categoriaCtrl.text = item['categoria_sindical']?.toString() ?? '';
+        _nifCtrl.text       = item['nif']?.toString() ?? '';
       } else if (widget.tipo == 'maquina') {
-        _nomeCtrl.text  = item['nome']?.toString() ?? '';
-        _cargoCtrl.text = item['tipo']?.toString() ?? '';
-        _custoCtrl.text = item['custo_hora']?.toString() ?? '';
-        _extraCtrl.text = item['combustivel_hora']?.toString() ?? '';
+        _nomeCtrl.text      = item['nome']?.toString() ?? '';
+        _cargoCtrl.text     = item['tipo']?.toString() ?? '';
+        _matriculaCtrl.text = item['matricula']?.toString() ?? '';
+        _custoCtrl.text     = item['custo_hora']?.toString() ?? '';
+        _extraCtrl.text     = item['combustivel_hora']?.toString() ?? '';
       } else {
-        _nomeCtrl.text  = item['modelo']?.toString() ?? '';
-        _cargoCtrl.text = item['matricula']?.toString() ?? '';
-        _custoCtrl.text = item['custo_km']?.toString() ?? '';
+        _nomeCtrl.text      = item['modelo']?.toString() ?? '';
+        _cargoCtrl.text     = item['matricula']?.toString() ?? '';
+        _custoCtrl.text     = item['custo_km']?.toString() ?? '';
+        _extraCtrl.text     = item['consumo_l100km']?.toString() ?? '';
       }
     }
   }
@@ -334,8 +341,11 @@ class _FormSheetState extends State<_FormSheet> {
   void dispose() {
     _nomeCtrl.dispose();
     _cargoCtrl.dispose();
+    _matriculaCtrl.dispose();
     _custoCtrl.dispose();
     _extraCtrl.dispose();
+    _categoriaCtrl.dispose();
+    _nifCtrl.dispose();
     super.dispose();
   }
 
@@ -352,8 +362,8 @@ class _FormSheetState extends State<_FormSheet> {
           'nome': nome,
           'cargo': cargo,
           'custo_hora': custo,
-          'categoria_sindical': widget.item?['categoria_sindical'],
-          'nif': widget.item?['nif'],
+          'categoria_sindical': _categoriaCtrl.text.trim(),
+          'nif': _nifCtrl.text.trim(),
         };
         if (widget.item == null) {
           await ApiService.post('/equipa/pessoas', body);
@@ -364,6 +374,7 @@ class _FormSheetState extends State<_FormSheet> {
         final body = {
           'nome': nome,
           'tipo': cargo,
+          'matricula': _matriculaCtrl.text.trim(),
           'custo_hora': custo,
           'combustivel_hora': double.tryParse(_extraCtrl.text) ?? 0,
         };
@@ -377,19 +388,15 @@ class _FormSheetState extends State<_FormSheet> {
           'modelo': nome,
           'matricula': cargo,
           'custo_km': custo,
-          'consumo_l100km': widget.item?['consumo_l100km'],
-          'motorista_id': widget.item?['motorista_id'],
+          'consumo_l100km': double.tryParse(_extraCtrl.text) ?? 0,
         };
         if (widget.item == null) {
-          await ApiService.post('/equipa/viaturas', {
-            'modelo': nome,
-            'matricula': cargo,
-            'custo_km': custo,
-          });
+          await ApiService.post('/equipa/viaturas', body);
         } else {
           await ApiService.editarViatura(widget.item!['id'] as int, body);
         }
       }
+
       widget.onSalvo();
       if (mounted) Navigator.pop(context);
     } on ApiException catch (e) {
@@ -430,6 +437,17 @@ class _FormSheetState extends State<_FormSheet> {
               isDense: true,
             ),
           ),
+          if (isMaquina) ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _matriculaCtrl,
+              decoration: const InputDecoration(
+                labelText: 'Matrícula',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+          ],
           const SizedBox(height: 12),
           TextField(
             controller: _custoCtrl,
@@ -440,12 +458,33 @@ class _FormSheetState extends State<_FormSheet> {
             ),
             keyboardType: TextInputType.number,
           ),
-          if (isMaquina) ...[
+          if (isMaquina || widget.tipo == 'viatura') ...[
             const SizedBox(height: 12),
             TextField(
               controller: _extraCtrl,
+              decoration: InputDecoration(
+                labelText: isMaquina ? 'Combustível por hora' : 'Consumo L/100km',
+                border: const OutlineInputBorder(),
+                isDense: true,
+              ),
+              keyboardType: TextInputType.number,
+            ),
+          ],
+          if (widget.tipo == 'pessoa') ...[
+            const SizedBox(height: 12),
+            TextField(
+              controller: _categoriaCtrl,
               decoration: const InputDecoration(
-                labelText: 'Combustível por hora',
+                labelText: 'Categoria sindical',
+                border: OutlineInputBorder(),
+                isDense: true,
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _nifCtrl,
+              decoration: const InputDecoration(
+                labelText: 'NIF',
                 border: OutlineInputBorder(),
                 isDense: true,
               ),

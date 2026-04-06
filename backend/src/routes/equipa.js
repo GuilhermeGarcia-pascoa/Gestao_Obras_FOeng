@@ -24,7 +24,7 @@ router.get('/pessoas/:id', async (req, res) => {
 });
 
 // POST /api/equipa/pessoas
-router.post('/pessoas', soGestor, async (req, res) => {
+router.post('/pessoas', async (req, res) => {
   const { nome, cargo, categoria_sindical, custo_hora, nif } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatório' });
 
@@ -80,7 +80,7 @@ router.get('/maquinas', async (req, res) => {
 });
 
 // POST /api/equipa/maquinas
-router.post('/maquinas', soGestor, async (req, res) => {
+router.post('/maquinas', async (req, res) => {
   const { nome, tipo, matricula, custo_hora, combustivel_hora } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatório' });
 
@@ -135,7 +135,7 @@ router.get('/viaturas', async (req, res) => {
 });
 
 // POST /api/equipa/viaturas
-router.post('/viaturas', soGestor, async (req, res) => {
+router.post('/viaturas', async (req, res) => {
   const { modelo, matricula, custo_km, consumo_l100km, motorista_id } = req.body;
   if (!modelo) return res.status(400).json({ erro: 'Modelo obrigatório' });
 
