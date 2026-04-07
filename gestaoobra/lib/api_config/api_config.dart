@@ -27,7 +27,7 @@ class ApiConfig {
     try {
       if (Platform.isAndroid) {
         // Emulador Android usa 10.0.2.2 para chegar ao localhost do PC
-        return 'http://10.0.2.2:$port/api';
+        return 'http://$meuIpDoPC:$port/api';
       }
       if (Platform.isIOS) {
         return 'http://localhost:$port/api';

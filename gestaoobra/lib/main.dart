@@ -44,22 +44,27 @@ class _ObrasAppState extends State<ObrasApp> {
   int? _lastUserId;
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Obtemos as instâncias dos Providers
-    final auth = Provider.of<AuthProvider>(context);
-    final theme = Provider.of<ThemeProvider>(context, listen: false);
-    
-    // Extraímos os dados do utilizador logado
-    final userId = auth.utilizador?['id'] as int?;
-    final temaBD = auth.utilizador?['tema_preferido'] as String?;
-    
-    // Se o utilizador mudou (login ou logout), atualizamos o tema
-    if (userId != _lastUserId) {
-      _lastUserId = userId;
-      theme.setUserId(userId, temaBD: temaBD);
-    }
+void didChangeDependencies() {
+  super.didChangeDependencies();
+
+  final auth = Provider.of<AuthProvider>(context);
+  final theme = Provider.of<ThemeProvider>(context, listen: false);
+
+  final userId = auth.utilizador?['id'] as int?;
+  final temaBD = auth.utilizador?['tema_preferido'] as String?;
+
+  // Só actualiza se o utilizador realmente mudou
+  if (userId != _lastUserId) {
+    _lastUserId = userId;
+
+    // ←←← ESSA É A CORREÇÃO PRINCIPAL
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        theme.setUserId(userId, temaBD: temaBD);
+      }
+    });
   }
+}
 
   @override
   Widget build(BuildContext context) {
