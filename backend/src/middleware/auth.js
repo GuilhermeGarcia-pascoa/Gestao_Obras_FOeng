@@ -27,4 +27,12 @@ function soGestor(req, res, next) {
   next();
 }
 
-module.exports = { auth, soGestor };
+// Middleware extra — só deixa passar admins
+function soAdmin(req, res, next) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ erro: 'Sem permissão' });
+  }
+  next();
+}
+
+module.exports = { auth, soGestor, soAdmin };

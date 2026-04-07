@@ -8,6 +8,7 @@ const obrasRouter     = require('./routes/obras');
 const diasRouter      = require('./routes/dias');
 const equipaRouter    = require('./routes/equipa');
 const relatoriosRouter = require('./routes/relatorios');
+const adminRouter     = require('./routes/admin');
 const { exportarExcel, exportarPdf } = require('./routes/export');
 const { auth } = require('./middleware/auth');
 
@@ -23,8 +24,7 @@ app.use('/api/auth',       authRouter);
 app.use('/api/obras',      obrasRouter);
 app.use('/api/dias',       diasRouter);
 app.use('/api/equipa',     equipaRouter);
-app.use('/api/relatorios', relatoriosRouter);
-
+app.use('/api/relatorios', relatoriosRouter);app.use('/api/admin',      adminRouter);
 // Exportações                                                       
 app.get('/api/export/excel/:obraId', exportarExcel);                
 app.get('/api/export/pdf',           exportarPdf);                   
