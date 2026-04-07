@@ -24,7 +24,9 @@ app.use('/api/auth',       authRouter);
 app.use('/api/obras',      obrasRouter);
 app.use('/api/dias',       diasRouter);
 app.use('/api/equipa',     equipaRouter);
-app.use('/api/relatorios', relatoriosRouter);app.use('/api/admin',      adminRouter);
+app.use('/api/relatorios', relatoriosRouter);
+app.use('/api/admin',      adminRouter);
+
 // Exportações                                                       
 app.get('/api/export/excel/:obraId', exportarExcel);                
 app.get('/api/export/pdf',           exportarPdf);                   
@@ -39,6 +41,9 @@ app.use((err, req, res, _next) => {
 });
 
 // ── Arranque ───────────────────────────────────────────────────────
-app.listen(PORT, () => {
-  console.log(`🚀  Servidor a correr em http://localhost:${PORT}`);
+// Substitua o seu app.listen atual por este:
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor rodando!`);
+  console.log(`🏠 Local: http://localhost:${PORT}`);
+  console.log(`🌐 Rede: http://0.0.0.0:${PORT}`);
 });
