@@ -309,7 +309,7 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
               ),
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
-                value: _roleSeleccionado,
+                initialValue: _roleSeleccionado,
                 decoration: const InputDecoration(labelText: 'Função', prefixIcon: Icon(Icons.badge_outlined), border: OutlineInputBorder()),
                 items: const [
                   DropdownMenuItem(value: 'utilizador', child: Text('Utilizador')),

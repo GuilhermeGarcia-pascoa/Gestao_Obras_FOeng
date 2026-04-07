@@ -9,23 +9,23 @@ class ThemeProvider extends ChangeNotifier {
   ThemeMode get themeMode => _themeMode;
 
   Future<void> setUserId(int? userId, {String? temaBD}) async {
-    if (userId == _userId) return;
-    _userId = userId;
-    _themeMode = ThemeMode.system;
-    
-    if (_userId != null) {
-      // 1. Se veio da BD (login), carrega logo
-      if (temaBD != null) {
-        _themeMode = _parseThemeMode(temaBD);
-      } else {
-        // 2. Senão, tenta o cache local
-        final prefs = await SharedPreferences.getInstance();
-        final value = prefs.getString(_themeKey(_userId!));
-        _themeMode = _parseThemeMode(value);
-      }
+  if (userId == _userId) return;
+
+  _userId = userId;
+  _themeMode = ThemeMode.system;
+
+  if (_userId != null) {
+    if (temaBD != null) {
+      _themeMode = _parseThemeMode(temaBD);
+    } else {
+      final prefs = await SharedPreferences.getInstance();
+      final value = prefs.getString(_themeKey(_userId!));
+      _themeMode = _parseThemeMode(value);
     }
-    notifyListeners();
   }
+
+  notifyListeners();   // agora está seguro
+}
 
   Future<void> setThemeMode(ThemeMode mode) async {
     _themeMode = mode;
