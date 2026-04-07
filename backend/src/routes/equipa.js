@@ -25,13 +25,13 @@ router.get('/pessoas/:id', async (req, res) => {
 
 // POST /api/equipa/pessoas
 router.post('/pessoas', async (req, res) => {
-  const { nome, cargo, categoria_sindical, custo_hora, nif } = req.body;
+  const { nome, cargo, categoria_sindical, custo_hora } = req.body;
   if (!nome) return res.status(400).json({ erro: 'Nome obrigatório' });
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO operadores (nome, cargo, categoria_sindical, custo_hora, nif) VALUES (?, ?, ?, ?, ?)',
-      [nome, cargo, categoria_sindical, custo_hora, nif]
+      'INSERT INTO operadores (nome, cargo, categoria_sindical, custo_hora ) VALUES (?, ?, ?, ?)',
+      [nome, cargo, categoria_sindical, custo_hora ]
     );
     res.status(201).json({ id: result.insertId });
   } catch (err) { res.status(500).json({ erro: err.message }); }
@@ -39,11 +39,11 @@ router.post('/pessoas', async (req, res) => {
 
 // PUT /api/equipa/pessoas/:id
 router.put('/pessoas/:id', soGestor, async (req, res) => {
-  const { nome, cargo, categoria_sindical, custo_hora, nif } = req.body;
+  const { nome, cargo, categoria_sindical, custo_hora } = req.body;
   try {
     await pool.query(
-      'UPDATE operadores SET nome=?, cargo=?, categoria_sindical=?, custo_hora=?, nif=? WHERE id=?',
-      [nome, cargo, categoria_sindical, custo_hora, nif, req.params.id]
+      'UPDATE operadores SET nome=?, cargo=?, categoria_sindical=?, custo_hora=? WHERE id=?',
+      [nome, cargo, categoria_sindical, custo_hora,  req.params.id]
     );
     res.json({ ok: true });
   } catch (err) { res.status(500).json({ erro: err.message }); }

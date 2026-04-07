@@ -268,7 +268,7 @@ class _FormSheetState extends State<_FormSheet> {
  
     try {
       if (widget.tipo == 'pessoa') {
-        final body = {'nome': nome, 'cargo': cargo, 'custo_hora': custo, 'categoria_sindical': widget.item?['categoria_sindical'] ?? '', 'nif': widget.item?['nif'] ?? ''};
+        final body = {'nome': nome, 'cargo': cargo, 'custo_hora': custo, 'categoria_sindical': widget.item?['categoria_sindical'] ?? ''};
         if (widget.item == null) await ApiService.post('/equipa/pessoas', body);
         else await ApiService.editarPessoa(widget.item!['id'] as int, body);
       } else if (widget.tipo == 'maquina') {
