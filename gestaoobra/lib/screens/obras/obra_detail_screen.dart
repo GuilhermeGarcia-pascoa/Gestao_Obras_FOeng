@@ -190,19 +190,47 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                           return null;
                         },
                       ),
-                      headerStyle: const HeaderStyle(
+                      headerStyle: HeaderStyle(
                         formatButtonVisible: false,
                         titleCentered: true,
-                        titleTextStyle: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        titleTextStyle: TextStyle(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
+                        ),
+                        leftChevronIcon: Icon(Icons.arrow_back_ios, size: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
+                        rightChevronIcon: Icon(Icons.arrow_forward_ios, size: 16, color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black),
                       ),
-                      calendarStyle: const CalendarStyle(
-                        todayDecoration: BoxDecoration(
+                      daysOfWeekStyle: DaysOfWeekStyle(
+                        weekdayStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        weekendStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      calendarStyle: CalendarStyle(
+                        todayDecoration: const BoxDecoration(
                           color: Color(0x331A1A2E),
                           shape: BoxShape.circle,
                         ),
-                        selectedDecoration: BoxDecoration(
+                        selectedDecoration: const BoxDecoration(
                           color: Color(0xFF1A1A2E),
                           shape: BoxShape.circle,
+                        ),
+                        defaultTextStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black87,
+                        ),
+                        weekendTextStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white70 : Colors.black87,
+                        ),
+                        outsideTextStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white38 : Colors.black38,
+                        ),
+                        todayTextStyle: TextStyle(
+                          color: Theme.of(context).brightness == Brightness.dark ? Colors.white : Colors.black,
                         ),
                       ),
                     ),

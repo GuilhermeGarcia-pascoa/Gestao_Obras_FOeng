@@ -606,7 +606,9 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1A1A2E),
+                      color: Theme.of(context).brightness == Brightness.dark
+                          ? const Color(0xFF2A2A3E)
+                          : const Color(0xFF1A1A2E),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -887,16 +889,21 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     ),
   );
 
-  Widget _totalSector(String label, double valor, Color bg) => Container(
-    margin: const EdgeInsets.only(bottom: 6),
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-    decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
-    child: Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500)),
-        Text(_eur.format(valor), style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-      ],
-    ),
-  );
+  Widget _totalSector(String label, double valor, Color bg) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bgColor = isDark ? bg.withOpacity(0.2) : bg;
+    final textColor = isDark ? Colors.white : Colors.black87;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor)),
+          Text(_eur.format(valor), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
+        ],
+      ),
+    );
+  }
 }

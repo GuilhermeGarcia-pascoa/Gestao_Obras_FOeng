@@ -1,61 +1,62 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Importação necessária para os formatters
 import '../../services/api_service.dart';
 import '../../widgets/search_bar_widget.dart';
- 
+
 class EquipaScreen extends StatefulWidget {
   const EquipaScreen({super.key});
- 
+
   @override
   State<EquipaScreen> createState() => _EquipaScreenState();
 }
- 
+
 class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderStateMixin {
   late TabController _tabs;
   List<dynamic> _pessoas = [];
   List<dynamic> _maquinas = [];
   List<dynamic> _viaturas = [];
- 
+
   List<dynamic> _pessoasFiltradas = [];
   List<dynamic> _maquinasFiltradas = [];
   List<dynamic> _viaturasFiltradas = [];
- 
+
   String _searchPessoas = '';
   String _searchMaquinas = '';
   String _searchViaturas = '';
- 
+
   bool _loading = true;
- 
+
   void _filtrarPessoas() => setState(() => _pessoasFiltradas = _pessoas.where((p) {
         final nome = (p['nome'] ?? '').toString().toLowerCase();
         final cargo = (p['cargo'] ?? '').toString().toLowerCase();
         return nome.contains(_searchPessoas.toLowerCase()) || cargo.contains(_searchPessoas.toLowerCase());
       }).toList());
- 
+
   void _filtrarMaquinas() => setState(() => _maquinasFiltradas = _maquinas.where((m) {
         final nome = (m['nome'] ?? '').toString().toLowerCase();
         final tipo = (m['tipo'] ?? '').toString().toLowerCase();
         return nome.contains(_searchMaquinas.toLowerCase()) || tipo.contains(_searchMaquinas.toLowerCase());
       }).toList());
- 
+
   void _filtrarViaturas() => setState(() => _viaturasFiltradas = _viaturas.where((v) {
         final modelo = (v['modelo'] ?? '').toString().toLowerCase();
         final matricula = (v['matricula'] ?? '').toString().toLowerCase();
         return modelo.contains(_searchViaturas.toLowerCase()) || matricula.contains(_searchViaturas.toLowerCase());
       }).toList());
- 
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
     _carregar();
   }
- 
+
   @override
   void dispose() {
     _tabs.dispose();
     super.dispose();
   }
- 
+
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
@@ -78,7 +79,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
     }
   }
- 
+
   void _adicionar() {
     final tab = _tabs.index;
     showModalBottomSheet(
@@ -91,7 +92,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       ),
     );
   }
- 
+
   void _editar(dynamic item) {
     final tab = _tabs.index;
     showModalBottomSheet(
@@ -105,7 +106,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       ),
     );
   }
- 
+
   Future<void> _apagar(dynamic item) async {
     final title = item['nome'] ?? item['modelo'] ?? 'registo';
     final result = await showDialog<bool>(
@@ -120,7 +121,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       ),
     );
     if (result != true) return;
- 
+
     try {
       if (_tabs.index == 0) await ApiService.apagarPessoa(item['id'] as int);
       else if (_tabs.index == 1) await ApiService.apagarMaquina(item['id'] as int);
@@ -130,7 +131,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
     }
   }
- 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,11 +154,11 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       floatingActionButton: FloatingActionButton(onPressed: _adicionar, child: const Icon(Icons.add)),
     );
   }
- 
+
   Widget _abaPessoas() => _buildAba(_pessoas, _pessoasFiltradas, 'Pesquisar pessoas...', _filtrarPessoas, (p) => '${p['cargo'] ?? ''} · €${p['custo_hora'] ?? 0}/h');
   Widget _abaMaquinas() => _buildAba(_maquinas, _maquinasFiltradas, 'Pesquisar máquinas...', _filtrarMaquinas, (m) => '${m['tipo'] ?? ''}  · €${m['custo_hora'] ?? 0}/h');
   Widget _abaViaturas() => _buildAba(_viaturas, _viaturasFiltradas, 'Pesquisar viaturas...', _filtrarViaturas, (v) => '${v['matricula'] ?? ''} · €${v['custo_km'] ?? 0}/km');
- 
+
   Widget _buildAba(List<dynamic> listaOriginal, List<dynamic> filtrados, String hint, VoidCallback onSearchChange, String Function(dynamic) subtitulo) {
     if (listaOriginal.isEmpty) return const Center(child: Text('Sem registos.'));
     return Column(
@@ -165,8 +166,16 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
         SearchBarWidget(
           hintText: hint,
           onChanged: (value) {
-            // Aqui tu tens o teu código de atribuir à variável de busca
-            // (mantém o que já tinhas)
+            if (_tabs.index == 0) {
+              _searchPessoas = value;
+              _filtrarPessoas();
+            } else if (_tabs.index == 1) {
+              _searchMaquinas = value;
+              _filtrarMaquinas();
+            } else {
+              _searchViaturas = value;
+              _filtrarViaturas();
+            }
           },
         ),
         Expanded(
@@ -177,7 +186,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       ],
     );
   }
- 
+
   Widget _listaRecursos(List<dynamic> lista, String Function(dynamic) subtitulo) {
     return ListView.separated(
       padding: const EdgeInsets.all(16),
@@ -208,25 +217,24 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
     );
   }
 }
- 
-// ─── FORMULÁRIO COM SCAFFOLD (ESTA VERSÃO NÃO DÁ MAIS ERRO DE LARGURA) ─────
+
 class _FormSheet extends StatefulWidget {
   final String tipo;
   final Map<String, dynamic>? item;
   final VoidCallback onSalvo;
   const _FormSheet({required this.tipo, this.item, required this.onSalvo});
- 
+
   @override
   State<_FormSheet> createState() => _FormSheetState();
 }
- 
+
 class _FormSheetState extends State<_FormSheet> {
   final _nomeCtrl = TextEditingController();
   final _cargoCtrl = TextEditingController();
   final _custoCtrl = TextEditingController();
   final _extraCtrl = TextEditingController();
   bool _saving = false;
- 
+
   @override
   void initState() {
     super.initState();
@@ -248,7 +256,7 @@ class _FormSheetState extends State<_FormSheet> {
       }
     }
   }
- 
+
   @override
   void dispose() {
     _nomeCtrl.dispose();
@@ -257,22 +265,25 @@ class _FormSheetState extends State<_FormSheet> {
     _extraCtrl.dispose();
     super.dispose();
   }
- 
+
   Future<void> _guardar() async {
     if (_nomeCtrl.text.trim().isEmpty) return;
     setState(() => _saving = true);
- 
+
     final nome = _nomeCtrl.text.trim();
     final cargo = _cargoCtrl.text.trim();
-    final custo = double.tryParse(_custoCtrl.text.trim()) ?? 0.0;
- 
+    // Substitui vírgula por ponto para garantir que o parse funciona em locais PT-PT
+    final custoStr = _custoCtrl.text.trim().replaceAll(',', '.');
+    final custo = double.tryParse(custoStr) ?? 0.0;
+
     try {
       if (widget.tipo == 'pessoa') {
         final body = {'nome': nome, 'cargo': cargo, 'custo_hora': custo, 'categoria_sindical': widget.item?['categoria_sindical'] ?? ''};
         if (widget.item == null) await ApiService.post('/equipa/pessoas', body);
         else await ApiService.editarPessoa(widget.item!['id'] as int, body);
       } else if (widget.tipo == 'maquina') {
-        final body = {'nome': nome, 'tipo': cargo, 'custo_hora': custo, 'combustivel_hora': double.tryParse(_extraCtrl.text.trim()) ?? 0.0};
+        final extraStr = _extraCtrl.text.trim().replaceAll(',', '.');
+        final body = {'nome': nome, 'tipo': cargo, 'custo_hora': custo, 'combustivel_hora': double.tryParse(extraStr) ?? 0.0};
         if (widget.item == null) await ApiService.post('/equipa/maquinas', body);
         else await ApiService.editarMaquina(widget.item!['id'] as int, body);
       } else {
@@ -280,7 +291,7 @@ class _FormSheetState extends State<_FormSheet> {
         if (widget.item == null) await ApiService.post('/equipa/viaturas', body);
         else await ApiService.editarViatura(widget.item!['id'] as int, body);
       }
- 
+
       widget.onSalvo();
       if (mounted) Navigator.pop(context);
     } catch (e) {
@@ -288,12 +299,17 @@ class _FormSheetState extends State<_FormSheet> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erro: $e')));
     }
   }
- 
+
   @override
   Widget build(BuildContext context) {
     final isPessoa = widget.tipo == 'pessoa';
     final isMaquina = widget.tipo == 'maquina';
- 
+
+    // Regex para permitir apenas números e um ponto/vírgula decimal
+    final numericFormatters = [
+      FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+    ];
+
     return Scaffold(
       appBar: AppBar(
         title: Text('${widget.item == null ? 'Adicionar' : 'Editar'} ${widget.tipo}'),
@@ -312,11 +328,29 @@ class _FormSheetState extends State<_FormSheet> {
               const SizedBox(height: 12),
               TextField(controller: _cargoCtrl, decoration: InputDecoration(labelText: isPessoa ? 'Cargo' : isMaquina ? 'Tipo' : 'Matrícula', border: const OutlineInputBorder())),
               const SizedBox(height: 12),
-              TextField(controller: _custoCtrl, keyboardType: TextInputType.numberWithOptions(decimal: true), decoration: InputDecoration(labelText: isPessoa ? 'Custo por hora' : isMaquina ? 'Custo por hora' : 'Custo por km', border: const OutlineInputBorder())),
- 
+              TextField(
+                controller: _custoCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                inputFormatters: numericFormatters, // Impede letras aqui
+                decoration: InputDecoration(
+                  labelText: isPessoa ? 'Custo por hora' : isMaquina ? 'Custo por hora' : 'Custo por km',
+                  border: const OutlineInputBorder(),
+                  prefixText: '€ ',
+                ),
+              ),
+
               if (isMaquina) ...[
                 const SizedBox(height: 12),
-                TextField(controller: _extraCtrl, keyboardType: TextInputType.numberWithOptions(decimal: true), decoration: const InputDecoration(labelText: 'Combustível por hora', border: OutlineInputBorder())),
+                TextField(
+                  controller: _extraCtrl,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: numericFormatters, // Impede letras aqui
+                  decoration: const InputDecoration(
+                    labelText: 'Combustível por hora',
+                    border: OutlineInputBorder(),
+                    prefixText: '€ ',
+                  ),
+                ),
               ],
             ],
           ),
@@ -338,4 +372,3 @@ class _FormSheetState extends State<_FormSheet> {
     );
   }
 }
- 

@@ -104,7 +104,7 @@ class ConfigScreen extends StatelessWidget {
           Card(
             child: Column(
               children: [
-                _opcao(context, icon: Icons.info_outline, label: 'Versão 1.0.0', onTap: null),
+                _opcao(context, icon: Icons.info_outline, label: 'Versão 1.6.7', onTap: null),
                 const Divider(height: 1),
                 _opcao(context, icon: Icons.code, label: 'Flutter + Node.js + MySQL', onTap: null),
               ],

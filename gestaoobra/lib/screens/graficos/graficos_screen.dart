@@ -43,7 +43,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
-      // Carrega dados globais quando entra no tab 4
       if (_tabController.index == 3 && _dadosGlobal == null && !_loadingGlobal) {
         _carregarGlobal();
       }
@@ -147,7 +146,15 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           IconButton(
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar gráficos',
-            onPressed: _carregarObras,
+            onPressed: () async {
+              await _carregarObras();
+              if (_tabController.index == 3) {
+                setState(() => _dadosGlobal = null);
+                _carregarGlobal();
+              } else if (_obraId != null) {
+                _selecionarObra(_obraId!);
+              }
+            },
           ),
           if (_intervalo != null)
             IconButton(icon: const Icon(Icons.filter_alt_off), tooltip: 'Limpar filtro', onPressed: _limparFiltro),
@@ -175,7 +182,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                // Seletor de obra (oculto no tab "Todas as obras")
                 AnimatedSize(
                   duration: const Duration(milliseconds: 200),
                   child: _tabController.index == 3
@@ -228,7 +234,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                   child: TabBarView(
                     controller: _tabController,
                     children: [
-                      // Tabs 1-3: dependem da obra selecionada
                       _loadingDados
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
@@ -244,7 +249,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                           : _dados == null
                               ? const Center(child: Text('Seleciona uma obra'))
                               : _tabComparacao(),
-                      // Tab 4: todas as obras
                       _loadingGlobal
                           ? const Center(child: CircularProgressIndicator())
                           : _dadosGlobal == null
@@ -522,7 +526,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // ── Cards globais ──────────────────────────────────────────────
           Row(children: [
             _metricCard('Faturado total', _eur.format(totalFaturado), Icons.euro,     const Color(0xFF185FA5)),
             const SizedBox(width: 10),
@@ -540,7 +543,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
 
           const SizedBox(height: 24),
 
-          // ── Gráfico de barras — faturado vs gasto por obra ─────────────
           const Text('Faturado vs Gasto por obra', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 4),
           Row(children: [
@@ -611,7 +613,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
 
           const SizedBox(height: 28),
 
-          // ── Tabela de obras ────────────────────────────────────────────
           const Text('Detalhe por obra', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
           const SizedBox(height: 12),
 
@@ -670,7 +671,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           }),
 
           const SizedBox(height: 8),
-          // Rodapé de totais
           Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
