@@ -141,6 +141,20 @@ class ApiService {
   
   static Future<void> alterarSenhaUtilizador(int id, String novaSenha) async =>
       await put('/admin/utilizadores/$id/senha', {'password': novaSenha});
+
+        // Novo: obter utilizador atual (seguro)
+  static Future<Map<String, dynamic>> getCurrentUser() async {
+    final data = await get('/auth/me');
+    return data['utilizador'] as Map<String, dynamic>;
+  }
+
+  // Opcional: invalidar token no backend (logout)
+  static Future<void> logout() async {
+    try {
+      await post('/auth/logout', {});
+    } catch (_) {}
+    await clearToken();
+  }
 }
 
 class ApiException implements Exception {

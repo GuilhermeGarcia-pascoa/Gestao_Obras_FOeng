@@ -12,6 +12,9 @@ dependencies:
     sdk: flutter
   flutter_localizations:     # <-- ADICIONADO
     sdk: flutter
+  flutter_secure_storage: ^9.2.4
+
+  
 
   # HTTP e estado
   http: ^1.1.0

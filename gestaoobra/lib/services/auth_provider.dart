@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
-import 'dart:convert';
-import 'package:shared_preferences/shared_preferences.dart'; // Precisas de adicionar isto no pubspec.yaml se ainda não tiveres
 import '../services/api_service.dart';
+import '../services/secure_storage.dart';
 
 class AuthProvider extends ChangeNotifier {
   Map<String, dynamic>? _utilizador;
@@ -13,30 +12,34 @@ class AuthProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get erro => _erro;
 
-  /// Método para correr quando a App inicia.
-  /// Verifica se já existe um utilizador guardado na memória do dispositivo.
+  // ──────────────────────────────────────
+  // 1. Verificar sessão ao abrir a app
   Future<void> verificarLoginInicial() async {
     _loading = true;
     notifyListeners();
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final utilizadorString = prefs.getString('dados_utilizador');
-
-      if (utilizadorString != null) {
-        // Se encontrou dados guardados, reconstrói o mapa do utilizador
-        _utilizador = jsonDecode(utilizadorString);
+      final token = await SecureStorage.getToken();
+      if (token == null) {
+        _utilizador = null;
+        return;
       }
+
+      // Chama o novo endpoint /auth/me
+      final userData = await ApiService.getCurrentUser();
+      _utilizador = userData;
+      await SecureStorage.saveUser(userData);
     } catch (e) {
-      _erro = 'Erro ao recuperar sessão local.';
       _utilizador = null;
+      await SecureStorage.clearAll();
     } finally {
       _loading = false;
       notifyListeners();
     }
   }
 
-  /// Método de Login
+  // ──────────────────────────────────────
+  // 2. Login
   Future<bool> login(String email, String password) async {
     _loading = true;
     _erro = null;
@@ -44,38 +47,28 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final data = await ApiService.login(email, password);
-      _utilizador = data['utilizador']; // Assume-se que a API devolve o objeto do utilizador aqui
+      final token = data['token'];
+      final user = data['utilizador'];
 
-      // Guarda os dados do utilizador localmente (SharedPreferences) para manter o login
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('dados_utilizador', jsonEncode(_utilizador));
+      await SecureStorage.saveToken(token);
+      await SecureStorage.saveUser(user);
 
-      _loading = false;
-      notifyListeners();
+      _utilizador = user;
       return true;
     } on ApiException catch (e) {
       _erro = e.mensagem;
+      return false;
+    } finally {
       _loading = false;
       notifyListeners();
-      return false;
-    } catch (e) {
-      _erro = 'Erro inesperado ao fazer login.';
-      _loading = false;
-      notifyListeners();
-      return false;
     }
   }
 
-  /// Método de Logout
+  // ──────────────────────────────────────
+  // 3. Logout
   Future<void> logout() async {
-    // 1. Limpa o token na API
-    await ApiService.clearToken();
-
-    // 2. Apaga os dados do utilizador guardados na memória do telemóvel
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('dados_utilizador');
-
-    // 3. Limpa o estado atual
+    await ApiService.logout(); // opcional: invalidar token no backend
+    await SecureStorage.clearAll();
     _utilizador = null;
     notifyListeners();
   }
