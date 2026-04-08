@@ -109,10 +109,16 @@ class ApiService {
   static Future<void> guardarDia(int id, Map<String, dynamic> dados) async =>
       await put('/dias/$id', dados);
 
+  static Future<void> apagarDia(int id) async =>
+      await delete('/dias/$id');
+
   // ── EQUIPA ─────────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> listarPessoas()  async => await get('/equipa/pessoas');
-  static Future<List<dynamic>> listarMaquinas() async => await get('/equipa/maquinas');
-  static Future<List<dynamic>> listarViaturas() async => await get('/equipa/viaturas');
+  static Future<List<dynamic>> listarPessoas({String estado = 'ativas'}) async =>
+      await get('/equipa/pessoas?estado=$estado');
+  static Future<List<dynamic>> listarMaquinas({String estado = 'ativas'}) async =>
+      await get('/equipa/maquinas?estado=$estado');
+  static Future<List<dynamic>> listarViaturas({String estado = 'ativas'}) async =>
+      await get('/equipa/viaturas?estado=$estado');
 
   static Future<void> editarPessoa(int id, Map<String, dynamic> dados) async =>
       await put('/equipa/pessoas/$id', dados);

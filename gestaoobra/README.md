@@ -120,6 +120,13 @@ npm install
 npm run dev                # arranca em http://localhost:3000
 ```
 
+### MigraÃ§Ã£o para histÃ³rico de custos
+Para guardar o custo usado em cada dia, sem alterar obras antigas quando mudares preÃ§os base, corre tambÃ©m:
+
+```sql
+SOURCE backend/sql/migracao_historico_custos.sql;
+```
+
 ### Criar o primeiro utilizador admin
 ```bash
 # Chama a rota de registo uma vez (depois podes removê-la ou protegê-la)

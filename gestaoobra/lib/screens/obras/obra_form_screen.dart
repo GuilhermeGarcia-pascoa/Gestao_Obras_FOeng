@@ -3,7 +3,8 @@ import 'package:flutter/services.dart';
 import '../../services/api_service.dart';
 
 class ObraFormScreen extends StatefulWidget {
-  final Map<String, dynamic>? obra; // null = criar novo
+  final Map<String, dynamic>? obra;
+
   const ObraFormScreen({super.key, this.obra});
 
   @override
@@ -11,16 +12,16 @@ class ObraFormScreen extends StatefulWidget {
 }
 
 class _ObraFormScreenState extends State<ObraFormScreen> {
-  final _formKey    = GlobalKey<FormState>();
+  final _formKey = GlobalKey<FormState>();
   final _codigoCtrl = TextEditingController();
-  final _nomeCtrl   = TextEditingController();
-  final _orcCtrl    = TextEditingController();
+  final _nomeCtrl = TextEditingController();
+  final _orcCtrl = TextEditingController();
 
-  String _tipo   = 'AC';
+  String _tipo = 'AC';
   String _estado = 'planeada';
-  bool _saving   = false;
+  bool _saving = false;
 
-  static const _tipos   = ['AC', 'DC', 'AC/DC', 'Mecânica', 'Inst. Elétrica'];
+  static const _tipos = ['AC', 'DC', 'AC/DC', 'Mecânica', 'Inst. Elétrica'];
   static const _estados = ['planeada', 'em_curso', 'concluida'];
 
   @override
@@ -29,10 +30,10 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
     if (widget.obra != null) {
       final o = widget.obra!;
       _codigoCtrl.text = o['codigo'] ?? '';
-      _nomeCtrl.text   = o['nome']   ?? '';
-      _orcCtrl.text    = o['orcamento']?.toString() ?? '';
+      _nomeCtrl.text = o['nome'] ?? '';
+      _orcCtrl.text = o['orcamento']?.toString() ?? '';
       final tipoExistente = o['tipo'] as String?;
-      _tipo   = _tipos.contains(tipoExistente) ? tipoExistente! : 'AC';
+      _tipo = _tipos.contains(tipoExistente) ? tipoExistente! : 'AC';
       _estado = o['estado'] ?? 'planeada';
     }
   }
@@ -45,16 +46,35 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
     super.dispose();
   }
 
+  double? _parseOrcamento() {
+    final value = _orcCtrl.text.trim();
+    if (value.isEmpty) return null;
+    final parsed = double.tryParse(value.replaceAll(',', '.'));
+    if (parsed == null || parsed < 0) return null;
+    return parsed;
+  }
+
   Future<void> _guardar() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _saving = true);
 
+    final orcamento = _parseOrcamento();
+    if (_orcCtrl.text.trim().isNotEmpty && orcamento == null) {
+      setState(() => _saving = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Orçamento inválido'), backgroundColor: Colors.red),
+        );
+      }
+      return;
+    }
+
     final dados = {
-      'codigo':    _codigoCtrl.text.trim(),
-      'nome':      _nomeCtrl.text.trim(),
-      'tipo':      _tipo,
-      'estado':    _estado,
-      'orcamento': _orcCtrl.text.isEmpty ? null : double.tryParse(_orcCtrl.text),
+      'codigo': _codigoCtrl.text.trim(),
+      'nome': _nomeCtrl.text.trim(),
+      'tipo': _tipo,
+      'estado': _estado,
+      'orcamento': orcamento,
     };
 
     try {
@@ -66,13 +86,18 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
       if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
       setState(() => _saving = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem), backgroundColor: Colors.red));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.mensagem), backgroundColor: Colors.red),
+        );
+      }
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.obra != null;
+
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Editar obra' : 'Nova obra')),
       body: Form(
@@ -84,13 +109,23 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
               controller: _codigoCtrl,
               decoration: const InputDecoration(labelText: 'Código *', hintText: 'ex: AC/174/PE'),
               textCapitalization: TextCapitalization.characters,
-              validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+              validator: (v) {
+                final value = v?.trim() ?? '';
+                if (value.isEmpty) return 'Obrigatório';
+                if (value.length < 3) return 'Código demasiado curto';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _nomeCtrl,
               decoration: const InputDecoration(labelText: 'Nome / descrição *'),
-              validator: (v) => v == null || v.isEmpty ? 'Obrigatório' : null,
+              validator: (v) {
+                final value = v?.trim() ?? '';
+                if (value.isEmpty) return 'Obrigatório';
+                if (value.length < 3) return 'Nome demasiado curto';
+                return null;
+              },
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
@@ -110,14 +145,25 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
             TextFormField(
               controller: _orcCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
               decoration: const InputDecoration(labelText: 'Orçamento (€)', prefixText: '€ '),
+              validator: (v) {
+                final value = (v ?? '').trim();
+                if (value.isEmpty) return null;
+                final parsed = double.tryParse(value.replaceAll(',', '.'));
+                if (parsed == null || parsed < 0) return 'Orçamento inválido';
+                return null;
+              },
             ),
             const SizedBox(height: 28),
             ElevatedButton(
               onPressed: _saving ? null : _guardar,
               child: _saving
-                  ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                    )
                   : Text(isEdit ? 'Guardar alterações' : 'Criar obra'),
             ),
           ],

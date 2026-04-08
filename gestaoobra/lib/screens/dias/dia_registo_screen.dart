@@ -55,6 +55,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   bool _loading       = true;
   bool _saving        = false;
   bool _temAlteracoes = false;
+  bool _estadoInicialVazio = true;
 
   // ── Lifecycle ─────────────────────────────────────────────────────────────
   @override
@@ -95,9 +96,9 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     try {
       final results = await Future.wait([
         ApiService.getDiaPorData(widget.obraId, widget.data),
-        ApiService.listarPessoas(),
-        ApiService.listarMaquinas(),
-        ApiService.listarViaturas(),
+        ApiService.listarPessoas(estado: 'todas'),
+        ApiService.listarMaquinas(estado: 'todas'),
+        ApiService.listarViaturas(estado: 'todas'),
       ]);
 
       final detalhe      = results[0] as Map<String, dynamic>;
@@ -138,6 +139,17 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       _materiaisCtrl.text   = _v(dia['valor_materiais']);
       _refeicoesCtrl.text   = _v(dia['valor_refeicoes']);
       _faturadoCtrl.text    = _v(dia['faturado']);
+      _estadoInicialVazio = _diaPersistidoEstaVazio(
+        pessoas: _pessoas,
+        maquinas: _maquinas,
+        viaturas: _viaturas,
+        valorTo: _p(dia['valor_to']),
+        valorCombustivel: _p(dia['valor_combustivel']),
+        valorEstadias: _p(dia['valor_estadias']),
+        valorMateriais: _p(dia['valor_materiais']),
+        valorRefeicoes: _p(dia['valor_refeicoes']),
+        faturado: _p(dia['faturado']),
+      );
 
       for (final c in [_moCtrl, _combustivelCtrl, _estadiasCtrl, _materiaisCtrl, _refeicoesCtrl, _faturadoCtrl]) {
         c.addListener(() => setState(() => _temAlteracoes = true));
@@ -253,7 +265,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   // ── Adicionar pessoa ──────────────────────────────────────────────────────
   Future<void> _adicionarPessoa() async {
     final jaIds = _pessoas.map((p) => p['pessoa_id']).toSet();
-    final disp  = _todasPessoas.where((p) => !jaIds.contains(p['id'])).toList();
+    final disp  = _todasPessoas.where((p) {
+      final ativo = p['ativo'] == null || p['ativo'] == true || p['ativo'] == 1;
+      return ativo && !jaIds.contains(p['id']);
+    }).toList();
     if (disp.isEmpty) { _snack('⚠️ Todas as pessoas já adicionadas', Colors.orange); return; }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
@@ -283,7 +298,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   // ── Adicionar máquina ─────────────────────────────────────────────────────
   Future<void> _adicionarMaquina() async {
     final jaIds = _maquinas.map((m) => m['maquina_id']).toSet();
-    final disp  = _todasMaquinas.where((m) => !jaIds.contains(m['id'])).toList();
+    final disp  = _todasMaquinas.where((m) {
+      final ativo = m['ativo'] == null || m['ativo'] == true || m['ativo'] == 1;
+      return ativo && !jaIds.contains(m['id']);
+    }).toList();
     if (disp.isEmpty) { _snack('⚠️ Todas as máquinas já adicionadas', Colors.orange); return; }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
@@ -312,7 +330,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   // ── Adicionar viatura ─────────────────────────────────────────────────────
   Future<void> _adicionarViatura() async {
     final jaIds = _viaturas.map((v) => v['viatura_id']).toSet();
-    final disp  = _todasViaturas.where((v) => !jaIds.contains(v['id'])).toList();
+    final disp  = _todasViaturas.where((v) {
+      final ativo = v['ativo'] == null || v['ativo'] == true || v['ativo'] == 1;
+      return ativo && !jaIds.contains(v['id']);
+    }).toList();
     if (disp.isEmpty) { _snack('⚠️ Todas as viaturas já adicionadas', Colors.orange); return; }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
@@ -339,6 +360,43 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   }
 
   // ── Totais ────────────────────────────────────────────────────────────────
+  Map<String, dynamic> _pessoaBase(int id) =>
+      Map<String, dynamic>.from(
+        _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0}),
+      );
+
+  Map<String, dynamic> _maquinaBase(int id) =>
+      Map<String, dynamic>.from(
+        _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'custo_hora': 0, 'combustivel_hora': 0}),
+      );
+
+  Map<String, dynamic> _viaturaBase(int id) =>
+      Map<String, dynamic>.from(
+        _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0}),
+      );
+
+  double _custoHoraPessoa(Map<String, dynamic> p) {
+    final id = p['pessoa_id'] as int;
+    if (_custoHoraOverride.containsKey(id)) return _custoHoraOverride[id]!;
+    if (p['custo_hora_snapshot'] != null) return _p(p['custo_hora_snapshot']);
+    return _p(_pessoaBase(id)['custo_hora']);
+  }
+
+  double _custoHoraMaquina(Map<String, dynamic> m) {
+    if (m['custo_hora_snapshot'] != null) return _p(m['custo_hora_snapshot']);
+    return _p(_maquinaBase(m['maquina_id'] as int)['custo_hora']);
+  }
+
+  double _combustivelHoraMaquina(Map<String, dynamic> m) {
+    if (m['combustivel_hora_snapshot'] != null) return _p(m['combustivel_hora_snapshot']);
+    return _p(_maquinaBase(m['maquina_id'] as int)['combustivel_hora']);
+  }
+
+  double _custoKmViatura(Map<String, dynamic> v) {
+    if (v['custo_km_snapshot'] != null) return _p(v['custo_km_snapshot']);
+    return _p(_viaturaBase(v['viatura_id'] as int)['custo_km']);
+  }
+
   double get _totalPessoal {
     double total = 0;
     for (final p in _pessoas) {
@@ -346,7 +404,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final horas = _p(_horasP[id]?.text);
       final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
       // usa override se existir, caso contrário usa o valor base do operador
-      final custoH = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : _p(pessoa['custo_hora']);
+      final custoH = _custoHoraPessoa(p);
       final extra  = _p(_custoExtraP[id]?.text);
       total += horas * custoH + extra;
     }
@@ -359,7 +417,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final id = m['maquina_id'] as int;
       final horas = _p(_horasM[id]?.text);
       final maq   = _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'custo_hora': 0});
-      total += horas * _p(maq['custo_hora']);
+      total += horas * _custoHoraMaquina(m);
     }
     return total;
   }
@@ -370,7 +428,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final id  = v['viatura_id'] as int;
       final km  = _p(_kmV[id]?.text);
       final viat = _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0});
-      total += km * _p(viat['custo_km']);
+      total += km * _custoKmViatura(v);
     }
     return total;
   }
@@ -381,9 +439,49 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
   double get _totalGeral => _totalPessoal + _totalMaquinas + _totalViaturas + _totalGastosDiretos;
 
+  String? _validarDia() {
+    for (final p in _pessoas) {
+      final id = p['pessoa_id'] as int;
+      final horas = _p(_horasP[id]?.text);
+      final extra = _p(_custoExtraP[id]?.text);
+      if (horas < 0 || horas > 24) return 'As horas das pessoas têm de estar entre 0 e 24.';
+      if (extra < 0) return 'O custo extra das pessoas não pode ser negativo.';
+    }
+
+    for (final m in _maquinas) {
+      final id = m['maquina_id'] as int;
+      final horas = _p(_horasM[id]?.text);
+      if (horas < 0 || horas > 24) return 'As horas das máquinas têm de estar entre 0 e 24.';
+    }
+
+    for (final v in _viaturas) {
+      final id = v['viatura_id'] as int;
+      final km = _p(_kmV[id]?.text);
+      if (km < 0 || km > 2000) return 'Os quilómetros das viaturas têm de estar entre 0 e 2000.';
+    }
+
+    for (final ctrl in [_moCtrl, _combustivelCtrl, _estadiasCtrl, _materiaisCtrl, _refeicoesCtrl, _faturadoCtrl]) {
+      if (_p(ctrl.text) < 0) return 'Os valores monetários não podem ser negativos.';
+    }
+
+    return null;
+  }
+
   // ── Guardar ───────────────────────────────────────────────────────────────
   Future<void> _guardar() async {
     if (_diaId == null) return;
+    final erro = _validarDia();
+    if (erro != null) {
+      _snack(erro, Colors.red);
+      return;
+    }
+
+    final faltas = _camposEmFalta();
+    if (faltas.isNotEmpty) {
+      final continuar = await _confirmarGuardarIncompleto(faltas);
+      if (!continuar) return;
+    }
+
     setState(() => _saving = true);
 
     try {
@@ -393,13 +491,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final horas = _p(_horasP[id]?.text);
         if (horas <= 0) continue;
         final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
-        final custoH = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : _p(pessoa['custo_hora']);
+        final custoH = _custoHoraPessoa(p);
         horasPessoas.add({
           'pessoa_id':         id,
           'horas_total':        horas,
           'custo_total':        horas * custoH,
           'custo_extra':        _p(_custoExtraP[id]?.text),
           'custo_hora_override': _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id] : null,
+          'custo_hora_snapshot': custoH,
         });
       }
 
@@ -408,11 +507,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id    = m['maquina_id'] as int;
         final horas = _p(_horasM[id]?.text);
         if (horas <= 0) continue;
-        final maq = _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'combustivel_hora': 0});
+        final custoHora = _custoHoraMaquina(m);
+        final combustivelHora = _combustivelHoraMaquina(m);
         horasMaquinas.add({
           'maquina_id':       id,
           'horas_total':       horas,
-          'combustivel_total': horas * _p(maq['combustivel_hora']),
+          'custo_total':       horas * custoHora,
+          'combustivel_total': horas * combustivelHora,
+          'custo_hora_snapshot': custoHora,
+          'combustivel_hora_snapshot': combustivelHora,
         });
       }
 
@@ -421,11 +524,12 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id = v['viatura_id'] as int;
         final km = _p(_kmV[id]?.text);
         if (km <= 0) continue;
-        final viat = _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0});
+        final custoKm = _custoKmViatura(v);
         horasViaturas.add({
           'viatura_id': id,
           'km_total':   km,
-          'custo_total': km * _p(viat['custo_km']),
+          'custo_total': km * custoKm,
+          'custo_km_snapshot': custoKm,
         });
       }
 
@@ -445,7 +549,11 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       });
 
       if (mounted) {
-        setState(() { _saving = false; _temAlteracoes = false; });
+        setState(() {
+          _saving = false;
+          _temAlteracoes = false;
+          _estadoInicialVazio = false;
+        });
         _snack('✓ Dia guardado!', Colors.green);
         await Future.delayed(const Duration(milliseconds: 400));
         if (mounted) Navigator.pop(context, true);
@@ -456,9 +564,109 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     }
   }
 
+  List<String> _camposEmFalta() {
+    final faltas = <String>[];
+
+    for (final p in _pessoas) {
+      final id = p['pessoa_id'] as int;
+      final horas = _p(_horasP[id]?.text);
+      if (horas <= 0) {
+        final item = _todasPessoas.firstWhere(
+          (tp) => tp['id'] == id,
+          orElse: () => {'nome': 'Pessoa sem nome'},
+        );
+        faltas.add('Pessoa sem horas: ${item['nome']}');
+      }
+    }
+
+    for (final m in _maquinas) {
+      final id = m['maquina_id'] as int;
+      final horas = _p(_horasM[id]?.text);
+      if (horas <= 0) {
+        final item = _todasMaquinas.firstWhere(
+          (tm) => tm['id'] == id,
+          orElse: () => {'nome': 'Máquina sem nome'},
+        );
+        faltas.add('Máquina sem horas: ${item['nome']}');
+      }
+    }
+
+    for (final v in _viaturas) {
+      final id = v['viatura_id'] as int;
+      final km = _p(_kmV[id]?.text);
+      if (km <= 0) {
+        final item = _todasViaturas.firstWhere(
+          (tv) => tv['id'] == id,
+          orElse: () => {'modelo': 'Viatura sem nome'},
+        );
+        faltas.add('Viatura sem km: ${item['modelo']}');
+      }
+    }
+
+    final gastos = {
+      'Mão de obra': _p(_moCtrl.text),
+      'Combustível': _p(_combustivelCtrl.text),
+      'Estadias': _p(_estadiasCtrl.text),
+      'Refeições': _p(_refeicoesCtrl.text),
+      'Materiais': _p(_materiaisCtrl.text),
+      'Faturado': _p(_faturadoCtrl.text),
+    };
+
+    final temRegistosOperacionais = _pessoas.any((p) => _p(_horasP[p['pessoa_id'] as int]?.text) > 0) ||
+        _maquinas.any((m) => _p(_horasM[m['maquina_id'] as int]?.text) > 0) ||
+        _viaturas.any((v) => _p(_kmV[v['viatura_id'] as int]?.text) > 0);
+
+    if (!temRegistosOperacionais && gastos.values.every((v) => v <= 0)) {
+      faltas.add('O dia está sem dados preenchidos.');
+    } else {
+      gastos.forEach((label, valor) {
+        if (valor <= 0) faltas.add('$label por preencher.');
+      });
+    }
+
+    return faltas;
+  }
+
+  Future<bool> _confirmarGuardarIncompleto(List<String> faltas) async {
+    if (!mounted) return false;
+    final preview = faltas.take(8).join('\n• ');
+    final extra = faltas.length > 8 ? '\n• ...e mais ${faltas.length - 8} ponto(s).' : '';
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Há campos por preencher'),
+        content: Text(
+          'Encontrei alguns pontos em falta:\n• $preview$extra\n\nQueres guardar mesmo assim?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Voltar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Guardar assim mesmo'),
+          ),
+        ],
+      ),
+    );
+
+    return result ?? false;
+  }
+
   // ── Aviso ao sair com alterações ──────────────────────────────────────────
   Future<bool> _aoTentarSair() async {
-    if (!_temAlteracoes) return true;
+    if (!_temAlteracoes) {
+      if (_estadoInicialVazio && _diaId != null) {
+        try {
+          await ApiService.apagarDia(_diaId!);
+        } catch (_) {
+          // Ignora erro aqui para não prender a saída.
+        }
+      }
+      return true;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
@@ -471,10 +679,42 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         ],
       ),
     );
-    return ok ?? false;
+    final sair = ok ?? false;
+    if (sair && _estadoInicialVazio && _diaId != null) {
+      try {
+        await ApiService.apagarDia(_diaId!);
+      } catch (_) {
+        // Ignora erro aqui para não prender a saída.
+      }
+    }
+    return sair;
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  bool _diaPersistidoEstaVazio({
+    required List<Map<String, dynamic>> pessoas,
+    required List<Map<String, dynamic>> maquinas,
+    required List<Map<String, dynamic>> viaturas,
+    required double valorTo,
+    required double valorCombustivel,
+    required double valorEstadias,
+    required double valorMateriais,
+    required double valorRefeicoes,
+    required double faturado,
+  }) {
+    final temPessoas = pessoas.any((p) => _p(p['horas_total']) > 0);
+    final temMaquinas = maquinas.any((m) => _p(m['horas_total']) > 0);
+    final temViaturas = viaturas.any((v) => _p(v['km_total']) > 0);
+    final temValores = valorTo > 0 ||
+        valorCombustivel > 0 ||
+        valorEstadias > 0 ||
+        valorMateriais > 0 ||
+        valorRefeicoes > 0 ||
+        faturado > 0;
+
+    return !(temPessoas || temMaquinas || temViaturas || temValores);
+  }
+
   String _v(dynamic val) {
     if (val == null) return '0';
     if (val is num) return val == 0 ? '0' : val.toStringAsFixed(val.truncateToDouble() == val ? 0 : 2);
@@ -655,8 +895,8 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     final id   = p['pessoa_id'] as int;
     final item = _todasPessoas.firstWhere((x) => x['id'] == id, orElse: () => {'nome': 'Desconhecido', 'custo_hora': 0});
     final nome      = (item['nome'] ?? '') as String;
-    final custoBase = _p(item['custo_hora']);
-    final custoAtivo = _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id]! : custoBase;
+    final custoBase = p['custo_hora_snapshot'] != null ? _p(p['custo_hora_snapshot']) : _p(item['custo_hora']);
+    final custoAtivo = _custoHoraPessoa(p);
     final temOverride = _custoHoraOverride.containsKey(id);
 
     return Card(
@@ -712,6 +952,13 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   Text(
                     '€${custoBase.toStringAsFixed(2)}/h base',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
+                  ),
+                if (!temOverride)
+                  const SizedBox(width: 4),
+                if (!temOverride)
+                  const Text(
+                    '(valor guardado no dia)',
+                    style: TextStyle(fontSize: 11, color: Colors.grey),
                   ),
                 const SizedBox(width: 4),
                 // Botão editar

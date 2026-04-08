@@ -201,7 +201,7 @@ router.get('/graficos/:obra_id', async (req, res) => {
     );
     const [metricasMaquinas] = await pool.query(
       `SELECT SUM(dm.horas_total) AS total_horas, SUM(dm.combustivel_total) AS total_combustivel,
-              COUNT(DISTINCT dm.maquina_id) AS total_maquinas
+              SUM(dm.custo_total) AS total_custo, COUNT(DISTINCT dm.maquina_id) AS total_maquinas
        FROM dia_maquinas dm JOIN dias d ON d.id = dm.dia_id
        WHERE d.obra_id = ?${filtroJoin}`, paramsJoin
     );
@@ -214,16 +214,18 @@ router.get('/graficos/:obra_id', async (req, res) => {
 
     const totalPessoal     = (Number(metricasPessoas[0]?.total_custo) || 0) + (Number(metricasPessoas[0]?.total_extra) || 0);
     const totalCombustivel = Number(metricasMaquinas[0]?.total_combustivel) || 0;
+    const totalMaquinas    = Number(metricasMaquinas[0]?.total_custo) || 0;
     const totalViaturas    = Number(metricasViaturas[0]?.total_custo) || 0;
     const totalTo          = dias.reduce((s, d) => s + (Number(d.valor_to)          || 0), 0);
     const totalEstadias    = dias.reduce((s, d) => s + (Number(d.valor_estadias)    || 0), 0);
     const totalMateriais   = dias.reduce((s, d) => s + (Number(d.valor_materiais)   || 0), 0);
     const totalRefeicoes   = dias.reduce((s, d) => s + (Number(d.valor_refeicoes)   || 0), 0);
 
-    const totalGasto = totalPessoal + totalCombustivel + totalViaturas + totalTo + totalEstadias + totalMateriais + totalRefeicoes;
+    const totalGasto = totalPessoal + totalMaquinas + totalCombustivel + totalViaturas + totalTo + totalEstadias + totalMateriais + totalRefeicoes;
 
     const distribuicao = [
       { categoria: 'Pessoal',     valor: totalPessoal     },
+      { categoria: 'Maquinas',    valor: totalMaquinas    },
       { categoria: 'Combustível', valor: totalCombustivel },
       { categoria: 'Viaturas',    valor: totalViaturas    },
       { categoria: 'M.O.',        valor: totalTo          },
@@ -246,7 +248,7 @@ router.get('/graficos/:obra_id', async (req, res) => {
       evolucao, distribuicao, totalGasto,
       metricas: {
         pessoas:  { total_horas: Number(metricasPessoas[0]?.total_horas) || 0, total_custo: totalPessoal, total_pessoas: Number(metricasPessoas[0]?.total_pessoas) || 0 },
-        maquinas: { total_horas: Number(metricasMaquinas[0]?.total_horas) || 0, total_combustivel: totalCombustivel, total_maquinas: Number(metricasMaquinas[0]?.total_maquinas) || 0 },
+        maquinas: { total_horas: Number(metricasMaquinas[0]?.total_horas) || 0, total_custo: totalMaquinas, total_combustivel: totalCombustivel, total_maquinas: Number(metricasMaquinas[0]?.total_maquinas) || 0 },
         viaturas: { total_km: Number(metricasViaturas[0]?.total_km) || 0, total_custo: totalViaturas, total_viaturas: Number(metricasViaturas[0]?.total_viaturas) || 0 },
       },
       comparacao,

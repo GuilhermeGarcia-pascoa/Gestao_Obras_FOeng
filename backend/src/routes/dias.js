@@ -5,13 +5,83 @@ const { auth } = require('../middleware/auth');
 const router = express.Router();
 router.use(auth);
 
+const DIA_COM_DADOS_SQL = `
+(
+  COALESCE(faturado, 0) > 0 OR
+  COALESCE(valor_to, 0) > 0 OR
+  COALESCE(valor_combustivel, 0) > 0 OR
+  COALESCE(valor_estadias, 0) > 0 OR
+  COALESCE(valor_materiais, 0) > 0 OR
+  COALESCE(valor_refeicoes, 0) > 0 OR
+  EXISTS (SELECT 1 FROM dia_pessoas dp WHERE dp.dia_id = dias.id) OR
+  EXISTS (SELECT 1 FROM dia_maquinas dm WHERE dm.dia_id = dias.id) OR
+  EXISTS (SELECT 1 FROM dia_viaturas dv WHERE dv.dia_id = dias.id)
+)`;
+
+function numeroNaoNegativo(value) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= 0 ? n : null;
+}
+
+function numeroEntre(value, min, max) {
+  const n = Number(value);
+  return Number.isFinite(n) && n >= min && n <= max ? n : null;
+}
+
+function validarDia(payload) {
+  if (numeroNaoNegativo(payload.faturado ?? 0) == null) return 'Faturado inválido';
+
+  const gastos = payload.gastos ?? {};
+  const camposGasto = [
+    ['valor_to', 'Mão de obra'],
+    ['valor_combustivel', 'Combustível'],
+    ['valor_estadias', 'Estadias'],
+    ['valor_materiais', 'Materiais'],
+    ['valor_refeicoes', 'Refeições'],
+  ];
+
+  for (const [campo, label] of camposGasto) {
+    if (numeroNaoNegativo(gastos[campo] ?? 0) == null) return `${label} inválido`;
+  }
+
+  for (const p of payload.horasPessoas || []) {
+    if (!p.pessoa_id) return 'Pessoa inválida';
+    if (numeroEntre(p.horas_total, 0, 24) == null) return 'Horas de pessoa têm de estar entre 0 e 24';
+    if (numeroNaoNegativo(p.custo_total ?? 0) == null) return 'Custo total de pessoa inválido';
+    if (numeroNaoNegativo(p.custo_extra ?? 0) == null) return 'Custo extra de pessoa inválido';
+    if (p.custo_hora_override != null && numeroNaoNegativo(p.custo_hora_override) == null) return 'Custo/hora personalizado inválido';
+    if (numeroNaoNegativo(p.custo_hora_snapshot ?? 0) == null) return 'Snapshot de custo/hora inválido';
+  }
+
+  for (const m of payload.horasMaquinas || []) {
+    if (!m.maquina_id) return 'Máquina inválida';
+    if (numeroEntre(m.horas_total, 0, 24) == null) return 'Horas de máquina têm de estar entre 0 e 24';
+    if (numeroNaoNegativo(m.custo_total ?? 0) == null) return 'Custo total de máquina inválido';
+    if (numeroNaoNegativo(m.combustivel_total ?? 0) == null) return 'Combustível total de máquina inválido';
+    if (numeroNaoNegativo(m.custo_hora_snapshot ?? 0) == null) return 'Snapshot de custo/hora da máquina inválido';
+    if (numeroNaoNegativo(m.combustivel_hora_snapshot ?? 0) == null) return 'Snapshot de combustível/hora inválido';
+  }
+
+  for (const v of payload.horasViaturas || []) {
+    if (!v.viatura_id) return 'Viatura inválida';
+    if (numeroEntre(v.km_total, 0, 2000) == null) return 'Quilómetros da viatura têm de estar entre 0 e 2000';
+    if (numeroNaoNegativo(v.custo_total ?? 0) == null) return 'Custo total da viatura inválido';
+    if (numeroNaoNegativo(v.custo_km_snapshot ?? 0) == null) return 'Snapshot de custo/km inválido';
+  }
+
+  return null;
+}
+
 // ── GET /api/dias/anteriores?obra_id=X&mes=YYYY-MM
 router.get('/anteriores', async (req, res) => {
   const { obra_id, mes } = req.query;
   if (!obra_id || !mes) return res.status(400).json({ erro: 'obra_id e mes obrigatórios' });
   try {
     const [rows] = await pool.query(
-      "SELECT DATE_FORMAT(data, '%Y-%m-%d') as data, faturado FROM dias WHERE obra_id = ? AND DATE_FORMAT(data, '%Y-%m') = ? ORDER BY data",
+      `SELECT DATE_FORMAT(data, '%Y-%m-%d') as data, faturado
+       FROM dias
+       WHERE obra_id = ? AND DATE_FORMAT(data, '%Y-%m') = ? AND ${DIA_COM_DADOS_SQL}
+       ORDER BY data`,
       [obra_id, mes]
     );
     res.json(rows);
@@ -26,7 +96,10 @@ router.get('/lista', async (req, res) => {
   if (!obra_id) return res.status(400).json({ erro: 'obra_id obrigatório' });
   try {
     const [rows] = await pool.query(
-      "SELECT id, DATE_FORMAT(data, '%Y-%m-%d') as data, faturado FROM dias WHERE obra_id = ? ORDER BY data DESC",
+      `SELECT id, DATE_FORMAT(data, '%Y-%m-%d') as data, faturado
+       FROM dias
+       WHERE obra_id = ? AND ${DIA_COM_DADOS_SQL}
+       ORDER BY data DESC`,
       [obra_id]
     );
     res.json(rows);
@@ -80,7 +153,11 @@ router.get('/:id/anterior', async (req, res) => {
     const [[atual]] = await pool.query('SELECT * FROM dias WHERE id = ?', [req.params.id]);
     if (!atual) return res.status(404).json({ erro: 'Dia não encontrado' });
     const [[anterior]] = await pool.query(
-      'SELECT * FROM dias WHERE obra_id = ? AND data < ? ORDER BY data DESC LIMIT 1',
+      `SELECT *
+       FROM dias
+       WHERE obra_id = ? AND data < ? AND ${DIA_COM_DADOS_SQL}
+       ORDER BY data DESC
+       LIMIT 1`,
       [atual.obra_id, atual.data]
     );
     if (!anterior) return res.status(404).json({ erro: 'Não existe dia anterior com dados' });
@@ -138,6 +215,8 @@ router.get('/:id/copiar-de', async (req, res) => {
 // ── PUT /api/dias/:id
 router.put('/:id', async (req, res) => {
   const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas, gastos } = req.body;
+  const erro = validarDia(req.body);
+  if (erro) return res.status(400).json({ erro });
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -166,8 +245,8 @@ router.put('/:id', async (req, res) => {
       for (const p of horasPessoas || []) {
         await conn.query(
           `INSERT INTO dia_pessoas
-             (dia_id, pessoa_id, horas_total, custo_total, custo_extra, custo_hora_override)
-           VALUES (?, ?, ?, ?, ?, ?)`,
+             (dia_id, pessoa_id, horas_total, custo_total, custo_extra, custo_hora_override, custo_hora_snapshot)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
           [
             req.params.id,
             p.pessoa_id,
@@ -175,6 +254,7 @@ router.put('/:id', async (req, res) => {
             p.custo_total,
             p.custo_extra ?? 0,
             p.custo_hora_override ?? null,
+            p.custo_hora_snapshot ?? p.custo_hora_override ?? null,
           ]
         );
       }
@@ -185,8 +265,10 @@ router.put('/:id', async (req, res) => {
       await conn.query('DELETE FROM dia_maquinas WHERE dia_id = ?', [req.params.id]);
       for (const m of horasMaquinas || []) {
         await conn.query(
-          'INSERT INTO dia_maquinas (dia_id, maquina_id, horas_total, combustivel_total) VALUES (?, ?, ?, ?)',
-          [req.params.id, m.maquina_id, m.horas_total, m.combustivel_total]
+          `INSERT INTO dia_maquinas
+             (dia_id, maquina_id, horas_total, custo_total, combustivel_total, custo_hora_snapshot, combustivel_hora_snapshot)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`,
+          [req.params.id, m.maquina_id, m.horas_total, m.custo_total ?? 0, m.combustivel_total ?? 0, m.custo_hora_snapshot ?? null, m.combustivel_hora_snapshot ?? null]
         );
       }
     }
@@ -196,8 +278,8 @@ router.put('/:id', async (req, res) => {
       await conn.query('DELETE FROM dia_viaturas WHERE dia_id = ?', [req.params.id]);
       for (const v of horasViaturas || []) {
         await conn.query(
-          'INSERT INTO dia_viaturas (dia_id, viatura_id, km_total, custo_total) VALUES (?, ?, ?, ?)',
-          [req.params.id, v.viatura_id, v.km_total, v.custo_total]
+          'INSERT INTO dia_viaturas (dia_id, viatura_id, km_total, custo_total, custo_km_snapshot) VALUES (?, ?, ?, ?, ?)',
+          [req.params.id, v.viatura_id, v.km_total, v.custo_total, v.custo_km_snapshot ?? null]
         );
       }
     }

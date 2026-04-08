@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
 import '../utils/formatters.dart';
@@ -24,35 +25,30 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
-      // Carrega dados globais das obras
       final global = await ApiService.getGraficosTodasObras();
       setState(() {
-        _dados   = global;
+        _dados = global;
         _loading = false;
       });
     } on ApiException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.mensagem)),
-        );
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final user  = context.watch<AuthProvider>().utilizador;
-    final nome  = (user?['nome'] as String? ?? '').split(' ').first;
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+    final user = context.watch<AuthProvider>().utilizador;
+    final nome = (user?['nome'] as String? ?? '').split(' ').first;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Dashboard'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh_rounded),
             tooltip: 'Atualizar',
             onPressed: _carregar,
           ),
@@ -62,201 +58,379 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _carregar,
-              child: _buildBody(nome, isDark),
+              child: _buildBody(nome),
             ),
     );
   }
 
-  Widget _buildBody(String nome, bool isDark) {
-    final resumo  = (_dados?['resumo']  as Map<String, dynamic>?) ?? {};
-    final obras   = List<Map<String, dynamic>>.from(_dados?['obras'] ?? []);
+  Widget _buildBody(String nome) {
+    final resumo = (_dados?['resumo'] as Map<String, dynamic>?) ?? {};
+    final obras = List<Map<String, dynamic>>.from(_dados?['obras'] ?? []);
 
     final totalFaturado = _toDouble(resumo['total_faturado']);
-    final totalGasto    = _toDouble(resumo['total_gasto']);
-    final margem        = _toDouble(resumo['margem']);
-    final totalObras    = _toInt(resumo['total_obras']);
+    final totalGasto = _toDouble(resumo['total_gasto']);
+    final margem = _toDouble(resumo['margem']);
+    final totalObras = _toInt(resumo['total_obras']);
 
-    final obrasEmCurso  = obras.where((o) => o['estado'] == 'em_curso').toList();
+    final obrasEmCurso = obras.where((o) => o['estado'] == 'em_curso').toList();
     final obrasConcluidas = obras.where((o) => o['estado'] == 'concluida').length;
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      children: [
-        // ── Saudação ────────────────────────────────────────────────────────
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final wide = constraints.maxWidth >= 1100;
+        final crossAxisCount = constraints.maxWidth >= 1250
+            ? 4
+            : constraints.maxWidth >= 820
+                ? 3
+                : 2;
+
+        return ListView(
+          padding: EdgeInsets.fromLTRB(wide ? 28 : 16, 10, wide ? 28 : 16, 28),
+          children: [
+            _hero(nome, totalObras, obrasEmCurso.length, margem),
+            const SizedBox(height: 20),
+            _sectionTitle('Pulso do negócio', 'Leitura rápida do estado atual das obras.'),
+            const SizedBox(height: 12),
+            _kpiGrid(
+              crossAxisCount: crossAxisCount,
+              items: [
+                _KpiData('Total obras', '$totalObras', Icons.apartment_rounded, const Color(0xFF185FA5)),
+                _KpiData('Em curso', '${obrasEmCurso.length}', Icons.construction_rounded, const Color(0xFF12836D)),
+                _KpiData('Faturado', Fmt.moeda0(totalFaturado), Icons.euro_rounded, const Color(0xFF2F6FED)),
+                _KpiData(
+                  'Margem total',
+                  Fmt.moeda0(margem),
+                  margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                  margem >= 0 ? const Color(0xFF12836D) : const Color(0xFFE76F51),
+                ),
+                _KpiData('Gasto total', Fmt.moeda0(totalGasto), Icons.receipt_long_rounded, const Color(0xFFE6824D)),
+                _KpiData('Concluídas', '$obrasConcluidas', Icons.verified_rounded, const Color(0xFF6E7F92)),
+              ],
+            ),
+            const SizedBox(height: 28),
+            _sectionTitle('Obras em curso', 'As frentes que mais importam para a operação de hoje.'),
+            const SizedBox(height: 12),
+            if (obrasEmCurso.isEmpty)
+              _emptyPanel()
+            else
+              ...obrasEmCurso.map((o) => Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: _cardObra(o),
+                  )),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _hero(String nome, int totalObras, int emCurso, double margem) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(30),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.primary,
+            Color.alphaBlend(
+              theme.colorScheme.secondary.withOpacity(0.5),
+              theme.colorScheme.primary,
+            ),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(isDark ? 0.26 : 0.22),
+            blurRadius: 28,
+            offset: const Offset(0, 18),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Olá, $nome',
+            style: theme.textTheme.headlineMedium?.copyWith(
+              color: Colors.white,
+              fontSize: 30,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            Fmt.dataLonga(DateTime.now()),
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Resumo pronto para desktop, tablet e telemóvel sem perder legibilidade.',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 15,
+              height: 1.35,
+            ),
+          ),
+          const SizedBox(height: 18),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
             children: [
-              Text(
-                'Olá, $nome 👋',
-                style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-              ),
-              Text(
-                Fmt.dataLonga(DateTime.now()),
-                style: const TextStyle(color: Colors.grey, fontSize: 13),
+              _heroChip(Icons.apartment_rounded, '$totalObras obras'),
+              _heroChip(Icons.play_circle_fill_rounded, '$emCurso ativas'),
+              _heroChip(
+                margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                margem >= 0 ? 'Margem saudável' : 'Margem pressionada',
               ),
             ],
           ),
-        ),
-
-        // ── KPIs globais ────────────────────────────────────────────────────
-        Row(children: [
-          _kpiCard('Total obras',  '$totalObras',         Icons.business,       const Color(0xFF185FA5)),
-          const SizedBox(width: 10),
-          _kpiCard('Em curso',     '${obrasEmCurso.length}', Icons.construction, const Color(0xFF4CAF82)),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          _kpiCard('Faturado',     Fmt.moeda0(totalFaturado), Icons.euro,        const Color(0xFF185FA5)),
-          const SizedBox(width: 10),
-          _kpiCard('Margem total', Fmt.moeda0(margem),
-              margem >= 0 ? Icons.trending_up : Icons.trending_down,
-              margem >= 0 ? const Color(0xFF4CAF82) : Colors.red),
-        ]),
-        const SizedBox(height: 10),
-        Row(children: [
-          _kpiCard('Gasto total',  Fmt.moeda0(totalGasto),   Icons.payments,    const Color(0xFFE76F51)),
-          const SizedBox(width: 10),
-          _kpiCard('Concluídas',   '$obrasConcluidas',        Icons.check_circle, Colors.grey),
-        ]),
-
-        const SizedBox(height: 24),
-
-        // ── Obras em curso ──────────────────────────────────────────────────
-        if (obrasEmCurso.isNotEmpty) ...[
-          Row(children: [
-            Container(
-              width:  4,
-              height: 18,
-              decoration: BoxDecoration(
-                color: const Color(0xFF185FA5),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Text(
-              'Obras em curso',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-          ]),
-          const SizedBox(height: 12),
-          ...obrasEmCurso.map((o) => _cardObra(o)),
         ],
+      ),
+    );
+  }
 
-        // ── Mensagem se não há obras ─────────────────────────────────────────
-        if (obras.isEmpty)
-          Center(
-            child: Padding(
-              padding: const EdgeInsets.all(32),
-              child: Column(
-                children: [
-                  Icon(Icons.construction_outlined, size: 64, color: Colors.grey.shade400),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Sem obras registadas.\nCria a primeira na aba Obras.',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey, fontSize: 15),
-                  ),
-                ],
-              ),
+  Widget _heroChip(IconData icon, String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.14),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: Colors.white.withOpacity(0.16)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: Colors.white),
+          const SizedBox(width: 8),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
             ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _sectionTitle(String title, String subtitle) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
+        ),
       ],
     );
   }
 
-  Widget _kpiCard(String label, String valor, IconData icon, Color cor) {
-    return Expanded(
-      child: Container(
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: cor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: cor.withOpacity(0.2)),
-        ),
-        child: Row(children: [
+  Widget _kpiGrid({required int crossAxisCount, required List<_KpiData> items}) {
+    return GridView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount,
+        crossAxisSpacing: 12,
+        mainAxisSpacing: 12,
+        childAspectRatio: 1.45,
+      ),
+      itemCount: items.length,
+      itemBuilder: (context, index) => _kpiCard(items[index]),
+    );
+  }
+
+  Widget _kpiCard(_KpiData item) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.12 : 0.04),
+            blurRadius: 16,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
           Container(
-            padding: const EdgeInsets.all(8),
+            width: 46,
+            height: 46,
             decoration: BoxDecoration(
-              color: cor.withOpacity(0.15),
-              shape: BoxShape.circle,
+              color: item.color.withOpacity(0.12),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Icon(icon, size: 16, color: cor),
+            child: Icon(item.icon, color: item.color),
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  valor,
-                  style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-              ],
+          const Spacer(),
+          Text(
+            item.value,
+            style: theme.textTheme.titleLarge?.copyWith(fontSize: 22),
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            item.label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-        ]),
+        ],
       ),
     );
   }
 
   Widget _cardObra(Map<String, dynamic> obra) {
+    final theme = Theme.of(context);
     final faturado = _toDouble(obra['total_faturado']);
-    final gasto    = _toDouble(obra['total_gastos']);
-    final dias     = _toInt(obra['total_dias']);
-    final margem   = faturado - gasto;
+    final gasto = _toDouble(obra['total_gastos']);
+    final dias = _toInt(obra['total_dias']);
+    final margem = faturado - gasto;
     final margemPos = margem >= 0;
 
-    return Card(
-      margin: const EdgeInsets.only(bottom: 10),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Expanded(
-              child: Text(
-                '${obra['codigo'] ?? ''} — ${obra['nome'] ?? ''}',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      obra['codigo'] ?? '',
+                      style: theme.textTheme.titleMedium,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      obra['nome'] ?? '',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: const Color(0xFF4CAF82).withOpacity(0.1),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: const Color(0xFF4CAF82).withOpacity(0.4)),
-              ),
-              child: const Text(
-                'Em curso',
-                style: TextStyle(fontSize: 10, color: Color(0xFF4CAF82), fontWeight: FontWeight.w600),
-              ),
-            ),
-          ]),
-          const SizedBox(height: 10),
-          Row(children: [
-            _miniInfo('Faturado',  Fmt.moeda0(faturado), const Color(0xFF185FA5)),
-            _miniInfo('Gasto',     Fmt.moeda0(gasto),    const Color(0xFFE76F51)),
-            _miniInfo('Margem',    Fmt.moeda0(margem),   margemPos ? const Color(0xFF4CAF82) : Colors.red),
-            _miniInfo('Dias',      '$dias',               Colors.grey),
-          ]),
-        ]),
+              _statusBadge('Em curso', const Color(0xFF12836D)),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 18,
+            runSpacing: 12,
+            children: [
+              _miniInfo('Faturado', Fmt.moeda0(faturado), const Color(0xFF185FA5)),
+              _miniInfo('Gasto', Fmt.moeda0(gasto), const Color(0xFFE6824D)),
+              _miniInfo('Margem', Fmt.moeda0(margem), margemPos ? const Color(0xFF12836D) : const Color(0xFFE76F51)),
+              _miniInfo('Dias', '$dias', theme.colorScheme.onSurfaceVariant),
+            ],
+          ),
+        ],
       ),
     );
   }
 
-  Widget _miniInfo(String label, String valor, Color cor) {
-    return Expanded(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-        Text(valor,
-            style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: cor),
-            overflow: TextOverflow.ellipsis),
-      ]),
+  Widget _statusBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w800,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+
+  Widget _miniInfo(String label, String value, Color color) {
+    return SizedBox(
+      width: 140,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _emptyPanel() {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: theme.cardColor,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.construction_outlined, size: 56, color: theme.colorScheme.onSurfaceVariant),
+          const SizedBox(height: 14),
+          Text(
+            'Ainda não há obras registadas.',
+            style: theme.textTheme.titleMedium,
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 6),
+          Text(
+            'Quando a primeira obra entrar, este painel já fica pronto para acompanhar produção, faturação e margem.',
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -272,4 +446,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (v is String) return int.tryParse(v) ?? 0;
     return 0;
   }
+}
+
+class _KpiData {
+  final String label;
+  final String value;
+  final IconData icon;
+  final Color color;
+
+  const _KpiData(this.label, this.value, this.icon, this.color);
 }
