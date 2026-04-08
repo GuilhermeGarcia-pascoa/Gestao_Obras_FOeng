@@ -1,3 +1,4 @@
+// backend/src/routes/auth.js
 const router = require('express').Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -32,7 +33,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, nome: user.nome, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      { expiresIn: process.env.JWT_EXPIRES_IN || '7d' }
     );
 
     res.json({
@@ -46,8 +47,45 @@ router.post('/login', async (req, res) => {
       },
     });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error(err);
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
+});
+
+// ── NOVO: GET /api/auth/me ─────────────────────────────────────
+router.get('/me', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT id, nome, email, role, tema_preferido FROM utilizadores WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ erro: 'Utilizador não encontrado' });
+    }
+
+    const user = rows[0];
+
+    res.json({
+      success: true,
+      utilizador: {
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
+        tema_preferido: user.tema_preferido || 'system'
+      }
+    });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ erro: 'Erro ao obter dados do utilizador' });
+  }
+});
+
+// ── NOVO: POST /api/auth/logout ───────────────────────────────
+router.post('/logout', auth, (req, res) => {
+  // Por enquanto só confirmamos (futuramente podemos adicionar blacklist de tokens)
+  res.json({ success: true, mensagem: 'Sessão terminada com sucesso' });
 });
 
 // POST /api/auth/registar  (só admins devem chamar isto)

@@ -12,8 +12,7 @@ class AuthProvider extends ChangeNotifier {
   bool get loading => _loading;
   String? get erro => _erro;
 
-  // ──────────────────────────────────────
-  // 1. Verificar sessão ao abrir a app
+  // ── 1. Verificar sessão ao abrir a app ─────────────────────────────────────
   Future<void> verificarLoginInicial() async {
     _loading = true;
     notifyListeners();
@@ -25,21 +24,23 @@ class AuthProvider extends ChangeNotifier {
         return;
       }
 
-      // Chama o novo endpoint /auth/me
       final userData = await ApiService.getCurrentUser();
       _utilizador = userData;
+      // Atualiza os dados do utilizador no armazenamento local
       await SecureStorage.saveUser(userData);
-    } catch (e) {
+    } catch (_) {
+      // Token expirado ou inválido — limpa tudo e redireciona para login
       _utilizador = null;
       await SecureStorage.clearAll();
     } finally {
+      // O finally garante que loading é sempre false, mesmo que a app
+      // vá para background e volte a meio da chamada de rede
       _loading = false;
       notifyListeners();
     }
   }
 
-  // ──────────────────────────────────────
-  // 2. Login
+  // ── 2. Login ───────────────────────────────────────────────────────────────
   Future<bool> login(String email, String password) async {
     _loading = true;
     _erro = null;
@@ -47,13 +48,7 @@ class AuthProvider extends ChangeNotifier {
 
     try {
       final data = await ApiService.login(email, password);
-      final token = data['token'];
-      final user = data['utilizador'];
-
-      await SecureStorage.saveToken(token);
-      await SecureStorage.saveUser(user);
-
-      _utilizador = user;
+      _utilizador = data['utilizador'];
       return true;
     } on ApiException catch (e) {
       _erro = e.mensagem;
@@ -64,11 +59,9 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // ──────────────────────────────────────
-  // 3. Logout
+  // ── 3. Logout ──────────────────────────────────────────────────────────────
   Future<void> logout() async {
-    await ApiService.logout(); // opcional: invalidar token no backend
-    await SecureStorage.clearAll();
+    await ApiService.logout();
     _utilizador = null;
     notifyListeners();
   }

@@ -1,13 +1,14 @@
+// lib/services/secure_storage.dart
 import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
 class SecureStorage {
-  static const _storage = FlutterSecureStorage();
+  static const FlutterSecureStorage _storage = FlutterSecureStorage();
 
   static const String _keyToken = 'jwt_token';
-  static const String _keyUser = 'user_data';
+  static const String _keyUserData = 'user_data';
 
-  // --- Token ---
+  // Token
   static Future<void> saveToken(String token) async {
     await _storage.write(key: _keyToken, value: token);
   }
@@ -20,27 +21,23 @@ class SecureStorage {
     await _storage.delete(key: _keyToken);
   }
 
-  // --- User Data ---
+  // Utilizador
   static Future<void> saveUser(Map<String, dynamic> user) async {
-    // FIX: Changed .toString() to jsonEncode()
-    final String jsonStr = jsonEncode(user); 
-    await _storage.write(key: _keyUser, value: jsonStr);
+    await _storage.write(key: _keyUserData, value: jsonEncode(user));
   }
 
   static Future<Map<String, dynamic>?> getUser() async {
-    final jsonStr = await _storage.read(key: _keyUser);
-    if (jsonStr == null) return null;
+    final String? jsonString = await _storage.read(key: _keyUserData);
+    if (jsonString == null) return null;
     try {
-      // FIX: jsonDecode returns dynamic, so we cast it safely
-      final dynamic decoded = jsonDecode(jsonStr);
-      return Map<String, dynamic>.from(decoded);
-    } catch (e) {
+      return Map<String, dynamic>.from(jsonDecode(jsonString));
+    } catch (_) {
       return null;
     }
   }
 
   static Future<void> deleteUser() async {
-    await _storage.delete(key: _keyUser);
+    await _storage.delete(key: _keyUserData);
   }
 
   static Future<void> clearAll() async {

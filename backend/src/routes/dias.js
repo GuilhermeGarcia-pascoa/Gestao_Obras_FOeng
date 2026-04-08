@@ -21,7 +21,6 @@ router.get('/anteriores', async (req, res) => {
 });
 
 // ── GET /api/dias/lista?obra_id=X
-// Lista todos os dias com dados de uma obra (para o picker "copiar de dia")
 router.get('/lista', async (req, res) => {
   const { obra_id } = req.query;
   if (!obra_id) return res.status(400).json({ erro: 'obra_id obrigatório' });
@@ -76,7 +75,6 @@ router.get('/:id', async (req, res) => {
 });
 
 // ── GET /api/dias/:id/anterior
-// Devolve dados do dia com registo mais recente antes deste (para copiar)
 router.get('/:id/anterior', async (req, res) => {
   try {
     const [[atual]] = await pool.query('SELECT * FROM dias WHERE id = ?', [req.params.id]);
@@ -109,7 +107,6 @@ router.get('/:id/anterior', async (req, res) => {
 });
 
 // ── GET /api/dias/:id/copiar-de?fonte_id=Y
-// Copia dados de um dia específico escolhido pelo utilizador
 router.get('/:id/copiar-de', async (req, res) => {
   const { fonte_id } = req.query;
   if (!fonte_id) return res.status(400).json({ erro: 'fonte_id obrigatório' });
@@ -139,7 +136,6 @@ router.get('/:id/copiar-de', async (req, res) => {
 });
 
 // ── PUT /api/dias/:id
-// Guarda/atualiza os dados de um dia (inclui custo_extra por pessoa e refeições)
 router.put('/:id', async (req, res) => {
   const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas, gastos } = req.body;
   const conn = await pool.getConnection();
@@ -164,13 +160,22 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Pessoas — guarda custo_extra por pessoa (custo variável no dia)
+    // Pessoas — guarda custo_extra e custo_hora_override por pessoa
     if (horasPessoas !== undefined) {
       await conn.query('DELETE FROM dia_pessoas WHERE dia_id = ?', [req.params.id]);
       for (const p of horasPessoas || []) {
         await conn.query(
-          'INSERT INTO dia_pessoas (dia_id, pessoa_id, horas_total, custo_total, custo_extra) VALUES (?, ?, ?, ?, ?)',
-          [req.params.id, p.pessoa_id, p.horas_total, p.custo_total, p.custo_extra ?? 0]
+          `INSERT INTO dia_pessoas
+             (dia_id, pessoa_id, horas_total, custo_total, custo_extra, custo_hora_override)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          [
+            req.params.id,
+            p.pessoa_id,
+            p.horas_total,
+            p.custo_total,
+            p.custo_extra ?? 0,
+            p.custo_hora_override ?? null,
+          ]
         );
       }
     }
