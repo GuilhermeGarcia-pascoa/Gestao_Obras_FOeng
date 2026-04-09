@@ -43,6 +43,9 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
       if (_tabController.index == 3 && _dadosGlobal == null && !_loadingGlobal) {
         _carregarGlobal();
       }
@@ -191,22 +194,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Builder(
-                                builder: (ctx) {
-                                  final isDark = Theme.of(ctx).brightness == Brightness.dark;
-                                  return DropdownButtonFormField<int>(
-                                    initialValue: _obraId,
-                                    decoration: InputDecoration(
-                                      labelText: 'Obra',
-                                      isDense: true,
-                                      labelStyle: TextStyle(color: isDark ? Colors.grey[400] : null),
-                                    ),
-                                    items: _obras.map<DropdownMenuItem<int>>((o) =>
-                                        DropdownMenuItem(value: o['id'] as int, child: Text(o['codigo'] ?? ''))).toList(),
-                                    onChanged: (v) { if (v != null) _selecionarObra(v); },
-                                  );
-                                },
-                              ),
+                              _seletorObra(),
                               if (_intervalo != null) ...[
                                 const SizedBox(height: 6),
                                 Row(
@@ -829,6 +817,192 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
         ),
       ],
     );
+  }
+
+  Widget _seletorObra() {
+    final selecionada = _obras.cast<dynamic?>().firstWhere(
+      (o) => o?['id'] == _obraId,
+      orElse: () => null,
+    );
+    final codigo = selecionada?['codigo']?.toString() ?? 'Selecionar obra';
+    final nome = selecionada?['nome']?.toString() ?? 'Pesquisar por código ou nome';
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(14),
+      onTap: _loadingObras || _obras.isEmpty ? null : _abrirSeletorObra,
+      child: Ink(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        decoration: BoxDecoration(
+          color: Theme.of(context).inputDecorationTheme.fillColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              decoration: BoxDecoration(
+                color: _primaryColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(Icons.search_rounded, color: _primaryColor, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    codigo,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    nome,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            const Icon(Icons.keyboard_arrow_down_rounded),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _abrirSeletorObra() async {
+    final pesquisaCtrl = TextEditingController();
+    List<dynamic> filtradas = List<dynamic>.from(_obras);
+
+    final selecionada = await showModalBottomSheet<dynamic>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            void filtrar(String valor) {
+              final termo = valor.trim().toLowerCase();
+              setModalState(() {
+                filtradas = _obras.where((obra) {
+                  final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
+                  final nome = (obra['nome'] ?? '').toString().toLowerCase();
+                  return codigo.contains(termo) || nome.contains(termo);
+                }).toList();
+              });
+            }
+
+            return SafeArea(
+              child: Padding(
+                padding: EdgeInsets.only(
+                  left: 16,
+                  right: 16,
+                  top: 8,
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 16,
+                ),
+                child: SizedBox(
+                  height: MediaQuery.of(context).size.height * 0.72,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('Escolher obra', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Pesquisa por código ou nome para encontrar a obra mais depressa.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        controller: pesquisaCtrl,
+                        autofocus: true,
+                        onChanged: filtrar,
+                        decoration: const InputDecoration(
+                          hintText: 'Pesquisar obra...',
+                          prefixIcon: Icon(Icons.search_rounded),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Expanded(
+                        child: filtradas.isEmpty
+                            ? const Center(
+                                child: Text(
+                                  'Nenhuma obra encontrada.',
+                                  style: TextStyle(color: Colors.grey),
+                                ),
+                              )
+                            : ListView.separated(
+                                itemCount: filtradas.length,
+                                separatorBuilder: (_, __) => const SizedBox(height: 6),
+                                itemBuilder: (context, index) {
+                                  final obra = filtradas[index];
+                                  final ativo = obra['id'] == _obraId;
+                                  return Material(
+                                    color: ativo ? _primaryColor.withOpacity(0.08) : Theme.of(context).cardColor,
+                                    borderRadius: BorderRadius.circular(14),
+                                    child: InkWell(
+                                      borderRadius: BorderRadius.circular(14),
+                                      onTap: () => Navigator.pop(context, obra),
+                                      child: Container(
+                                        padding: const EdgeInsets.all(14),
+                                        decoration: BoxDecoration(
+                                          borderRadius: BorderRadius.circular(14),
+                                          border: Border.all(
+                                            color: ativo ? _primaryColor.withOpacity(0.45) : Theme.of(context).dividerColor,
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment: CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    obra['codigo'] ?? '',
+                                                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    obra['nome'] ?? '',
+                                                    maxLines: 1,
+                                                    overflow: TextOverflow.ellipsis,
+                                                    style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            if (ativo)
+                                              Icon(Icons.check_circle_rounded, color: _primaryColor, size: 20),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            );
+          },
+        );
+      },
+    );
+
+    pesquisaCtrl.dispose();
+
+    if (selecionada != null && mounted) {
+      _selecionarObra(selecionada['id'] as int);
+    }
   }
 
   Widget _metricRow(List<Widget> cards) => LayoutBuilder(
