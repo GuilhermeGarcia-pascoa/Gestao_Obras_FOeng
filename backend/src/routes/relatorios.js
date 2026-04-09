@@ -180,13 +180,26 @@ router.get('/graficos/:obra_id', async (req, res) => {
       params
     );
 
-    let acumulado = 0;
+    let acumuladoFaturado = 0;
+    let acumuladoGasto = 0;
     const evolucao = dias.map(d => {
-      acumulado += Number(d.faturado) || 0;
+      const faturado = Number(d.faturado) || 0;
+      const gasto =
+        (Number(d.valor_to) || 0) +
+        (Number(d.valor_combustivel) || 0) +
+        (Number(d.valor_estadias) || 0) +
+        (Number(d.valor_materiais) || 0) +
+        (Number(d.valor_refeicoes) || 0);
+
+      acumuladoFaturado += faturado;
+      acumuladoGasto += gasto;
+
       return {
-        data:      new Date(d.data).toISOString().substring(0, 10),
-        faturado:  Number(d.faturado) || 0,
-        acumulado,
+        data: new Date(d.data).toISOString().substring(0, 10),
+        faturado,
+        gasto,
+        acumulado_faturado: acumuladoFaturado,
+        acumulado_gasto: acumuladoGasto,
       };
     });
 
@@ -245,7 +258,10 @@ router.get('/graficos/:obra_id', async (req, res) => {
     );
 
     res.json({
-      evolucao, distribuicao, totalGasto,
+      evolucao,
+      distribuicao,
+      totalGasto,
+      totalFaturado: acumuladoFaturado,
       metricas: {
         pessoas:  { total_horas: Number(metricasPessoas[0]?.total_horas) || 0, total_custo: totalPessoal, total_pessoas: Number(metricasPessoas[0]?.total_pessoas) || 0 },
         maquinas: { total_horas: Number(metricasMaquinas[0]?.total_horas) || 0, total_custo: totalMaquinas, total_combustivel: totalCombustivel, total_maquinas: Number(metricasMaquinas[0]?.total_maquinas) || 0 },

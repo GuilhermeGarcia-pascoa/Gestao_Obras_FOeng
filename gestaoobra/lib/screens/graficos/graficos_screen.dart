@@ -238,7 +238,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
                               ? const Center(child: Text('Seleciona uma obra'))
-                              : _tabEvolucao(),
+                              : _tabEvolucaoNova(),
                       _loadingDados
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
@@ -698,6 +698,275 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
+  Widget _tabEvolucaoNova() {
+    final evolucao = List<Map<String, dynamic>>.from(_dados!['evolucao'] ?? []);
+    final metricas = _dados!['metricas'] as Map<String, dynamic>? ?? {};
+    final mp = metricas['pessoas'] as Map<String, dynamic>? ?? {};
+    final mm = metricas['maquinas'] as Map<String, dynamic>? ?? {};
+    final mv = metricas['viaturas'] as Map<String, dynamic>? ?? {};
+    final totalGasto = _parseValor(_dados!['totalGasto']).toDouble();
+    final totalFaturado = _parseValor(_dados!['totalFaturado']).toDouble();
+
+    if (evolucao.isEmpty) {
+      return const Center(child: Text('Sem dados.\nRegista dias primeiro.', textAlign: TextAlign.center));
+    }
+
+    final labels = evolucao.map((e) {
+      final data = e['data']?.toString() ?? '';
+      return data.length >= 10 ? data.substring(5) : data;
+    }).toList();
+    final faturadoDia = evolucao.map((e) => _parseValor(e['faturado']).toDouble()).toList();
+    final gastoDia = evolucao.map((e) => _parseValor(e['gasto']).toDouble()).toList();
+    final faturadoAcumulado = evolucao.map((e) => _parseValor(e['acumulado_faturado']).toDouble()).toList();
+    final gastoAcumulado = evolucao.map((e) => _parseValor(e['acumulado_gasto']).toDouble()).toList();
+    final maxDiario = [...faturadoDia, ...gastoDia].fold<double>(0, (a, b) => a > b ? a : b);
+    final maxAcumulado = [...faturadoAcumulado, ...gastoAcumulado].fold<double>(0, (a, b) => a > b ? a : b);
+    final saldo = totalFaturado - totalGasto;
+    final margemPct = totalFaturado > 0 ? (saldo / totalFaturado) * 100 : 0.0;
+    final saldoColor = saldo >= 0 ? const Color(0xFF4CAF82) : const Color(0xFFE76F51);
+
+    Widget chartCard({
+      required String title,
+      required String subtitle,
+      required Widget child,
+      required List<Widget> legend,
+    }) => Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 12),
+          Wrap(spacing: 16, runSpacing: 8, children: legend),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _metricRow([
+          _metricCard('Faturado', _eur.format(totalFaturado), Icons.euro, const Color(0xFF185FA5)),
+          _metricCard('Total Gasto', _eur.format(totalGasto), Icons.payments, const Color(0xFFE76F51)),
+        ]),
+        const SizedBox(height: 10),
+        _metricRow([
+          _metricCard('H. Pessoas', '${_parseValor(mp['total_horas']).toStringAsFixed(1)}h', Icons.people, const Color(0xFF4CAF82)),
+          _metricCard('Km Viaturas', '${_parseValor(mv['total_km']).toStringAsFixed(1)}km', Icons.directions_car, const Color(0xFFF4A261)),
+        ]),
+        const SizedBox(height: 10),
+        _metricRow([
+          _metricCard('H. Máquinas', '${_parseValor(mm['total_horas']).toStringAsFixed(1)}h', Icons.construction, const Color(0xFFE76F51)),
+          _metricCard('Custo Pessoal', _eur.format(_parseValor(mp['total_custo'])), Icons.person, const Color(0xFF9C6ADE)),
+        ]),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [_primaryColor, _primaryColor.withOpacity(0.82)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Saldo atual', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                    const SizedBox(height: 2),
+                    Text(
+                      _eur2.format(saldo),
+                      style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.14),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  '${margemPct.toStringAsFixed(1)}%',
+                  style: TextStyle(color: saldoColor, fontWeight: FontWeight.w700, fontSize: 14),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 24),
+        chartCard(
+          title: 'Movimento por dia',
+          subtitle: 'Comparação entre faturado e gasto diário.',
+          legend: [
+            _legendaDot(_primaryColor, 'Faturado'),
+            _legendaDot(_accentColor, 'Gasto'),
+          ],
+          child: SizedBox(
+            height: 220,
+            child: BarChart(
+              BarChartData(
+                alignment: BarChartAlignment.spaceAround,
+                maxY: maxDiario <= 0 ? 100 : maxDiario * 1.25,
+                barTouchData: BarTouchData(
+                  touchTooltipData: BarTouchTooltipData(
+                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
+                      final label = rodIndex == 0 ? 'Faturado' : 'Gasto';
+                      return BarTooltipItem(
+                        '${labels[group.x.toInt()]}\n$label: ${_eur2.format(rod.toY)}',
+                        const TextStyle(color: Colors.white, fontSize: 12),
+                      );
+                    },
+                  ),
+                ),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (value, _) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= labels.length) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(labels[idx], style: const TextStyle(fontSize: 9)),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxDiario <= 0 ? 25 : (maxDiario * 1.25) / 4,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: Theme.of(context).dividerColor.withOpacity(0.35),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                barGroups: evolucao.asMap().entries.map((entry) {
+                  final faturado = _parseValor(entry.value['faturado']).toDouble();
+                  final gasto = _parseValor(entry.value['gasto']).toDouble();
+                  return BarChartGroupData(
+                    x: entry.key,
+                    barsSpace: 5,
+                    barRods: [
+                      BarChartRodData(
+                        toY: faturado,
+                        color: _primaryColor,
+                        width: 12,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                      BarChartRodData(
+                        toY: gasto,
+                        color: _accentColor,
+                        width: 12,
+                        borderRadius: BorderRadius.circular(5),
+                      ),
+                    ],
+                  );
+                }).toList(),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 24),
+        chartCard(
+          title: 'Evolução acumulada',
+          subtitle: 'Acompanha o desfasamento entre faturado e gasto.',
+          legend: [
+            _legendaDot(_primaryColor, 'Faturado acumulado'),
+            _legendaDot(_accentColor, 'Gasto acumulado'),
+          ],
+          child: SizedBox(
+            height: 220,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: maxAcumulado <= 0 ? 100 : maxAcumulado * 1.2,
+                gridData: FlGridData(
+                  show: true,
+                  drawVerticalLine: false,
+                  horizontalInterval: maxAcumulado <= 0 ? 25 : (maxAcumulado * 1.2) / 4,
+                  getDrawingHorizontalLine: (_) => FlLine(
+                    color: Theme.of(context).dividerColor.withOpacity(0.35),
+                    strokeWidth: 1,
+                  ),
+                ),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 28,
+                      getTitlesWidget: (value, _) {
+                        final idx = value.toInt();
+                        if (idx < 0 || idx >= labels.length) return const SizedBox();
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(labels[idx], style: const TextStyle(fontSize: 9)),
+                        );
+                      },
+                    ),
+                  ),
+                  leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                lineTouchData: LineTouchData(
+                  touchTooltipData: LineTouchTooltipData(
+                    getTooltipItems: (spots) => spots.map((spot) {
+                      final label = spot.barIndex == 0 ? 'Fat. acum.' : 'Gasto acum.';
+                      return LineTooltipItem(
+                        '$label\n${_eur2.format(spot.y)}',
+                        const TextStyle(color: Colors.white, fontSize: 11),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: faturadoAcumulado.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+                    isCurved: true,
+                    color: _primaryColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false),
+                    belowBarData: BarAreaData(show: true, color: _primaryColor.withOpacity(0.08)),
+                  ),
+                  LineChartBarData(
+                    spots: gastoAcumulado.asMap().entries.map((e) => FlSpot(e.key.toDouble(), e.value)).toList(),
+                    isCurved: true,
+                    color: _accentColor,
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _metricRow(List<Widget> cards) => LayoutBuilder(
     builder: (context, constraints) {
       if (constraints.maxWidth < 520) {
