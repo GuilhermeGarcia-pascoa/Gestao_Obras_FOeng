@@ -10,17 +10,15 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  flutter_localizations:     # <-- ADICIONADO
+  flutter_localizations:
     sdk: flutter
   flutter_secure_storage: ^9.2.4
-
-  
 
   # HTTP e estado
   http: ^1.1.0
   provider: ^6.1.1
-  shared_preferences: ^2.2.2   # Guardar token JWT localmente
-  url_launcher: ^6.2.0          # Abrir URLs e fazer downloads
+  shared_preferences: ^2.2.2
+  url_launcher: ^6.2.0
 
   # Gráficos
   fl_chart: ^0.65.0
@@ -30,12 +28,24 @@ dependencies:
 
   # UI
   cupertino_icons: ^1.0.6
-  intl: ^0.20.2               # Formatação de datas e moeda
+  intl: ^0.20.2
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
+  # Dependência para gerar os ícones automaticamente
+  flutter_launcher_icons: ^0.13.1
+
+# Configuração do gerador de ícones (fora do bloco flutter:)
+flutter_launcher_icons:
+  android: "launcher_icon"
+  ios: true
+  image_path: "assets/images/LogoApp.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/images/LogoApp.png"
 
 flutter:
   uses-material-design: true
+  assets:
+    - assets/images/LogoApp.png

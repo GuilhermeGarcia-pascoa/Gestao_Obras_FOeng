@@ -273,16 +273,42 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     return Container(
       padding: const EdgeInsets.all(5),
       decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-      child: Row(
-        children: [
-          item('', 'Todas', Icons.dashboard_customize_outlined),
-          const SizedBox(width: 4),
-          item('em_curso', 'Em curso', Icons.play_circle_outline_rounded),
-          const SizedBox(width: 4),
-          item('planeada', 'Planeadas', Icons.edit_calendar_outlined),
-          const SizedBox(width: 4),
-          item('concluida', 'Concluidas', Icons.task_alt_rounded),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 360) {
+            return Column(
+              children: [
+                Row(
+                  children: [
+                    item('', 'Todas', Icons.dashboard_customize_outlined),
+                    const SizedBox(width: 4),
+                    item('em_curso', 'Em curso', Icons.play_circle_outline_rounded),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    item('planeada', 'Planeadas', Icons.edit_calendar_outlined),
+                    const SizedBox(width: 4),
+                    item('concluida', 'Concluidas', Icons.task_alt_rounded),
+                  ],
+                ),
+              ],
+            );
+          }
+
+          return Row(
+            children: [
+              item('', 'Todas', Icons.dashboard_customize_outlined),
+              const SizedBox(width: 4),
+              item('em_curso', 'Em curso', Icons.play_circle_outline_rounded),
+              const SizedBox(width: 4),
+              item('planeada', 'Planeadas', Icons.edit_calendar_outlined),
+              const SizedBox(width: 4),
+              item('concluida', 'Concluidas', Icons.task_alt_rounded),
+            ],
+          );
+        },
       ),
     );
   }

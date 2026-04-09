@@ -838,8 +838,9 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                           : const Color(0xFF1A1A2E),
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    child: Wrap(
+                      alignment: WrapAlignment.spaceBetween,
+                      runSpacing: 6,
                       children: [
                         const Text('TOTAL GASTO',
                             style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
@@ -888,92 +889,130 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       margin: const EdgeInsets.symmetric(vertical: 4),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(12, 10, 4, 10),
-        child: Column(
-          children: [
-            Row(
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final compact = constraints.maxWidth < 380;
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                CircleAvatar(
-                  radius: 17,
-                  backgroundColor: const Color(0xFFE6F1FB),
-                  child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
-                      style: const TextStyle(fontSize: 13, color: Color(0xFF185FA5), fontWeight: FontWeight.bold)),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(nome, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
-                _miniCampo(_horasP[id], 'h', 60),
-                IconButton(
-                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
-                  onPressed: () => setState(() {
-                    _pessoas.removeWhere((x) => x['pessoa_id'] == id);
-                    _horasP.remove(id)?.dispose();
-                    _custoExtraP.remove(id)?.dispose();
-                    _custoHoraOverride.remove(id);
-                    _temAlteracoes = true;
-                  }),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                const SizedBox(width: 44),
-                if (temOverride) ...[
-                  Text(
-                    '€${custoBase.toStringAsFixed(2)}/h',
-                    style: const TextStyle(
-                      fontSize: 11, color: Colors.grey,
-                      decoration: TextDecoration.lineThrough,
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    CircleAvatar(
+                      radius: 17,
+                      backgroundColor: const Color(0xFFE6F1FB),
+                      child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
+                          style: const TextStyle(fontSize: 13, color: Color(0xFF185FA5), fontWeight: FontWeight.bold)),
                     ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text(
-                    '€${custoAtivo.toStringAsFixed(2)}/h',
-                    style: const TextStyle(fontSize: 11, color: Color(0xFF185FA5), fontWeight: FontWeight.w600),
-                  ),
-                ] else
-                  Text(
-                    '€${custoBase.toStringAsFixed(2)}/h base',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                if (!temOverride) ...[
-                  const SizedBox(width: 4),
-                  const Text('(valor guardado no dia)',
-                      style: TextStyle(fontSize: 11, color: Colors.grey)),
-                ],
-                const SizedBox(width: 4),
-                GestureDetector(
-                  onTap: () => _editarCustoHora(id, custoBase),
-                  child: Icon(
-                    temOverride ? Icons.edit : Icons.edit_outlined,
-                    size: 14,
-                    color: temOverride ? const Color(0xFF185FA5) : Colors.grey,
-                  ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            nome,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+                          ),
+                          if (compact) ...[
+                            const SizedBox(height: 8),
+                            Row(
+                              children: [
+                                _miniCampo(_horasP[id], 'h', 72),
+                                IconButton(
+                                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                                  onPressed: () => setState(() {
+                                    _pessoas.removeWhere((x) => x['pessoa_id'] == id);
+                                    _horasP.remove(id)?.dispose();
+                                    _custoExtraP.remove(id)?.dispose();
+                                    _custoHoraOverride.remove(id);
+                                    _temAlteracoes = true;
+                                  }),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    if (!compact) ...[
+                      _miniCampo(_horasP[id], 'h', 60),
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                        onPressed: () => setState(() {
+                          _pessoas.removeWhere((x) => x['pessoa_id'] == id);
+                          _horasP.remove(id)?.dispose();
+                          _custoExtraP.remove(id)?.dispose();
+                          _custoHoraOverride.remove(id);
+                          _temAlteracoes = true;
+                        }),
+                      ),
+                    ],
+                  ],
                 ),
-                if (temOverride) ...[
-                  const SizedBox(width: 4),
-                  GestureDetector(
-                    onTap: () => setState(() {
-                      _custoHoraOverride.remove(id);
-                      _temAlteracoes = true;
-                    }),
-                    child: const Icon(Icons.refresh, size: 14, color: Colors.grey),
-                  ),
-                ],
-                const Spacer(),
-                Text(
-                  _eur.format(_p(_horasP[id]?.text) * custoAtivo + _p(_custoExtraP[id]?.text)),
-                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    if (temOverride) ...[
+                      Text(
+                        '€${custoBase.toStringAsFixed(2)}/h',
+                        style: const TextStyle(
+                          fontSize: 11, color: Colors.grey,
+                          decoration: TextDecoration.lineThrough,
+                        ),
+                      ),
+                      Text(
+                        '€${custoAtivo.toStringAsFixed(2)}/h',
+                        style: const TextStyle(fontSize: 11, color: Color(0xFF185FA5), fontWeight: FontWeight.w600),
+                      ),
+                    ] else ...[
+                      Text(
+                        '€${custoBase.toStringAsFixed(2)}/h base',
+                        style: const TextStyle(fontSize: 11, color: Colors.grey),
+                      ),
+                      const Text('(valor guardado no dia)',
+                          style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    ],
+                    GestureDetector(
+                      onTap: () => _editarCustoHora(id, custoBase),
+                      child: Icon(
+                        temOverride ? Icons.edit : Icons.edit_outlined,
+                        size: 14,
+                        color: temOverride ? const Color(0xFF185FA5) : Colors.grey,
+                      ),
+                    ),
+                    if (temOverride)
+                      GestureDetector(
+                        onTap: () => setState(() {
+                          _custoHoraOverride.remove(id);
+                          _temAlteracoes = true;
+                        }),
+                        child: const Icon(Icons.refresh, size: 14, color: Colors.grey),
+                      ),
+                    Text(
+                      _eur.format(_p(_horasP[id]?.text) * custoAtivo + _p(_custoExtraP[id]?.text)),
+                      style: const TextStyle(fontSize: 11, color: Colors.grey),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  children: [
+                    const Text('extra neste dia:', style: TextStyle(fontSize: 11, color: Colors.grey)),
+                    _miniCampo(_custoExtraP[id], '€', 88),
+                  ],
                 ),
               ],
-            ),
-            Row(
-              children: [
-                const SizedBox(width: 44),
-                const Text('extra neste dia:', style: TextStyle(fontSize: 11, color: Colors.grey)),
-                const SizedBox(width: 8),
-                _miniCampo(_custoExtraP[id], '€', 72),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
     );
@@ -1023,25 +1062,61 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     final nome = (item[nomeCampo] ?? item['nome'] ?? '') as String;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 17,
-            backgroundColor: iconeBg,
-            child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
-                style: TextStyle(fontSize: 13, color: iconeColor, fontWeight: FontWeight.bold)),
-          ),
-          const SizedBox(width: 10),
-          Expanded(child: Text(nome, style: const TextStyle(fontSize: 14))),
-          _miniCampo(ctrl[id], sufixo, 72),
-          IconButton(
-            icon: const Icon(Icons.close, size: 18, color: Colors.grey),
-            onPressed: () {
-              onRemover();
-              setState(() => _temAlteracoes = true);
-            },
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final compact = constraints.maxWidth < 340;
+
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              CircleAvatar(
+                radius: 17,
+                backgroundColor: iconeBg,
+                child: Text(nome.isNotEmpty ? nome[0].toUpperCase() : '?',
+                    style: TextStyle(fontSize: 13, color: iconeColor, fontWeight: FontWeight.bold)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      nome,
+                      maxLines: compact ? 2 : 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(fontSize: 14),
+                    ),
+                    if (compact) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          _miniCampo(ctrl[id], sufixo, 88),
+                          IconButton(
+                            icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                            onPressed: () {
+                              onRemover();
+                              setState(() => _temAlteracoes = true);
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              if (!compact) ...[
+                _miniCampo(ctrl[id], sufixo, 72),
+                IconButton(
+                  icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+                  onPressed: () {
+                    onRemover();
+                    setState(() => _temAlteracoes = true);
+                  },
+                ),
+              ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -1064,10 +1139,27 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
   Widget _cabecalho(String title, {Widget? trailing}) => Padding(
     padding: const EdgeInsets.only(bottom: 8),
-    child: Row(children: [
-      Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
-      if (trailing != null) trailing,
-    ]),
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final compact = trailing != null && constraints.maxWidth < 360;
+
+        if (compact) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              const SizedBox(height: 8),
+              trailing!,
+            ],
+          );
+        }
+
+        return Row(children: [
+          Expanded(child: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
+          if (trailing != null) trailing,
+        ]);
+      },
+    ),
   );
 
   Widget _vazioMsg(String msg) => Padding(
@@ -1094,8 +1186,9 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(8)),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        runSpacing: 4,
         children: [
           Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textColor)),
           Text(_eur.format(valor), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),

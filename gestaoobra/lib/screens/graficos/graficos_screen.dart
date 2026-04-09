@@ -286,15 +286,13 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        Row(children: [
+        _metricRow([
           _metricCard('Faturado',    _eur.format(totalFaturado),  Icons.euro,           const Color(0xFF185FA5)),
-          const SizedBox(width: 10),
           _metricCard('Total Gasto', _eur.format(totalGasto),     Icons.payments,       const Color(0xFFE76F51)),
         ]),
         const SizedBox(height: 10),
-        Row(children: [
+        _metricRow([
           _metricCard('H. Pessoas',  '${_parseValor(mp['total_horas']).toStringAsFixed(1)}h', Icons.people,         const Color(0xFF4CAF82)),
-          const SizedBox(width: 10),
           _metricCard('Km Viaturas', '${_parseValor(mv['total_km']).toStringAsFixed(1)}km',   Icons.directions_car, const Color(0xFFF4A261)),
         ]),
         const SizedBox(height: 10),
@@ -526,15 +524,13 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Row(children: [
+          _metricRow([
             _metricCard('Faturado total', _eur.format(totalFaturado), Icons.euro,     const Color(0xFF185FA5)),
-            const SizedBox(width: 10),
             _metricCard('Total obras',    '$totalObras',               Icons.business, const Color(0xFF2E86AB)),
           ]),
           const SizedBox(height: 10),
-          Row(children: [
+          _metricRow([
             _metricCard('Gasto total',    _eur.format(totalGasto),     Icons.payments, const Color(0xFFE76F51)),
-            const SizedBox(width: 10),
             _metricCard('Margem',
                 '${_eur.format(margem)} (${margemPct.toStringAsFixed(1)}%)',
                 Icons.trending_up,
@@ -702,8 +698,30 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  Widget _metricCard(String label, String value, IconData icon, Color cor) => Expanded(
-    child: Container(
+  Widget _metricRow(List<Widget> cards) => LayoutBuilder(
+    builder: (context, constraints) {
+      if (constraints.maxWidth < 520) {
+        return Column(
+          children: [
+            for (var i = 0; i < cards.length; i++) ...[
+              SizedBox(width: double.infinity, child: cards[i]),
+              if (i != cards.length - 1) const SizedBox(height: 10),
+            ],
+          ],
+        );
+      }
+
+      return Row(
+        children: [
+          Expanded(child: cards[0]),
+          const SizedBox(width: 10),
+          Expanded(child: cards[1]),
+        ],
+      );
+    },
+  );
+
+  Widget _metricCard(String label, String value, IconData icon, Color cor) => Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cor.withOpacity(0.08),
@@ -726,7 +744,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           ],
         )),
       ]),
-    ),
   );
 
   Widget _miniTag(String texto, IconData icon) => Row(

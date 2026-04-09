@@ -80,7 +80,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ? 4
             : constraints.maxWidth >= 720
                 ? 3
-                : 2;
+                : constraints.maxWidth >= 460
+                    ? 2
+                    : 1;
 
         return ListView(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -197,17 +199,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _kpiGrid({required int crossAxisCount, required List<_KpiData> items}) {
-    return GridView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 10,
-        mainAxisSpacing: 10,
-        childAspectRatio: 1.4,
-      ),
-      itemCount: items.length,
-      itemBuilder: (context, index) => _kpiCard(items[index]),
+    const spacing = 10.0;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final totalSpacing = spacing * (crossAxisCount - 1);
+        final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+
+        return Wrap(
+          spacing: spacing,
+          runSpacing: spacing,
+          children: items
+              .map(
+                (item) => SizedBox(
+                  width: itemWidth,
+                  child: _kpiCard(item),
+                ),
+              )
+              .toList(),
+        );
+      },
     );
   }
 
@@ -217,6 +227,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
     return Container(
       padding: const EdgeInsets.all(16),
+      constraints: const BoxConstraints(minHeight: 118),
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF252D3A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
@@ -236,7 +247,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             child: Icon(item.icon, color: item.color, size: 19),
           ),
-          const Spacer(),
+          const SizedBox(height: 18),
           Text(
             item.value,
             style: TextStyle(
@@ -279,33 +290,27 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      obra['codigo'] ?? '',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w700,
-                        fontSize: 15,
-                        color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
-                      ),
-                    ),
-                    const SizedBox(height: 3),
-                    Text(
-                      obra['nome'] ?? '',
-                      style: TextStyle(
-                        fontSize: 13,
-                        color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              _statusBadge('Em curso', const Color(0xFF0F9D8A)),
-            ],
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final compact = constraints.maxWidth < 430;
+
+              return compact
+                  ? Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _obraTitle(obra, isDark),
+                        const SizedBox(height: 10),
+                        _statusBadge('Em curso', const Color(0xFF0F9D8A)),
+                      ],
+                    )
+                  : Row(
+                      children: [
+                        Expanded(child: _obraTitle(obra, isDark)),
+                        const SizedBox(width: 12),
+                        _statusBadge('Em curso', const Color(0xFF0F9D8A)),
+                      ],
+                    );
+            },
           ),
           const SizedBox(height: 14),
           Wrap(
@@ -322,6 +327,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _obraTitle(Map<String, dynamic> obra, bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          obra['codigo'] ?? '',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 15,
+            color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+          ),
+        ),
+        const SizedBox(height: 3),
+        Text(
+          obra['nome'] ?? '',
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: TextStyle(
+            fontSize: 13,
+            color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
+          ),
+        ),
+      ],
     );
   }
 
