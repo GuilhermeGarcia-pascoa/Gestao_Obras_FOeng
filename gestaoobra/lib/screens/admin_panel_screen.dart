@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart'; // <-- Adicionado o package provider
+import 'package:provider/provider.dart';
+
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
 
@@ -24,10 +25,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     setState(() => _loading = true);
     try {
       final data = await ApiService.listarUtilizadores();
-      setState(() { _utilizadores = data; _loading = false; });
+      setState(() {
+        _utilizadores = data;
+        _loading = false;
+      });
     } on ApiException catch (e) {
       setState(() => _loading = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.mensagem)),
+        );
+      }
     }
   }
 
@@ -52,14 +60,27 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 
   Future<void> _alterarSenha(dynamic user) async {
-    final novaSenha = await _promptTexto(context, 'Nova senha', '', obscureText: true);
+    final novaSenha = await _promptTexto(
+      context,
+      'Nova senha',
+      '',
+      obscureText: true,
+    );
     if (novaSenha == null || novaSenha.isEmpty) return;
     try {
       await ApiService.alterarSenhaUtilizador(user['id'] as int, novaSenha);
       await _carregar();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Senha alterada com sucesso!')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Senha alterada com sucesso!')),
+        );
+      }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.mensagem)),
+        );
+      }
     }
   }
 
@@ -71,33 +92,51 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         title: const Text('Confirmar eliminação'),
         content: Text('Apagar "$nome"? Esta ação não pode ser desfeita.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Cancelar')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, true), child: const Text('Apagar')),
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Apagar'),
+          ),
         ],
       ),
     );
     if (ok != true) return;
+
     try {
       await ApiService.apagarUtilizador(user['id'] as int);
       await _carregar();
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Utilizador eliminado!')));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Utilizador eliminado!')),
+        );
+      }
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.mensagem)),
+        );
+      }
     }
   }
 
   String _labelRole(String role) {
     switch (role) {
-      case 'admin':      return 'Administrador';
-      case 'gestor':     return 'Gestor';
-      case 'utilizador': return 'Utilizador';
-      default:           return role;
+      case 'admin':
+        return 'Administrador';
+      case 'gestor':
+        return 'Gestor';
+      case 'utilizador':
+        return 'Utilizador';
+      default:
+        return role;
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Vamos buscar o ID do utilizador logado aqui no início do build
     final auth = Provider.of<AuthProvider>(context);
     final currentUserId = auth.utilizador?['id'];
 
@@ -114,13 +153,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       itemCount: _utilizadores.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
-                        final user  = _utilizadores[i];
-                        final id    = user['id']; // <-- Capturamos o ID do utilizador da lista
-                        final nome  = user['nome']  ?? 'Sem nome';
+                        final user = _utilizadores[i];
+                        final id = user['id'];
+                        final nome = user['nome'] ?? 'Sem nome';
                         final email = user['email'] ?? '';
-                        final role  = user['role']  ?? 'utilizador';
-                        
-                        // Verificamos se é o utilizador logado
+                        final role = user['role'] ?? 'utilizador';
                         final isCurrentUser = id == currentUserId;
 
                         return Card(
@@ -129,37 +166,73 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                               backgroundColor: const Color(0xFFE6F1FB),
                               child: Text(
                                 nome.isNotEmpty ? nome[0].toUpperCase() : '?',
-                                style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.bold),
+                                style: const TextStyle(
+                                  color: Color(0xFF185FA5),
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
                             ),
                             title: Row(
                               children: [
-                                Text(nome, style: const TextStyle(fontWeight: FontWeight.w600)),
-                                // Adiciona o marcador (Você)
+                                Text(
+                                  nome,
+                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                ),
                                 if (isCurrentUser) ...[
                                   const SizedBox(width: 8),
-                                  const Text('(Você)', style: TextStyle(fontSize: 12, color: Colors.grey, fontStyle: FontStyle.italic)),
-                                ]
+                                  const Text(
+                                    '(Você)',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Text(email, style: const TextStyle(fontSize: 12)),
-                                Text(_labelRole(role), style: const TextStyle(fontSize: 11, color: Colors.grey)),
+                                Text(
+                                  _labelRole(role),
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.grey,
+                                  ),
+                                ),
                               ],
                             ),
-                            // Se for o próprio utilizador, esconde o botão de apagar/editar
-                            trailing: isCurrentUser 
-                                ? const SizedBox.shrink() 
+                            trailing: isCurrentUser
+                                ? const SizedBox.shrink()
                                 : PopupMenuButton(
                                     itemBuilder: (_) => [
                                       PopupMenuItem(
-                                        child: const Row(children: [Icon(Icons.vpn_key, size: 18), SizedBox(width: 8), Text('Alterar senha')]),
+                                        child: const Row(
+                                          children: [
+                                            Icon(Icons.vpn_key, size: 18),
+                                            SizedBox(width: 8),
+                                            Text('Alterar senha'),
+                                          ],
+                                        ),
                                         onTap: () => _alterarSenha(user),
                                       ),
                                       PopupMenuItem(
-                                        child: const Row(children: [Icon(Icons.delete, size: 18, color: Colors.red), SizedBox(width: 8), Text('Apagar', style: TextStyle(color: Colors.red))]),
+                                        child: const Row(
+                                          children: [
+                                            Icon(
+                                              Icons.delete,
+                                              size: 18,
+                                              color: Colors.red,
+                                            ),
+                                            SizedBox(width: 8),
+                                            Text(
+                                              'Apagar',
+                                              style: TextStyle(color: Colors.red),
+                                            ),
+                                          ],
+                                        ),
                                         onTap: () => _apagarUtilizador(user),
                                       ),
                                     ],
@@ -177,28 +250,27 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Formulário de criação
-// ---------------------------------------------------------------------------
-
 class _FormularioCriarUtilizador extends StatefulWidget {
   const _FormularioCriarUtilizador({required this.onCriado});
+
   final VoidCallback onCriado;
 
   @override
-  State<_FormularioCriarUtilizador> createState() => _FormularioCriarUtilizadorState();
+  State<_FormularioCriarUtilizador> createState() =>
+      _FormularioCriarUtilizadorState();
 }
 
-class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> {
-  final _formKey            = GlobalKey<FormState>();
-  final _nomeCtrl           = TextEditingController();
-  final _emailCtrl          = TextEditingController();
-  final _senhaCtrl          = TextEditingController();
+class _FormularioCriarUtilizadorState
+    extends State<_FormularioCriarUtilizador> {
+  final _formKey = GlobalKey<FormState>();
+  final _nomeCtrl = TextEditingController();
+  final _emailCtrl = TextEditingController();
+  final _senhaCtrl = TextEditingController();
   final _confirmarSenhaCtrl = TextEditingController();
 
-  bool   _obscureSenha     = true;
-  bool   _obscureConfirmar = true;
-  bool   _carregando       = false;
+  bool _obscureSenha = true;
+  bool _obscureConfirmar = true;
+  bool _carregando = false;
 
   String _roleSeleccionado = 'utilizador';
 
@@ -211,20 +283,45 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
     super.dispose();
   }
 
+  String? _validarEmail(String? value) {
+    final email = value?.trim() ?? '';
+    if (email.isEmpty) return 'Campo obrigatório';
+    final emailRegex = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+    if (!emailRegex.hasMatch(email)) return 'Formato de email inválido';
+    return null;
+  }
+
+  String? _validarSenha(String? value) {
+    final senha = value ?? '';
+    if (senha.isEmpty) return 'Campo obrigatório';
+    if (senha.length < 8) return 'A password deve ter pelo menos 8 caracteres';
+    if (!RegExp(r'[a-zA-Z]').hasMatch(senha)) {
+      return 'A password deve conter pelo menos uma letra';
+    }
+    if (!RegExp(r'[0-9]').hasMatch(senha)) {
+      return 'A password deve conter pelo menos um número';
+    }
+    return null;
+  }
+
   Future<void> _submeter() async {
     if (!_formKey.currentState!.validate()) return;
     setState(() => _carregando = true);
     try {
       await ApiService.criarUtilizador({
-        'nome':     _nomeCtrl.text.trim(),
-        'email':    _emailCtrl.text.trim(),
+        'nome': _nomeCtrl.text.trim(),
+        'email': _emailCtrl.text.trim(),
         'password': _senhaCtrl.text,
-        'role':     _roleSeleccionado, 
+        'role': _roleSeleccionado,
       });
       if (mounted) Navigator.pop(context);
       widget.onCriado();
     } on ApiException catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(e.mensagem)),
+        );
+      }
     } finally {
       if (mounted) setState(() => _carregando = false);
     }
@@ -233,10 +330,12 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
       child: Form(
         key: _formKey,
+        autovalidateMode: AutovalidateMode.onUserInteraction,
         child: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -246,28 +345,39 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
                 children: [
                   const Icon(Icons.person_add, color: Color(0xFF185FA5)),
                   const SizedBox(width: 8),
-                  const Text('Novo utilizador', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Text(
+                    'Novo utilizador',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
                   const Spacer(),
-                  IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close)),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close),
+                  ),
                 ],
               ),
               const Divider(height: 24),
               TextFormField(
                 controller: _nomeCtrl,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Nome completo', prefixIcon: Icon(Icons.person_outline), border: OutlineInputBorder()),
-                validator: (v) => (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null,
+                decoration: const InputDecoration(
+                  labelText: 'Nome completo',
+                  prefixIcon: Icon(Icons.person_outline),
+                  border: OutlineInputBorder(),
+                ),
+                validator: (v) =>
+                    (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(labelText: 'Email', prefixIcon: Icon(Icons.email_outlined), border: OutlineInputBorder()),
-                validator: (v) {
-                  if (v == null || v.trim().isEmpty) return 'Campo obrigatório';
-                  if (!v.contains('@')) return 'Email inválido';
-                  return null;
-                },
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email_outlined),
+                  border: OutlineInputBorder(),
+                ),
+                validator: _validarEmail,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -278,15 +388,14 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureSenha ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureSenha = !_obscureSenha),
+                    icon: Icon(
+                      _obscureSenha ? Icons.visibility_off : Icons.visibility,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscureSenha = !_obscureSenha),
                   ),
                 ),
-                validator: (v) {
-                  if (v == null || v.isEmpty) return 'Campo obrigatório';
-                  if (v.length < 6) return 'Mínimo 6 caracteres';
-                  return null;
-                },
+                validator: _validarSenha,
               ),
               const SizedBox(height: 16),
               TextFormField(
@@ -297,8 +406,14 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(_obscureConfirmar ? Icons.visibility_off : Icons.visibility),
-                    onPressed: () => setState(() => _obscureConfirmar = !_obscureConfirmar),
+                    icon: Icon(
+                      _obscureConfirmar
+                          ? Icons.visibility_off
+                          : Icons.visibility,
+                    ),
+                    onPressed: () => setState(
+                      () => _obscureConfirmar = !_obscureConfirmar,
+                    ),
                   ),
                 ),
                 validator: (v) {
@@ -310,13 +425,24 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
               const SizedBox(height: 16),
               DropdownButtonFormField<String>(
                 initialValue: _roleSeleccionado,
-                decoration: const InputDecoration(labelText: 'Função', prefixIcon: Icon(Icons.badge_outlined), border: OutlineInputBorder()),
+                decoration: const InputDecoration(
+                  labelText: 'Função',
+                  prefixIcon: Icon(Icons.badge_outlined),
+                  border: OutlineInputBorder(),
+                ),
                 items: const [
-                  DropdownMenuItem(value: 'utilizador', child: Text('Utilizador')),
-                  DropdownMenuItem(value: 'gestor',     child: Text('Gestor')),
-                  DropdownMenuItem(value: 'admin',      child: Text('Administrador')),
+                  DropdownMenuItem(
+                    value: 'utilizador',
+                    child: Text('Utilizador'),
+                  ),
+                  DropdownMenuItem(value: 'gestor', child: Text('Gestor')),
+                  DropdownMenuItem(
+                    value: 'admin',
+                    child: Text('Administrador'),
+                  ),
                 ],
-                onChanged: (v) => setState(() => _roleSeleccionado = v ?? 'utilizador'),
+                onChanged: (v) =>
+                    setState(() => _roleSeleccionado = v ?? 'utilizador'),
               ),
               const SizedBox(height: 24),
               SizedBox(
@@ -324,13 +450,22 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
                 child: ElevatedButton.icon(
                   onPressed: _carregando ? null : _submeter,
                   icon: _carregando
-                      ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
                       : const Icon(Icons.check),
                   label: Text(_carregando ? 'A criar...' : 'Criar utilizador'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10),
+                    ),
                   ),
                 ),
               ),
@@ -342,20 +477,31 @@ class _FormularioCriarUtilizadorState extends State<_FormularioCriarUtilizador> 
   }
 }
 
-// ---------------------------------------------------------------------------
-// Helper — prompt simples (usado para "alterar senha")
-// ---------------------------------------------------------------------------
-
-Future<String?> _promptTexto(BuildContext context, String titulo, String valor, {bool obscureText = false}) async {
+Future<String?> _promptTexto(
+  BuildContext context,
+  String titulo,
+  String valor, {
+  bool obscureText = false,
+}) async {
   final ctrl = TextEditingController(text: valor);
   final resultado = await showDialog<String>(
     context: context,
     builder: (_) => AlertDialog(
       title: Text(titulo),
-      content: TextField(controller: ctrl, obscureText: obscureText, decoration: const InputDecoration(border: OutlineInputBorder())),
+      content: TextField(
+        controller: ctrl,
+        obscureText: obscureText,
+        decoration: const InputDecoration(border: OutlineInputBorder()),
+      ),
       actions: [
-        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
-        ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text), child: const Text('Confirmar')),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, ctrl.text),
+          child: const Text('Confirmar'),
+        ),
       ],
     ),
   );

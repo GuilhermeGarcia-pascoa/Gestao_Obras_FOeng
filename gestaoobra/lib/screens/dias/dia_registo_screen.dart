@@ -717,6 +717,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   // ── UI ────────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
     return PopScope(
       canPop: false,
       onPopInvokedWithResult: (didPop, _) async {
@@ -753,7 +754,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         body: _loading
             ? const Center(child: CircularProgressIndicator())
             : ListView(
-                padding: const EdgeInsets.all(16),
+                padding: EdgeInsets.fromLTRB(16, 16, 16, 24 + bottomSafe),
                 children: [
 
                   // ── Pessoas ─────────────────────────────────────────────
@@ -866,7 +867,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                             child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
                         : const Text('Guardar dia'),
                   ),
-                  const SizedBox(height: 24),
+                  SizedBox(height: 24 + bottomSafe),
                 ],
               ),
       ),

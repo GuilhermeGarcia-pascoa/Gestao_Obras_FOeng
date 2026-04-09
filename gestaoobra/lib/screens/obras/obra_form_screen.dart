@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../services/api_service.dart';
 
 class ObraFormScreen extends StatefulWidget {
@@ -63,7 +64,10 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
       setState(() => _saving = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Orçamento inválido'), backgroundColor: Colors.red),
+          const SnackBar(
+            content: Text('Orçamento inválido'),
+            backgroundColor: Colors.red,
+          ),
         );
       }
       return;
@@ -97,17 +101,21 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
   @override
   Widget build(BuildContext context) {
     final isEdit = widget.obra != null;
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return Scaffold(
       appBar: AppBar(title: Text(isEdit ? 'Editar obra' : 'Nova obra')),
       body: Form(
         key: _formKey,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 16 + bottomSafe),
           children: [
             TextFormField(
               controller: _codigoCtrl,
-              decoration: const InputDecoration(labelText: 'Código *', hintText: 'ex: AC/174/PE'),
+              decoration: const InputDecoration(
+                labelText: 'Código *',
+                hintText: 'ex: AC/174/PE',
+              ),
               textCapitalization: TextCapitalization.characters,
               validator: (v) {
                 final value = v?.trim() ?? '';
@@ -131,22 +139,31 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
             DropdownButtonFormField<String>(
               initialValue: _tipo,
               decoration: const InputDecoration(labelText: 'Tipo de obra'),
-              items: _tipos.map((t) => DropdownMenuItem(value: t, child: Text(t))).toList(),
+              items: _tipos
+                  .map((t) => DropdownMenuItem(value: t, child: Text(t)))
+                  .toList(),
               onChanged: (v) => setState(() => _tipo = v!),
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
               initialValue: _estado,
               decoration: const InputDecoration(labelText: 'Estado'),
-              items: _estados.map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
+              items: _estados
+                  .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                  .toList(),
               onChanged: (v) => setState(() => _estado = v!),
             ),
             const SizedBox(height: 12),
             TextFormField(
               controller: _orcCtrl,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))],
-              decoration: const InputDecoration(labelText: 'Orçamento (€)', prefixText: '€ '),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]')),
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Orçamento (€)',
+                prefixText: '€ ',
+              ),
               validator: (v) {
                 final value = (v ?? '').trim();
                 if (value.isEmpty) return null;
@@ -162,10 +179,14 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
                   ? const SizedBox(
                       height: 20,
                       width: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
                     )
                   : Text(isEdit ? 'Guardar alterações' : 'Criar obra'),
             ),
+            SizedBox(height: bottomSafe),
           ],
         ),
       ),
