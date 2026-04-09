@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
@@ -402,7 +402,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final p in _pessoas) {
       final id = p['pessoa_id'] as int;
       final horas = _p(_horasP[id]?.text);
-      final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
+      _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
       // usa override se existir, caso contrário usa o valor base do operador
       final custoH = _custoHoraPessoa(p);
       final extra  = _p(_custoExtraP[id]?.text);
@@ -416,7 +416,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final m in _maquinas) {
       final id = m['maquina_id'] as int;
       final horas = _p(_horasM[id]?.text);
-      final maq   = _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'custo_hora': 0});
+      _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'custo_hora': 0});
       total += horas * _custoHoraMaquina(m);
     }
     return total;
@@ -427,7 +427,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final v in _viaturas) {
       final id  = v['viatura_id'] as int;
       final km  = _p(_kmV[id]?.text);
-      final viat = _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0});
+      _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0});
       total += km * _custoKmViatura(v);
     }
     return total;
@@ -490,7 +490,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id    = p['pessoa_id'] as int;
         final horas = _p(_horasP[id]?.text);
         if (horas <= 0) continue;
-        final pessoa = _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
+        _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
         final custoH = _custoHoraPessoa(p);
         horasPessoas.add({
           'pessoa_id':         id,

@@ -265,7 +265,7 @@ class ConfigScreen extends StatelessWidget {
         );
         return;
       }
-      final isDark = Theme.of(context).brightness == Brightness.dark;
+      Theme.of(context).brightness == Brightness.dark;
       final obra = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (_) => AlertDialog(
