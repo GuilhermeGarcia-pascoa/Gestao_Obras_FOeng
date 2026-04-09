@@ -66,18 +66,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
   @override
   void dispose() {
-    for (final c in _horasP.values) {
-      c.dispose();
-    }
-    for (final c in _horasM.values) {
-      c.dispose();
-    }
-    for (final c in _kmV.values) {
-      c.dispose();
-    }
-    for (final c in _custoExtraP.values) {
-      c.dispose();
-    }
+    for (final c in _horasP.values) c.dispose();
+    for (final c in _horasM.values) c.dispose();
+    for (final c in _kmV.values) c.dispose();
+    for (final c in _custoExtraP.values) c.dispose();
     _moCtrl.dispose(); _combustivelCtrl.dispose();
     _estadiasCtrl.dispose(); _materiaisCtrl.dispose();
     _refeicoesCtrl.dispose(); _faturadoCtrl.dispose();
@@ -101,6 +93,8 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         ApiService.listarViaturas(estado: 'todas'),
       ]);
 
+      if (!mounted) return;
+
       final detalhe      = results[0] as Map<String, dynamic>;
       _todasPessoas  = results[1] as List<dynamic>;
       _todasMaquinas = results[2] as List<dynamic>;
@@ -119,7 +113,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id = p['pessoa_id'] as int;
         _horasP[id]      = TextEditingController(text: (p['horas_total'] ?? 0).toString());
         _custoExtraP[id] = TextEditingController(text: (p['custo_extra']  ?? 0).toString());
-        // carrega override do custo/hora se existir
         if (p['custo_hora_override'] != null && _p(p['custo_hora_override']) > 0) {
           _custoHoraOverride[id] = _p(p['custo_hora_override']);
         }
@@ -152,29 +145,22 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       );
 
       for (final c in [_moCtrl, _combustivelCtrl, _estadiasCtrl, _materiaisCtrl, _refeicoesCtrl, _faturadoCtrl]) {
-        c.addListener(() => setState(() => _temAlteracoes = true));
+        c.addListener(() { if (mounted) setState(() => _temAlteracoes = true); });
       }
 
       setState(() { _loading = false; _temAlteracoes = false; });
     } on ApiException catch (e) {
+      if (!mounted) return;
       setState(() => _loading = false);
-      if (mounted) _snack('❌ ${e.mensagem}', Colors.red);
+      _snack('❌ ${e.mensagem}', Colors.red);
     }
   }
 
   void _limparControllers() {
-    for (final c in _horasP.values) {
-      c.dispose();
-    }
-    for (final c in _horasM.values) {
-      c.dispose();
-    }
-    for (final c in _kmV.values) {
-      c.dispose();
-    }
-    for (final c in _custoExtraP.values) {
-      c.dispose();
-    }
+    for (final c in _horasP.values) c.dispose();
+    for (final c in _horasM.values) c.dispose();
+    for (final c in _kmV.values) c.dispose();
+    for (final c in _custoExtraP.values) c.dispose();
     _horasP.clear(); _horasM.clear(); _kmV.clear(); _custoExtraP.clear(); _custoHoraOverride.clear();
   }
 
@@ -183,9 +169,11 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     if (_diaId == null) return;
     try {
       final ant = await ApiService.getDiaAnterior(_diaId!);
+      if (!mounted) return;
       _aplicarCopia(ant);
       _snack('✓ Dados do dia anterior copiados!', Colors.green);
     } on ApiException catch (e) {
+      if (!mounted) return;
       _snack('❌ ${e.mensagem}', Colors.red);
     }
   }
@@ -195,20 +183,20 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     if (_diaId == null) return;
     try {
       final lista = await ApiService.listarDiasObra(widget.obraId);
-      // Remove o dia atual da lista
+      if (!mounted) return;
+
       final opcoes = lista.where((d) => d['id'] != _diaId).toList();
       if (opcoes.isEmpty) { _snack('Sem outros dias para copiar', Colors.orange); return; }
 
-      if (!mounted) return;
       final escolhido = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (_) => SimpleDialog(
+        builder: (dialogContext) => SimpleDialog(
           title: const Text('Copiar dados de qual dia?'),
           children: opcoes.map<Widget>((d) {
             final dt = DateTime.tryParse(d['data'] ?? '');
             final label = dt != null ? DateFormat('EEEE, d MMM yyyy', 'pt_PT').format(dt) : d['data'];
             return SimpleDialogOption(
-              onPressed: () => Navigator.pop(context, d),
+              onPressed: () => Navigator.pop(dialogContext, d),
               child: Padding(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 child: Text(label, style: const TextStyle(fontSize: 14)),
@@ -217,12 +205,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
           }).toList(),
         ),
       );
+      if (!mounted) return;
       if (escolhido == null) return;
 
       final dados = await ApiService.copiarDe(_diaId!, escolhido['id'] as int);
+      if (!mounted) return;
       _aplicarCopia(dados);
       _snack('✓ Dados copiados!', Colors.green);
     } on ApiException catch (e) {
+      if (!mounted) return;
       _snack('❌ ${e.mensagem}', Colors.red);
     }
   }
@@ -273,10 +264,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         title: const Text('Selecionar pessoa'),
         children: disp.map((p) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, p as Map<String, dynamic>),
+          onPressed: () => Navigator.pop(dialogContext, p as Map<String, dynamic>),
           child: ListTile(
             leading: CircleAvatar(child: Text((p['nome'] as String)[0])),
             title: Text(p['nome']),
@@ -285,6 +276,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         )).toList(),
       ),
     );
+    if (!mounted) return;
     if (escolhida == null) return;
     final id = escolhida['id'] as int;
     setState(() {
@@ -306,10 +298,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         title: const Text('Selecionar máquina'),
         children: disp.map((m) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, m as Map<String, dynamic>),
+          onPressed: () => Navigator.pop(dialogContext, m as Map<String, dynamic>),
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.construction)),
             title: Text(m['nome']),
@@ -318,6 +310,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         )).toList(),
       ),
     );
+    if (!mounted) return;
     if (escolhida == null) return;
     final id = escolhida['id'] as int;
     setState(() {
@@ -338,10 +331,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (_) => SimpleDialog(
+      builder: (dialogContext) => SimpleDialog(
         title: const Text('Selecionar viatura'),
         children: disp.map((v) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, v as Map<String, dynamic>),
+          onPressed: () => Navigator.pop(dialogContext, v as Map<String, dynamic>),
           child: ListTile(
             leading: const CircleAvatar(child: Icon(Icons.directions_car)),
             title: Text(v['modelo'] ?? ''),
@@ -350,6 +343,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         )).toList(),
       ),
     );
+    if (!mounted) return;
     if (escolhida == null) return;
     final id = escolhida['id'] as int;
     setState(() {
@@ -402,8 +396,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final p in _pessoas) {
       final id = p['pessoa_id'] as int;
       final horas = _p(_horasP[id]?.text);
-      _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
-      // usa override se existir, caso contrário usa o valor base do operador
       final custoH = _custoHoraPessoa(p);
       final extra  = _p(_custoExtraP[id]?.text);
       total += horas * custoH + extra;
@@ -416,7 +408,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final m in _maquinas) {
       final id = m['maquina_id'] as int;
       final horas = _p(_horasM[id]?.text);
-      _todasMaquinas.firstWhere((tm) => tm['id'] == id, orElse: () => {'custo_hora': 0});
       total += horas * _custoHoraMaquina(m);
     }
     return total;
@@ -427,7 +418,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     for (final v in _viaturas) {
       final id  = v['viatura_id'] as int;
       final km  = _p(_kmV[id]?.text);
-      _todasViaturas.firstWhere((tv) => tv['id'] == id, orElse: () => {'custo_km': 0});
       total += km * _custoKmViatura(v);
     }
     return total;
@@ -447,23 +437,19 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       if (horas < 0 || horas > 24) return 'As horas das pessoas têm de estar entre 0 e 24.';
       if (extra < 0) return 'O custo extra das pessoas não pode ser negativo.';
     }
-
     for (final m in _maquinas) {
       final id = m['maquina_id'] as int;
       final horas = _p(_horasM[id]?.text);
       if (horas < 0 || horas > 24) return 'As horas das máquinas têm de estar entre 0 e 24.';
     }
-
     for (final v in _viaturas) {
       final id = v['viatura_id'] as int;
       final km = _p(_kmV[id]?.text);
       if (km < 0 || km > 2000) return 'Os quilómetros das viaturas têm de estar entre 0 e 2000.';
     }
-
     for (final ctrl in [_moCtrl, _combustivelCtrl, _estadiasCtrl, _materiaisCtrl, _refeicoesCtrl, _faturadoCtrl]) {
       if (_p(ctrl.text) < 0) return 'Os valores monetários não podem ser negativos.';
     }
-
     return null;
   }
 
@@ -479,6 +465,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     final faltas = _camposEmFalta();
     if (faltas.isNotEmpty) {
       final continuar = await _confirmarGuardarIncompleto(faltas);
+      if (!mounted) return;
       if (!continuar) return;
     }
 
@@ -490,15 +477,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final id    = p['pessoa_id'] as int;
         final horas = _p(_horasP[id]?.text);
         if (horas <= 0) continue;
-        _todasPessoas.firstWhere((tp) => tp['id'] == id, orElse: () => {'custo_hora': 0});
         final custoH = _custoHoraPessoa(p);
         horasPessoas.add({
-          'pessoa_id':         id,
-          'horas_total':        horas,
-          'custo_total':        horas * custoH,
-          'custo_extra':        _p(_custoExtraP[id]?.text),
-          'custo_hora_override': _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id] : null,
-          'custo_hora_snapshot': custoH,
+          'pessoa_id':           id,
+          'horas_total':          horas,
+          'custo_total':          horas * custoH,
+          'custo_extra':          _p(_custoExtraP[id]?.text),
+          'custo_hora_override':  _custoHoraOverride.containsKey(id) ? _custoHoraOverride[id] : null,
+          'custo_hora_snapshot':  custoH,
         });
       }
 
@@ -510,11 +496,11 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         final custoHora = _custoHoraMaquina(m);
         final combustivelHora = _combustivelHoraMaquina(m);
         horasMaquinas.add({
-          'maquina_id':       id,
-          'horas_total':       horas,
-          'custo_total':       horas * custoHora,
-          'combustivel_total': horas * combustivelHora,
-          'custo_hora_snapshot': custoHora,
+          'maquina_id':               id,
+          'horas_total':               horas,
+          'custo_total':               horas * custoHora,
+          'combustivel_total':         horas * combustivelHora,
+          'custo_hora_snapshot':       custoHora,
           'combustivel_hora_snapshot': combustivelHora,
         });
       }
@@ -526,16 +512,16 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         if (km <= 0) continue;
         final custoKm = _custoKmViatura(v);
         horasViaturas.add({
-          'viatura_id': id,
-          'km_total':   km,
-          'custo_total': km * custoKm,
+          'viatura_id':        id,
+          'km_total':          km,
+          'custo_total':       km * custoKm,
           'custo_km_snapshot': custoKm,
         });
       }
 
       await ApiService.guardarDia(_diaId!, {
-        'estado':   'aberta',
-        'faturado': _p(_faturadoCtrl.text),
+        'estado':        'aberta',
+        'faturado':      _p(_faturadoCtrl.text),
         'horasPessoas':  horasPessoas,
         'horasMaquinas': horasMaquinas,
         'horasViaturas': horasViaturas,
@@ -548,19 +534,19 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         },
       });
 
-      if (mounted) {
-        setState(() {
-          _saving = false;
-          _temAlteracoes = false;
-          _estadoInicialVazio = false;
-        });
-        _snack('✓ Dia guardado!', Colors.green);
-        await Future.delayed(const Duration(milliseconds: 400));
-        if (mounted) Navigator.pop(context, true);
-      }
+      if (!mounted) return;
+      setState(() {
+        _saving = false;
+        _temAlteracoes = false;
+        _estadoInicialVazio = false;
+      });
+      _snack('✓ Dia guardado!', Colors.green);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (mounted) Navigator.pop(context, true);
     } on ApiException catch (e) {
+      if (!mounted) return;
       setState(() => _saving = false);
-      if (mounted) _snack('❌ ${e.mensagem}', Colors.red);
+      _snack('❌ ${e.mensagem}', Colors.red);
     }
   }
 
@@ -578,7 +564,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         faltas.add('Pessoa sem horas: ${item['nome']}');
       }
     }
-
     for (final m in _maquinas) {
       final id = m['maquina_id'] as int;
       final horas = _p(_horasM[id]?.text);
@@ -590,7 +575,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
         faltas.add('Máquina sem horas: ${item['nome']}');
       }
     }
-
     for (final v in _viaturas) {
       final id = v['viatura_id'] as int;
       final km = _p(_kmV[id]?.text);
@@ -606,13 +590,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     final gastos = {
       'Mão de obra': _p(_moCtrl.text),
       'Combustível': _p(_combustivelCtrl.text),
-      'Estadias': _p(_estadiasCtrl.text),
-      'Refeições': _p(_refeicoesCtrl.text),
-      'Materiais': _p(_materiaisCtrl.text),
-      'Faturado': _p(_faturadoCtrl.text),
+      'Estadias':    _p(_estadiasCtrl.text),
+      'Refeições':   _p(_refeicoesCtrl.text),
+      'Materiais':   _p(_materiaisCtrl.text),
+      'Faturado':    _p(_faturadoCtrl.text),
     };
 
-    final temRegistosOperacionais = _pessoas.any((p) => _p(_horasP[p['pessoa_id'] as int]?.text) > 0) ||
+    final temRegistosOperacionais =
+        _pessoas.any((p) => _p(_horasP[p['pessoa_id'] as int]?.text) > 0) ||
         _maquinas.any((m) => _p(_horasM[m['maquina_id'] as int]?.text) > 0) ||
         _viaturas.any((v) => _p(_kmV[v['viatura_id'] as int]?.text) > 0);
 
@@ -634,24 +619,25 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
     final result = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Há campos por preencher'),
         content: Text(
           'Encontrei alguns pontos em falta:\n• $preview$extra\n\nQueres guardar mesmo assim?',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context, false),
+            onPressed: () => Navigator.pop(dialogContext, false),
             child: const Text('Voltar'),
           ),
           ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
+            onPressed: () => Navigator.pop(dialogContext, true),
             child: const Text('Guardar assim mesmo'),
           ),
         ],
       ),
     );
 
+    if (!mounted) return false;
     return result ?? false;
   }
 
@@ -659,33 +645,32 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   Future<bool> _aoTentarSair() async {
     if (!_temAlteracoes) {
       if (_estadoInicialVazio && _diaId != null) {
-        try {
-          await ApiService.apagarDia(_diaId!);
-        } catch (_) {
-          // Ignora erro aqui para não prender a saída.
-        }
+        try { await ApiService.apagarDia(_diaId!); } catch (_) {}
       }
       return true;
     }
+    if (!mounted) return true;
     final ok = await showDialog<bool>(
       context: context,
-      builder: (_) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Alterações não guardadas'),
         content: const Text('Tens alterações por guardar. Sair mesmo assim?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Continuar')),
-          TextButton(onPressed: () => Navigator.pop(context, true),
-              child: const Text('Sair', style: TextStyle(color: Colors.red))),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Continuar'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Sair', style: TextStyle(color: Colors.red)),
+          ),
         ],
       ),
     );
+    if (!mounted) return true;
     final sair = ok ?? false;
     if (sair && _estadoInicialVazio && _diaId != null) {
-      try {
-        await ApiService.apagarDia(_diaId!);
-      } catch (_) {
-        // Ignora erro aqui para não prender a saída.
-      }
+      try { await ApiService.apagarDia(_diaId!); } catch (_) {}
     }
     return sair;
   }
@@ -702,16 +687,11 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     required double valorRefeicoes,
     required double faturado,
   }) {
-    final temPessoas = pessoas.any((p) => _p(p['horas_total']) > 0);
+    final temPessoas  = pessoas.any((p) => _p(p['horas_total']) > 0);
     final temMaquinas = maquinas.any((m) => _p(m['horas_total']) > 0);
     final temViaturas = viaturas.any((v) => _p(v['km_total']) > 0);
-    final temValores = valorTo > 0 ||
-        valorCombustivel > 0 ||
-        valorEstadias > 0 ||
-        valorMateriais > 0 ||
-        valorRefeicoes > 0 ||
-        faturado > 0;
-
+    final temValores  = valorTo > 0 || valorCombustivel > 0 || valorEstadias > 0 ||
+                        valorMateriais > 0 || valorRefeicoes > 0 || faturado > 0;
     return !(temPessoas || temMaquinas || temViaturas || temValores);
   }
 
@@ -724,8 +704,8 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   double _p(dynamic val) {
     if (val == null) return 0;
     if (val is double) return val;
-    if (val is int) return val.toDouble();
-    if (val is num) return val.toDouble();
+    if (val is int)    return val.toDouble();
+    if (val is num)    return val.toDouble();
     return double.tryParse(val.toString().replaceAll(',', '.').trim()) ?? 0;
   }
 
@@ -834,18 +814,18 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   // ── Gastos diretos ──────────────────────────────────────
                   _cabecalho('Gastos do dia'),
                   const SizedBox(height: 8),
-                  _campo('Mão de obra (€)',        _moCtrl),
-                  _campo('Combustível (€)',         _combustivelCtrl),
-                  _campo('Estadias (€)',            _estadiasCtrl),
-                  _campo('Refeições (€)',           _refeicoesCtrl),
-                  _campo('Materiais / outros (€)',  _materiaisCtrl),
+                  _campo('Mão de obra (€)',       _moCtrl),
+                  _campo('Combustível (€)',        _combustivelCtrl),
+                  _campo('Estadias (€)',           _estadiasCtrl),
+                  _campo('Refeições (€)',          _refeicoesCtrl),
+                  _campo('Materiais / outros (€)', _materiaisCtrl),
 
                   const SizedBox(height: 12),
 
                   // ── Totais por sector ───────────────────────────────────
-                  _totalSector('Pessoal',    _totalPessoal,  const Color(0xFFE6F1FB)),
-                  _totalSector('Máquinas',   _totalMaquinas, const Color(0xFFF1EFE8)),
-                  _totalSector('Viaturas',   _totalViaturas, const Color(0xFFE1F5EE)),
+                  _totalSector('Pessoal',       _totalPessoal,      const Color(0xFFE6F1FB)),
+                  _totalSector('Máquinas',      _totalMaquinas,     const Color(0xFFF1EFE8)),
+                  _totalSector('Viaturas',      _totalViaturas,     const Color(0xFFE1F5EE)),
                   _totalSector('Gastos diretos', _totalGastosDiretos, const Color(0xFFFAEEDA)),
 
                   const SizedBox(height: 4),
@@ -861,8 +841,10 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        const Text('TOTAL GASTO', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
-                        Text(_eur.format(_totalGeral), style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
+                        const Text('TOTAL GASTO',
+                            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14)),
+                        Text(_eur.format(_totalGeral),
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18)),
                       ],
                     ),
                   ),
@@ -892,11 +874,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
   // ── Linha de pessoa (com override de custo/hora) ─────────────────────────
   Widget _linhaPessoa(Map<String, dynamic> p) {
-    final id   = p['pessoa_id'] as int;
-    final item = _todasPessoas.firstWhere((x) => x['id'] == id, orElse: () => {'nome': 'Desconhecido', 'custo_hora': 0});
-    final nome      = (item['nome'] ?? '') as String;
-    final custoBase = p['custo_hora_snapshot'] != null ? _p(p['custo_hora_snapshot']) : _p(item['custo_hora']);
-    final custoAtivo = _custoHoraPessoa(p);
+    final id         = p['pessoa_id'] as int;
+    final item       = _todasPessoas.firstWhere((x) => x['id'] == id,
+                           orElse: () => {'nome': 'Desconhecido', 'custo_hora': 0});
+    final nome       = (item['nome'] ?? '') as String;
+    final custoBase  = p['custo_hora_snapshot'] != null
+                           ? _p(p['custo_hora_snapshot'])
+                           : _p(item['custo_hora']);
+    final custoAtivo  = _custoHoraPessoa(p);
     final temOverride = _custoHoraOverride.containsKey(id);
 
     return Card(
@@ -915,7 +900,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                 ),
                 const SizedBox(width: 10),
                 Expanded(child: Text(nome, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500))),
-                // Campo horas
                 _miniCampo(_horasP[id], 'h', 60),
                 IconButton(
                   icon: const Icon(Icons.close, size: 18, color: Colors.grey),
@@ -929,17 +913,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                 ),
               ],
             ),
-            // Linha do custo/hora com botão de editar
             Row(
               children: [
                 const SizedBox(width: 44),
-                // Se tem override, mostra tachado o valor base
                 if (temOverride) ...[
                   Text(
                     '€${custoBase.toStringAsFixed(2)}/h',
                     style: const TextStyle(
-                      fontSize: 11,
-                      color: Colors.grey,
+                      fontSize: 11, color: Colors.grey,
                       decoration: TextDecoration.lineThrough,
                     ),
                   ),
@@ -953,24 +934,20 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                     '€${custoBase.toStringAsFixed(2)}/h base',
                     style: const TextStyle(fontSize: 11, color: Colors.grey),
                   ),
-                if (!temOverride)
+                if (!temOverride) ...[
                   const SizedBox(width: 4),
-                if (!temOverride)
-                  const Text(
-                    '(valor guardado no dia)',
-                    style: TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
+                  const Text('(valor guardado no dia)',
+                      style: TextStyle(fontSize: 11, color: Colors.grey)),
+                ],
                 const SizedBox(width: 4),
-                // Botão editar
                 GestureDetector(
-                  onTap: () => _editarCustoHora(id, custoBase, custoAtivo),
+                  onTap: () => _editarCustoHora(id, custoBase),
                   child: Icon(
                     temOverride ? Icons.edit : Icons.edit_outlined,
                     size: 14,
                     color: temOverride ? const Color(0xFF185FA5) : Colors.grey,
                   ),
                 ),
-                // Botão repor base (só aparece se tiver override)
                 if (temOverride) ...[
                   const SizedBox(width: 4),
                   GestureDetector(
@@ -982,19 +959,16 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   ),
                 ],
                 const Spacer(),
-                // Custo total desta pessoa
                 Text(
                   _eur.format(_p(_horasP[id]?.text) * custoAtivo + _p(_custoExtraP[id]?.text)),
                   style: const TextStyle(fontSize: 11, color: Colors.grey),
                 ),
               ],
             ),
-            // Linha de custo extra (horas extras — inalterada)
             Row(
               children: [
                 const SizedBox(width: 44),
-                const Text('extra neste dia:',
-                    style: TextStyle(fontSize: 11, color: Colors.grey)),
+                const Text('extra neste dia:', style: TextStyle(fontSize: 11, color: Colors.grey)),
                 const SizedBox(width: 8),
                 _miniCampo(_custoExtraP[id], '€', 72),
               ],
@@ -1006,60 +980,26 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   }
 
   // ── Dialog para editar o custo/hora neste dia ────────────────────────────
-  Future<void> _editarCustoHora(int pessoaId, double custoBase, double custoAtual) async {
-    final ctrl = TextEditingController(text: custoAtual.toStringAsFixed(2));
+  Future<void> _editarCustoHora(int pessoaId, double custoBase) async {
+    // Recalcula o valor ACTUAL no momento da chamada, não o do build anterior
+    final custoAtual = _custoHoraOverride.containsKey(pessoaId)
+        ? _custoHoraOverride[pessoaId]!
+        : custoBase;
 
     final resultado = await showDialog<double>(
       context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Custo/hora neste dia'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Valor base: €${custoBase.toStringAsFixed(2)}/h',
-                style: const TextStyle(fontSize: 12, color: Colors.grey)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: ctrl,
-              autofocus: true,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}'))],
-              decoration: const InputDecoration(
-                labelText: 'Custo/hora para este dia',
-                prefixText: '€ ',
-                suffixText: '/h',
-              ),
-            ),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
-          ),
-          // Repor valor base
-          TextButton(
-            onPressed: () => Navigator.pop(context, -1),
-            child: const Text('Repor base', style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              final val = double.tryParse(ctrl.text.replaceAll(',', '.'));
-              if (val != null && val > 0) Navigator.pop(context, val);
-            },
-            child: const Text('Confirmar'),
-          ),
-        ],
+      builder: (dialogContext) => _CustoHoraDialog(
+        custoBase: custoBase,
+        custoAtual: custoAtual,
       ),
     );
 
-    ctrl.dispose();
-
+    if (!mounted) return;
     if (resultado == null) return;
+
     setState(() {
-      if (resultado < 0) {
-        // -1 = repor base
+      if (resultado < 0 || resultado == custoBase) {
+        // "Repor base" ou confirmou o valor base → remove override
         _custoHoraOverride.remove(pessoaId);
       } else {
         _custoHoraOverride[pessoaId] = resultado;
@@ -1094,10 +1034,13 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
           const SizedBox(width: 10),
           Expanded(child: Text(nome, style: const TextStyle(fontSize: 14))),
           _miniCampo(ctrl[id], sufixo, 72),
-          IconButton(icon: const Icon(Icons.close, size: 18, color: Colors.grey), onPressed: () {
-            onRemover();
-            setState(() => _temAlteracoes = true);
-          }),
+          IconButton(
+            icon: const Icon(Icons.close, size: 18, color: Colors.grey),
+            onPressed: () {
+              onRemover();
+              setState(() => _temAlteracoes = true);
+            },
+          ),
         ],
       ),
     );
@@ -1144,8 +1087,8 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   );
 
   Widget _totalSector(String label, double valor, Color bg) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    final bgColor = isDark ? bg.withOpacity(0.2) : bg;
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    final bgColor  = isDark ? bg.withOpacity(0.2) : bg;
     final textColor = isDark ? Colors.white : Colors.black87;
     return Container(
       margin: const EdgeInsets.only(bottom: 6),
@@ -1158,6 +1101,87 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
           Text(_eur.format(valor), style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textColor)),
         ],
       ),
+    );
+  }
+}
+
+// ── Dialog autónomo para editar custo/hora ────────────────────────────────
+// Widget separado para que o TextEditingController tenha o seu próprio
+// ciclo de vida (initState/dispose), evitando o crash "used after disposed"
+// causado pelo teclado Android que reconstrói o layout ao abrir/fechar.
+class _CustoHoraDialog extends StatefulWidget {
+  final double custoBase;
+  final double custoAtual;
+
+  const _CustoHoraDialog({
+    required this.custoBase,
+    required this.custoAtual,
+  });
+
+  @override
+  State<_CustoHoraDialog> createState() => _CustoHoraDialogState();
+}
+
+class _CustoHoraDialogState extends State<_CustoHoraDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: widget.custoAtual.toStringAsFixed(2));
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Custo/hora neste dia'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Valor base: €${widget.custoBase.toStringAsFixed(2)}/h',
+            style: const TextStyle(fontSize: 12, color: Colors.grey),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _ctrl,
+            autofocus: true,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [
+              FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')),
+            ],
+            decoration: const InputDecoration(
+              labelText: 'Custo/hora para este dia',
+              prefixText: '€ ',
+              suffixText: '/h',
+            ),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancelar'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, -1.0),
+          child: const Text('Repor base', style: TextStyle(color: Colors.grey)),
+        ),
+        ElevatedButton(
+          onPressed: () {
+            final val = double.tryParse(_ctrl.text.replaceAll(',', '.'));
+            if (val != null && val > 0) Navigator.pop(context, val);
+          },
+          child: const Text('Confirmar'),
+        ),
+      ],
     );
   }
 }
