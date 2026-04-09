@@ -22,11 +22,11 @@ class ObrasListScreen extends StatefulWidget {
 }
 
 class _ObrasListScreenState extends State<ObrasListScreen> {
-  List<dynamic> _obras          = [];
+  List<dynamic> _obras = [];
   List<dynamic> _obrasFiltradas = [];
-  bool   _loading       = true;
-  String _filtroEstado  = '';
-  String _searchText    = '';
+  bool _loading = true;
+  String _filtroEstado = '';
+  String _searchText = '';
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     setState(() => _loading = true);
     try {
       final estado = _filtroEstado.isEmpty ? null : _filtroEstado;
-      final data   = await ApiService.listarObras(estado: estado);
+      final data = await ApiService.listarObras(estado: estado);
       setState(() {
         _obras = data;
         _loading = false;
@@ -46,7 +46,9 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       });
     } on ApiException catch (e) {
       setState(() => _loading = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      }
     }
   }
 
@@ -55,7 +57,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     setState(() {
       _obrasFiltradas = _obras.where((obra) {
         final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
-        final nome   = (obra['nome']   ?? '').toString().toLowerCase();
+        final nome = (obra['nome'] ?? '').toString().toLowerCase();
         return codigo.contains(search) || nome.contains(search);
       }).toList();
     });
@@ -63,29 +65,37 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
 
   Color _corEstado(String? estado) {
     switch (estado) {
-      case 'em_curso':  return const Color(0xFF0F9D8A);
-      case 'planeada':  return const Color(0xFF185FA5);
-      case 'concluida': return const Color(0xFF6E7F92);
-      default:          return const Color(0xFFE6824D);
+      case 'em_curso':
+        return const Color(0xFF0F9D8A);
+      case 'planeada':
+        return const Color(0xFF185FA5);
+      case 'concluida':
+        return const Color(0xFF6E7F92);
+      default:
+        return const Color(0xFFE6824D);
     }
   }
 
   String _textoEstado(String? estado) {
     switch (estado) {
-      case 'em_curso':  return 'Em curso';
-      case 'planeada':  return 'Planeada';
-      case 'concluida': return 'Concluída';
-      default:          return estado ?? '';
+      case 'em_curso':
+        return 'Em curso';
+      case 'planeada':
+        return 'Planeada';
+      case 'concluida':
+        return 'Concluida';
+      default:
+        return estado ?? '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final isDark      = Theme.of(context).brightness == Brightness.dark;
-    final total       = _obras.length;
-    final emCurso     = _obras.where((o) => o['estado'] == 'em_curso').length;
-    final planeadas   = _obras.where((o) => o['estado'] == 'planeada').length;
-    final concluidas  = _obras.where((o) => o['estado'] == 'concluida').length;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final total = _obras.length;
+    final emCurso = _obras.where((o) => o['estado'] == 'em_curso').length;
+    final planeadas = _obras.where((o) => o['estado'] == 'planeada').length;
+    final concluidas = _obras.where((o) => o['estado'] == 'concluida').length;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,53 +122,66 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
               onRefresh: _carregar,
               child: LayoutBuilder(
                 builder: (context, constraints) {
-                  final grid = constraints.maxWidth >= 960;
-                  return ListView(
-                    padding: EdgeInsets.fromLTRB(16, 12, 16, 96),
-                    children: [
-                      // Chips de resumo
-                      _resumoChips(total, emCurso, planeadas, concluidas, isDark),
-                      const SizedBox(height: 12),
-                      SearchBarWidget(
-                        hintText: 'Pesquisar por código ou nome...',
-                        onChanged: (v) { _searchText = v; _filtrarObras(); },
-                      ),
-                      const SizedBox(height: 8),
-                      _filtrosEstado(isDark),
-                      const SizedBox(height: 12),
-                      if (_obras.isEmpty)
-                        _emptyMessage(
-                          icon: Icons.domain_disabled_outlined,
-                          title: 'Sem obras registadas',
-                          subtitle: 'Cria a primeira obra para começar.',
-                          isDark: isDark,
-                        )
-                      else if (_obrasFiltradas.isEmpty)
-                        _emptyMessage(
-                          icon: Icons.search_off_rounded,
-                          title: 'Nenhuma obra encontrada',
-                          subtitle: 'Ajusta a pesquisa ou o filtro.',
-                          isDark: isDark,
-                        )
-                      else if (grid)
-                        GridView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 2,
-                            crossAxisSpacing: 12,
-                            mainAxisSpacing: 12,
-                            childAspectRatio: 1.65,
+                  final isDesktop = constraints.maxWidth >= 960;
+                  final maxContentWidth = isDesktop ? 1280.0 : 720.0;
+                  final gridColumns = constraints.maxWidth >= 1440 ? 3 : 2;
+
+                  return Align(
+                    alignment: Alignment.topCenter,
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(maxWidth: maxContentWidth),
+                      child: ListView(
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, isDesktop ? 32 : 96),
+                        children: [
+                          _resumoChips(total, emCurso, planeadas, concluidas, isDark),
+                          const SizedBox(height: 12),
+                          SearchBarWidget(
+                            hintText: 'Pesquisar por codigo ou nome...',
+                            onChanged: (v) {
+                              _searchText = v;
+                              _filtrarObras();
+                            },
                           ),
-                          itemCount: _obrasFiltradas.length,
-                          itemBuilder: (context, i) => _obraCard(_obrasFiltradas[i], isDark),
-                        )
-                      else
-                        ..._obrasFiltradas.map((obra) => Padding(
-                              padding: const EdgeInsets.only(bottom: 10),
-                              child: _obraCard(obra, isDark),
-                            )),
-                    ],
+                          const SizedBox(height: 8),
+                          _filtrosEstado(isDark),
+                          const SizedBox(height: 12),
+                          if (_obras.isEmpty)
+                            _emptyMessage(
+                              icon: Icons.domain_disabled_outlined,
+                              title: 'Sem obras registadas',
+                              subtitle: 'Cria a primeira obra para comecar.',
+                              isDark: isDark,
+                            )
+                          else if (_obrasFiltradas.isEmpty)
+                            _emptyMessage(
+                              icon: Icons.search_off_rounded,
+                              title: 'Nenhuma obra encontrada',
+                              subtitle: 'Ajusta a pesquisa ou o filtro.',
+                              isDark: isDark,
+                            )
+                          else if (isDesktop)
+                            GridView.builder(
+                              shrinkWrap: true,
+                              physics: const NeverScrollableScrollPhysics(),
+                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: gridColumns,
+                                crossAxisSpacing: 12,
+                                mainAxisSpacing: 12,
+                                mainAxisExtent: 168,
+                              ),
+                              itemCount: _obrasFiltradas.length,
+                              itemBuilder: (context, i) => _obraCard(_obrasFiltradas[i], isDark),
+                            )
+                          else
+                            ..._obrasFiltradas.map(
+                              (obra) => Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _obraCard(obra, isDark),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ),
                   );
                 },
               ),
@@ -167,20 +190,20 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   }
 
   Widget _resumoChips(int total, int emCurso, int planeadas, int concluidas, bool isDark) {
-    final bg    = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
     final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
         children: [
-          _chip('Total: $total',       Icons.apartment_rounded,      const Color(0xFF185FA5), bg, border),
+          _chip('Total: $total', Icons.apartment_rounded, const Color(0xFF185FA5), bg, border),
           const SizedBox(width: 8),
-          _chip('Em curso: $emCurso',  Icons.construction_rounded,   const Color(0xFF0F9D8A), bg, border),
+          _chip('Em curso: $emCurso', Icons.construction_rounded, const Color(0xFF0F9D8A), bg, border),
           const SizedBox(width: 8),
-          _chip('Planeadas: $planeadas', Icons.event_note_rounded,   const Color(0xFF185FA5), bg, border),
+          _chip('Planeadas: $planeadas', Icons.event_note_rounded, const Color(0xFF185FA5), bg, border),
           const SizedBox(width: 8),
-          _chip('Concluídas: $concluidas', Icons.verified_rounded,   const Color(0xFF6E7F92), bg, border),
+          _chip('Concluidas: $concluidas', Icons.verified_rounded, const Color(0xFF6E7F92), bg, border),
         ],
       ),
     );
@@ -199,24 +222,28 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
         children: [
           Icon(icon, size: 14, color: color),
           const SizedBox(width: 6),
-          Text(
-            text,
-            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: color),
-          ),
+          Text(text, style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: color)),
         ],
       ),
     );
   }
 
   Widget _filtrosEstado(bool isDark) {
-    final bg       = isDark ? const Color(0xFF1E2530) : const Color(0xFFF0F4F8);
+    final bg = isDark ? const Color(0xFF1E2530) : const Color(0xFFF0F4F8);
     const selected = Color(0xFF185FA5);
 
     Widget item(String key, String label, IconData icon) {
       final ativo = _filtroEstado == key;
+      final color = ativo
+          ? Colors.white
+          : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478));
+
       return Expanded(
         child: GestureDetector(
-          onTap: () async { _filtroEstado = key; await _carregar(); },
+          onTap: () async {
+            _filtroEstado = key;
+            await _carregar();
+          },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
@@ -227,18 +254,13 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 15,
-                    color: ativo ? Colors.white : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478))),
+                Icon(icon, size: 15, color: color),
                 const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     label,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                      color: ativo ? Colors.white : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
-                    ),
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: color),
                   ),
                 ),
               ],
@@ -248,32 +270,30 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       );
     }
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      child: Container(
-        padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
-        child: Row(
-          children: [
-            item('',         'Todas',      Icons.dashboard_customize_outlined),
-            const SizedBox(width: 4),
-            item('em_curso', 'Em curso',   Icons.play_circle_outline_rounded),
-            const SizedBox(width: 4),
-            item('planeada', 'Planeadas',  Icons.edit_calendar_outlined),
-            const SizedBox(width: 4),
-            item('concluida','Concluídas', Icons.task_alt_rounded),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(5),
+      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        children: [
+          item('', 'Todas', Icons.dashboard_customize_outlined),
+          const SizedBox(width: 4),
+          item('em_curso', 'Em curso', Icons.play_circle_outline_rounded),
+          const SizedBox(width: 4),
+          item('planeada', 'Planeadas', Icons.edit_calendar_outlined),
+          const SizedBox(width: 4),
+          item('concluida', 'Concluidas', Icons.task_alt_rounded),
+        ],
       ),
     );
   }
 
   Widget _obraCard(dynamic obra, bool isDark) {
     final estadoCor = _corEstado(obra['estado']);
-    final cardBg    = isDark ? const Color(0xFF252D3A) : Colors.white;
-    final border    = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final cardBg = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
     final titleColor = isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233);
     final subtitleColor = isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478);
+    final orcamento = obra['orcamento'];
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
@@ -282,7 +302,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
         MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: obra)),
       ).then((_) => _carregar()),
       child: Ink(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: cardBg,
           borderRadius: BorderRadius.circular(14),
@@ -290,6 +310,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,23 +347,25 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                 ),
               ],
             ),
-            if (obra['orcamento'] != null) ...[
+            if (orcamento != null) ...[
               const SizedBox(height: 12),
-              Text('Orçamento', style: TextStyle(fontSize: 11, color: subtitleColor)),
+              Text('Orcamento', style: TextStyle(fontSize: 11, color: subtitleColor)),
               const SizedBox(height: 2),
               Text(
-                _eur.format(_parseOrcamento(obra['orcamento'])),
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: titleColor),
+                _eur.format(_parseOrcamento(orcamento)),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: titleColor),
               ),
             ],
             const SizedBox(height: 12),
             Row(
-              children: [
-                Icon(Icons.arrow_forward_rounded, size: 14, color: const Color(0xFF185FA5)),
-                const SizedBox(width: 5),
+              children: const [
+                Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF185FA5)),
+                SizedBox(width: 5),
                 Text(
                   'Ver detalhe',
-                  style: TextStyle(color: const Color(0xFF185FA5), fontWeight: FontWeight.w700, fontSize: 13),
+                  style: TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ],
             ),
