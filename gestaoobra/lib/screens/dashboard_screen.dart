@@ -65,56 +65,52 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildBody(String nome) {
     final resumo = (_dados?['resumo'] as Map<String, dynamic>?) ?? {};
-    final obras = List<Map<String, dynamic>>.from(_dados?['obras'] ?? []);
+    final obras  = List<Map<String, dynamic>>.from(_dados?['obras'] ?? []);
 
-    final totalFaturado = _toDouble(resumo['total_faturado']);
-    final totalGasto = _toDouble(resumo['total_gasto']);
-    final margem = _toDouble(resumo['margem']);
-    final totalObras = _toInt(resumo['total_obras']);
-
-    final obrasEmCurso = obras.where((o) => o['estado'] == 'em_curso').toList();
+    final totalFaturado  = _toDouble(resumo['total_faturado']);
+    final totalGasto     = _toDouble(resumo['total_gasto']);
+    final margem         = _toDouble(resumo['margem']);
+    final totalObras     = _toInt(resumo['total_obras']);
+    final obrasEmCurso   = obras.where((o) => o['estado'] == 'em_curso').toList();
     final obrasConcluidas = obras.where((o) => o['estado'] == 'concluida').length;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final wide = constraints.maxWidth >= 1100;
-        final crossAxisCount = constraints.maxWidth >= 1250
+        final crossAxisCount = constraints.maxWidth >= 1100
             ? 4
-            : constraints.maxWidth >= 820
+            : constraints.maxWidth >= 720
                 ? 3
                 : 2;
 
         return ListView(
-          padding: EdgeInsets.fromLTRB(wide ? 28 : 16, 10, wide ? 28 : 16, 28),
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
           children: [
-            _hero(nome, totalObras, obrasEmCurso.length, margem),
+            _heroCard(nome, totalObras, obrasEmCurso.length, margem),
             const SizedBox(height: 20),
-            _sectionTitle('Pulso do negócio', 'Leitura rápida do estado atual das obras.'),
-            const SizedBox(height: 12),
+            _sectionTitle('Resumo'),
+            const SizedBox(height: 10),
             _kpiGrid(
               crossAxisCount: crossAxisCount,
               items: [
-                _KpiData('Total obras', '$totalObras', Icons.apartment_rounded, const Color(0xFF185FA5)),
-                _KpiData('Em curso', '${obrasEmCurso.length}', Icons.construction_rounded, const Color(0xFF12836D)),
-                _KpiData('Faturado', Fmt.moeda0(totalFaturado), Icons.euro_rounded, const Color(0xFF2F6FED)),
-                _KpiData(
-                  'Margem total',
-                  Fmt.moeda0(margem),
-                  margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                  margem >= 0 ? const Color(0xFF12836D) : const Color(0xFFE76F51),
-                ),
-                _KpiData('Gasto total', Fmt.moeda0(totalGasto), Icons.receipt_long_rounded, const Color(0xFFE6824D)),
-                _KpiData('Concluídas', '$obrasConcluidas', Icons.verified_rounded, const Color(0xFF6E7F92)),
+                _KpiData('Total obras',   '$totalObras',              Icons.apartment_rounded,      const Color(0xFF185FA5)),
+                _KpiData('Em curso',      '${obrasEmCurso.length}',   Icons.construction_rounded,   const Color(0xFF0F9D8A)),
+                _KpiData('Faturado',      Fmt.moeda0(totalFaturado),  Icons.euro_rounded,            const Color(0xFF2F6FED)),
+                _KpiData('Margem',
+                    Fmt.moeda0(margem),
+                    margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
+                    margem >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51)),
+                _KpiData('Gasto total',   Fmt.moeda0(totalGasto),     Icons.receipt_long_rounded,    const Color(0xFFE6824D)),
+                _KpiData('Concluídas',    '$obrasConcluidas',         Icons.verified_rounded,        const Color(0xFF6E7F92)),
               ],
             ),
-            const SizedBox(height: 28),
-            _sectionTitle('Obras em curso', 'As frentes que mais importam para a operação de hoje.'),
-            const SizedBox(height: 12),
+            const SizedBox(height: 24),
+            _sectionTitle('Obras em curso'),
+            const SizedBox(height: 10),
             if (obrasEmCurso.isEmpty)
               _emptyPanel()
             else
               ...obrasEmCurso.map((o) => Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
+                    padding: const EdgeInsets.only(bottom: 10),
                     child: _cardObra(o),
                   )),
           ],
@@ -123,71 +119,44 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _hero(String nome, int totalObras, int emCurso, double margem) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
-
+  Widget _heroCard(String nome, int totalObras, int emCurso, double margem) {
     return Container(
-      padding: const EdgeInsets.all(24),
+      padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(30),
-        gradient: LinearGradient(
+        borderRadius: BorderRadius.circular(16),
+        gradient: const LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary,
-            Color.alphaBlend(
-              theme.colorScheme.secondary.withOpacity(0.5),
-              theme.colorScheme.primary,
-            ),
-          ],
+          colors: [Color(0xFF0D2B4E), Color(0xFF185FA5)],
         ),
-        boxShadow: [
-          BoxShadow(
-            color: theme.colorScheme.primary.withOpacity(isDark ? 0.26 : 0.22),
-            blurRadius: 28,
-            offset: const Offset(0, 18),
-          ),
-        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Olá, $nome',
-            style: theme.textTheme.headlineMedium?.copyWith(
+            'Olá, $nome 👋',
+            style: const TextStyle(
               color: Colors.white,
-              fontSize: 30,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             Fmt.dataLonga(DateTime.now()),
-            style: const TextStyle(
-              color: Colors.white70,
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
+            style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 13),
           ),
-          const SizedBox(height: 18),
-          Text(
-            'Resumo pronto para desktop, tablet e telemóvel sem perder legibilidade.',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 15,
-              height: 1.35,
-            ),
-          ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 16),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              _heroChip(Icons.apartment_rounded, '$totalObras obras'),
+              _heroChip(Icons.apartment_rounded,      '$totalObras obras'),
               _heroChip(Icons.play_circle_fill_rounded, '$emCurso ativas'),
               _heroChip(
                 margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                margem >= 0 ? 'Margem saudável' : 'Margem pressionada',
+                margem >= 0 ? 'Margem positiva' : 'Margem negativa',
               ),
             ],
           ),
@@ -198,43 +167,32 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _heroChip(IconData icon, String text) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.14),
+        color: Colors.white.withOpacity(0.13),
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: Colors.white.withOpacity(0.16)),
+        border: Border.all(color: Colors.white.withOpacity(0.18)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: Colors.white),
-          const SizedBox(width: 8),
-          Text(
-            text,
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
+          Icon(icon, size: 14, color: Colors.white),
+          const SizedBox(width: 6),
+          Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
         ],
       ),
     );
   }
 
-  Widget _sectionTitle(String title, String subtitle) {
-    final theme = Theme.of(context);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.titleLarge),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: theme.colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+  Widget _sectionTitle(String title) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Text(
+      title,
+      style: TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.w700,
+        color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+      ),
     );
   }
 
@@ -244,9 +202,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       physics: const NeverScrollableScrollPhysics(),
       gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: crossAxisCount,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.45,
+        crossAxisSpacing: 10,
+        mainAxisSpacing: 10,
+        childAspectRatio: 1.4,
       ),
       itemCount: items.length,
       itemBuilder: (context, index) => _kpiCard(items[index]),
@@ -254,45 +212,46 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _kpiCard(_KpiData item) {
-    final theme = Theme.of(context);
+    final theme  = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.12 : 0.04),
-            blurRadius: 16,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: isDark ? const Color(0xFF252D3A) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Container(
-            width: 46,
-            height: 46,
+            width: 38,
+            height: 38,
             decoration: BoxDecoration(
-              color: item.color.withOpacity(0.12),
-              borderRadius: BorderRadius.circular(16),
+              color: item.color.withOpacity(isDark ? 0.2 : 0.10),
+              borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(item.icon, color: item.color),
+            child: Icon(item.icon, color: item.color, size: 19),
           ),
           const Spacer(),
           Text(
             item.value,
-            style: theme.textTheme.titleLarge?.copyWith(fontSize: 22),
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w800,
+              color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+            ),
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 3),
           Text(
             item.label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: TextStyle(
+              fontSize: 11,
+              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
             ),
           ),
         ],
@@ -301,19 +260,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _cardObra(Map<String, dynamic> obra) {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     final faturado = _toDouble(obra['total_faturado']);
-    final gasto = _toDouble(obra['total_gastos']);
-    final dias = _toInt(obra['total_dias']);
-    final margem = faturado - gasto;
-    final margemPos = margem >= 0;
+    final gasto    = _toDouble(obra['total_gastos']);
+    final dias     = _toInt(obra['total_dias']);
+    final margem   = faturado - gasto;
+    final pos      = margem >= 0;
 
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
+        color: isDark ? const Color(0xFF252D3A) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -326,30 +287,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                   children: [
                     Text(
                       obra['codigo'] ?? '',
-                      style: theme.textTheme.titleMedium,
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                        color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+                      ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 3),
                     Text(
                       obra['nome'] ?? '',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
+                      style: TextStyle(
+                        fontSize: 13,
+                        color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
                       ),
                     ),
                   ],
                 ),
               ),
-              _statusBadge('Em curso', const Color(0xFF12836D)),
+              _statusBadge('Em curso', const Color(0xFF0F9D8A)),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Wrap(
-            spacing: 18,
-            runSpacing: 12,
+            spacing: 16,
+            runSpacing: 10,
             children: [
-              _miniInfo('Faturado', Fmt.moeda0(faturado), const Color(0xFF185FA5)),
-              _miniInfo('Gasto', Fmt.moeda0(gasto), const Color(0xFFE6824D)),
-              _miniInfo('Margem', Fmt.moeda0(margem), margemPos ? const Color(0xFF12836D) : const Color(0xFFE76F51)),
-              _miniInfo('Dias', '$dias', theme.colorScheme.onSurfaceVariant),
+              _miniInfo('Faturado', Fmt.moeda0(faturado), const Color(0xFF185FA5), isDark),
+              _miniInfo('Gasto',    Fmt.moeda0(gasto),    const Color(0xFFE6824D), isDark),
+              _miniInfo('Margem',   Fmt.moeda0(margem),
+                  pos ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51), isDark),
+              _miniInfo('Dias', '$dias',
+                  isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478), isDark),
             ],
           ),
         ],
@@ -359,43 +327,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _statusBadge(String text, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: color.withOpacity(0.12),
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         text,
-        style: TextStyle(
-          color: color,
-          fontWeight: FontWeight.w800,
-          fontSize: 12,
-        ),
+        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 11),
       ),
     );
   }
 
-  Widget _miniInfo(String label, String value, Color color) {
+  Widget _miniInfo(String label, String value, Color color, bool isDark) {
     return SizedBox(
-      width: 140,
+      width: 130,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
             style: TextStyle(
-              fontSize: 12,
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
+              fontSize: 11,
+              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w800,
-              color: color,
-            ),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -404,29 +364,35 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _emptyPanel() {
-    final theme = Theme.of(context);
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.7)),
+        color: isDark ? const Color(0xFF252D3A) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED)),
       ),
       child: Column(
         children: [
-          Icon(Icons.construction_outlined, size: 56, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(height: 14),
+          Icon(Icons.construction_outlined, size: 48,
+              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
+          const SizedBox(height: 12),
           Text(
             'Ainda não há obras registadas.',
-            style: theme.textTheme.titleMedium,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+            ),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 6),
           Text(
-            'Quando a primeira obra entrar, este painel já fica pronto para acompanhar produção, faturação e margem.',
+            'Quando a primeira obra entrar, este painel já fica pronto.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+            style: TextStyle(
+              fontSize: 13,
+              color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
             ),
           ),
         ],
@@ -449,10 +415,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
 }
 
 class _KpiData {
-  final String label;
-  final String value;
+  final String   label;
+  final String   value;
   final IconData icon;
-  final Color color;
-
+  final Color    color;
   const _KpiData(this.label, this.value, this.icon, this.color);
 }

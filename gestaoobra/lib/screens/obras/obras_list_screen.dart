@@ -22,11 +22,11 @@ class ObrasListScreen extends StatefulWidget {
 }
 
 class _ObrasListScreenState extends State<ObrasListScreen> {
-  List<dynamic> _obras = [];
+  List<dynamic> _obras          = [];
   List<dynamic> _obrasFiltradas = [];
-  bool _loading = true;
-  String _filtroEstado = '';
-  String _searchText = '';
+  bool   _loading       = true;
+  String _filtroEstado  = '';
+  String _searchText    = '';
 
   @override
   void initState() {
@@ -38,7 +38,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     setState(() => _loading = true);
     try {
       final estado = _filtroEstado.isEmpty ? null : _filtroEstado;
-      final data = await ApiService.listarObras(estado: estado);
+      final data   = await ApiService.listarObras(estado: estado);
       setState(() {
         _obras = data;
         _loading = false;
@@ -46,9 +46,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       });
     } on ApiException catch (e) {
       setState(() => _loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
     }
   }
 
@@ -57,7 +55,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     setState(() {
       _obrasFiltradas = _obras.where((obra) {
         final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
-        final nome = (obra['nome'] ?? '').toString().toLowerCase();
+        final nome   = (obra['nome']   ?? '').toString().toLowerCase();
         return codigo.contains(search) || nome.contains(search);
       }).toList();
     });
@@ -65,36 +63,29 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
 
   Color _corEstado(String? estado) {
     switch (estado) {
-      case 'em_curso':
-        return const Color(0xFF12836D);
-      case 'planeada':
-        return const Color(0xFF185FA5);
-      case 'concluida':
-        return const Color(0xFF6E7F92);
-      default:
-        return const Color(0xFFE6824D);
+      case 'em_curso':  return const Color(0xFF0F9D8A);
+      case 'planeada':  return const Color(0xFF185FA5);
+      case 'concluida': return const Color(0xFF6E7F92);
+      default:          return const Color(0xFFE6824D);
     }
   }
 
   String _textoEstado(String? estado) {
     switch (estado) {
-      case 'em_curso':
-        return 'Em curso';
-      case 'planeada':
-        return 'Planeada';
-      case 'concluida':
-        return 'Concluída';
-      default:
-        return estado ?? '';
+      case 'em_curso':  return 'Em curso';
+      case 'planeada':  return 'Planeada';
+      case 'concluida': return 'Concluída';
+      default:          return estado ?? '';
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final total = _obras.length;
-    final emCurso = _obras.where((o) => o['estado'] == 'em_curso').length;
-    final planeadas = _obras.where((o) => o['estado'] == 'planeada').length;
-    final concluidas = _obras.where((o) => o['estado'] == 'concluida').length;
+    final isDark      = Theme.of(context).brightness == Brightness.dark;
+    final total       = _obras.length;
+    final emCurso     = _obras.where((o) => o['estado'] == 'em_curso').length;
+    final planeadas   = _obras.where((o) => o['estado'] == 'planeada').length;
+    final concluidas  = _obras.where((o) => o['estado'] == 'concluida').length;
 
     return Scaffold(
       appBar: AppBar(
@@ -122,35 +113,32 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
               child: LayoutBuilder(
                 builder: (context, constraints) {
                   final grid = constraints.maxWidth >= 960;
-
                   return ListView(
-                    padding: EdgeInsets.fromLTRB(grid ? 28 : 16, 10, grid ? 28 : 16, 96),
+                    padding: EdgeInsets.fromLTRB(16, 12, 16, 96),
                     children: [
-                      _hero(total, emCurso, planeadas, concluidas),
-                      const SizedBox(height: 14),
+                      // Chips de resumo
+                      _resumoChips(total, emCurso, planeadas, concluidas, isDark),
+                      const SizedBox(height: 12),
                       SearchBarWidget(
                         hintText: 'Pesquisar por código ou nome...',
-                        onChanged: (value) {
-                          _searchText = value;
-                          _filtrarObras();
-                        },
+                        onChanged: (v) { _searchText = v; _filtrarObras(); },
                       ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                        child: _filtrosEstado(),
-                      ),
-                      const SizedBox(height: 10),
+                      const SizedBox(height: 8),
+                      _filtrosEstado(isDark),
+                      const SizedBox(height: 12),
                       if (_obras.isEmpty)
                         _emptyMessage(
                           icon: Icons.domain_disabled_outlined,
                           title: 'Sem obras registadas',
-                          subtitle: 'Cria a primeira obra para começar a acompanhar custos, dias e produção.',
+                          subtitle: 'Cria a primeira obra para começar.',
+                          isDark: isDark,
                         )
                       else if (_obrasFiltradas.isEmpty)
                         _emptyMessage(
                           icon: Icons.search_off_rounded,
                           title: 'Nenhuma obra encontrada',
-                          subtitle: 'Ajusta a pesquisa ou o estado para ver outros resultados.',
+                          subtitle: 'Ajusta a pesquisa ou o filtro.',
+                          isDark: isDark,
                         )
                       else if (grid)
                         GridView.builder(
@@ -158,20 +146,18 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                           physics: const NeverScrollableScrollPhysics(),
                           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 2,
-                            crossAxisSpacing: 14,
-                            mainAxisSpacing: 14,
-                            childAspectRatio: 1.7,
+                            crossAxisSpacing: 12,
+                            mainAxisSpacing: 12,
+                            childAspectRatio: 1.65,
                           ),
                           itemCount: _obrasFiltradas.length,
-                          itemBuilder: (context, i) => _obraCard(_obrasFiltradas[i]),
+                          itemBuilder: (context, i) => _obraCard(_obrasFiltradas[i], isDark),
                         )
                       else
-                        ..._obrasFiltradas.map(
-                          (obra) => Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: _obraCard(obra),
-                          ),
-                        ),
+                        ..._obrasFiltradas.map((obra) => Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: _obraCard(obra, isDark),
+                            )),
                     ],
                   );
                 },
@@ -180,116 +166,78 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     );
   }
 
-  Widget _hero(int total, int emCurso, int planeadas, int concluidas) {
-    final theme = Theme.of(context);
-    final isDark = theme.brightness == Brightness.dark;
+  Widget _resumoChips(int total, int emCurso, int planeadas, int concluidas, bool isDark) {
+    final bg    = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
 
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(28),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary.withOpacity(isDark ? 0.38 : 0.16),
-            theme.colorScheme.secondary.withOpacity(isDark ? 0.2 : 0.1),
-          ],
-        ),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.16)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
         children: [
-          Text('Portefólio de obras', style: theme.textTheme.titleLarge),
-          const SizedBox(height: 6),
-          Text(
-            'Uma lista mais clara para trabalhar bem em ecrã pequeno e também em escritório.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 10,
-            runSpacing: 10,
-            children: [
-              _summaryChip('Total', '$total', Icons.apartment_rounded),
-              _summaryChip('Em curso', '$emCurso', Icons.construction_rounded),
-              _summaryChip('Planeadas', '$planeadas', Icons.event_note_rounded),
-              _summaryChip('Concluídas', '$concluidas', Icons.verified_rounded),
-            ],
-          ),
+          _chip('Total: $total',       Icons.apartment_rounded,      const Color(0xFF185FA5), bg, border),
+          const SizedBox(width: 8),
+          _chip('Em curso: $emCurso',  Icons.construction_rounded,   const Color(0xFF0F9D8A), bg, border),
+          const SizedBox(width: 8),
+          _chip('Planeadas: $planeadas', Icons.event_note_rounded,   const Color(0xFF185FA5), bg, border),
+          const SizedBox(width: 8),
+          _chip('Concluídas: $concluidas', Icons.verified_rounded,   const Color(0xFF6E7F92), bg, border),
         ],
       ),
     );
   }
 
-  Widget _summaryChip(String label, String value, IconData icon) {
-    final theme = Theme.of(context);
+  Widget _chip(String text, IconData icon, Color color, Color bg, Color border) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: theme.cardColor.withOpacity(0.78),
+        color: bg,
         borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.8)),
+        border: Border.all(color: border),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: theme.colorScheme.primary),
-          const SizedBox(width: 8),
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
           Text(
-            '$label: $value',
-            style: const TextStyle(fontWeight: FontWeight.w700),
+            text,
+            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: color),
           ),
         ],
       ),
     );
   }
 
-  Widget _filtrosEstado() {
-    final theme = Theme.of(context);
-    final bg = theme.brightness == Brightness.dark ? const Color(0xFF20252B) : const Color(0xFFF1F4F8);
-    final selected = theme.colorScheme.primary;
+  Widget _filtrosEstado(bool isDark) {
+    final bg       = isDark ? const Color(0xFF1E2530) : const Color(0xFFF0F4F8);
+    const selected = Color(0xFF185FA5);
 
     Widget item(String key, String label, IconData icon) {
       final ativo = _filtroEstado == key;
       return Expanded(
         child: GestureDetector(
-          onTap: () async {
-            _filtroEstado = key;
-            await _carregar();
-          },
+          onTap: () async { _filtroEstado = key; await _carregar(); },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
-            curve: Curves.easeOut,
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            duration: const Duration(milliseconds: 160),
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
             decoration: BoxDecoration(
               color: ativo ? selected : Colors.transparent,
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: ativo
-                  ? [
-                      BoxShadow(
-                        color: selected.withOpacity(0.22),
-                        blurRadius: 18,
-                        offset: const Offset(0, 6),
-                      ),
-                    ]
-                  : null,
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(icon, size: 16, color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant),
-                const SizedBox(width: 8),
+                Icon(icon, size: 15,
+                    color: ativo ? Colors.white : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478))),
+                const SizedBox(width: 6),
                 Flexible(
                   child: Text(
                     label,
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
-                      color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                      fontSize: 12,
                       fontWeight: FontWeight.w700,
+                      color: ativo ? Colors.white : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
                     ),
                   ),
                 ),
@@ -300,49 +248,45 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       );
     }
 
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Row(
-        children: [
-          item('', 'Todas', Icons.dashboard_customize_outlined),
-          const SizedBox(width: 6),
-          item('em_curso', 'Em curso', Icons.play_circle_outline_rounded),
-          const SizedBox(width: 6),
-          item('planeada', 'Planeadas', Icons.edit_calendar_outlined),
-          const SizedBox(width: 6),
-          item('concluida', 'Concluídas', Icons.task_alt_rounded),
-        ],
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Container(
+        padding: const EdgeInsets.all(5),
+        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(12)),
+        child: Row(
+          children: [
+            item('',         'Todas',      Icons.dashboard_customize_outlined),
+            const SizedBox(width: 4),
+            item('em_curso', 'Em curso',   Icons.play_circle_outline_rounded),
+            const SizedBox(width: 4),
+            item('planeada', 'Planeadas',  Icons.edit_calendar_outlined),
+            const SizedBox(width: 4),
+            item('concluida','Concluídas', Icons.task_alt_rounded),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _obraCard(dynamic obra) {
-    final theme = Theme.of(context);
+  Widget _obraCard(dynamic obra, bool isDark) {
     final estadoCor = _corEstado(obra['estado']);
+    final cardBg    = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border    = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final titleColor = isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233);
+    final subtitleColor = isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478);
 
     return InkWell(
-      borderRadius: BorderRadius.circular(24),
+      borderRadius: BorderRadius.circular(14),
       onTap: () => Navigator.push(
         context,
         MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: obra)),
       ).then((_) => _carregar()),
       child: Ink(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: theme.cardColor,
-          borderRadius: BorderRadius.circular(24),
-          border: Border.all(color: theme.dividerColor.withOpacity(0.75)),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(theme.brightness == Brightness.dark ? 0.12 : 0.04),
-              blurRadius: 16,
-              offset: const Offset(0, 10),
-            ),
-          ],
+          color: cardBg,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: border),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -356,62 +300,49 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                     children: [
                       Text(
                         obra['codigo'] ?? '',
-                        style: theme.textTheme.titleMedium,
+                        style: TextStyle(fontWeight: FontWeight.w700, fontSize: 15, color: titleColor),
                       ),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 4),
                       Text(
                         obra['nome'] ?? '',
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodyMedium,
+                        style: TextStyle(fontSize: 13, color: subtitleColor),
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                const SizedBox(width: 10),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
                   decoration: BoxDecoration(
                     color: estadoCor.withOpacity(0.12),
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
                     _textoEstado(obra['estado']),
-                    style: TextStyle(
-                      color: estadoCor,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                    ),
+                    style: TextStyle(color: estadoCor, fontSize: 11, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ),
-            const Spacer(),
             if (obra['orcamento'] != null) ...[
-              Text(
-                'Orçamento',
-                style: TextStyle(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontSize: 12,
-                ),
-              ),
-              const SizedBox(height: 3),
+              const SizedBox(height: 12),
+              Text('Orçamento', style: TextStyle(fontSize: 11, color: subtitleColor)),
+              const SizedBox(height: 2),
               Text(
                 _eur.format(_parseOrcamento(obra['orcamento'])),
-                style: theme.textTheme.titleLarge?.copyWith(fontSize: 22),
+                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: titleColor),
               ),
-              const SizedBox(height: 14),
             ],
+            const SizedBox(height: 12),
             Row(
               children: [
-                Icon(Icons.arrow_forward_rounded, size: 16, color: theme.colorScheme.primary),
-                const SizedBox(width: 6),
+                Icon(Icons.arrow_forward_rounded, size: 14, color: const Color(0xFF185FA5)),
+                const SizedBox(width: 5),
                 Text(
-                  'Abrir detalhe da obra',
-                  style: TextStyle(
-                    color: theme.colorScheme.primary,
-                    fontWeight: FontWeight.w700,
-                  ),
+                  'Ver detalhe',
+                  style: TextStyle(color: const Color(0xFF185FA5), fontWeight: FontWeight.w700, fontSize: 13),
                 ),
               ],
             ),
@@ -425,28 +356,33 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
+    required bool isDark,
   }) {
-    final theme = Theme.of(context);
-
     return Container(
       padding: const EdgeInsets.all(28),
       decoration: BoxDecoration(
-        color: theme.cardColor,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: theme.dividerColor.withOpacity(0.75)),
+        color: isDark ? const Color(0xFF252D3A) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED)),
       ),
       child: Column(
         children: [
-          Icon(icon, size: 56, color: theme.colorScheme.onSurfaceVariant),
-          const SizedBox(height: 14),
-          Text(title, style: theme.textTheme.titleMedium, textAlign: TextAlign.center),
+          Icon(icon, size: 48, color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
+          const SizedBox(height: 12),
+          Text(
+            title,
+            style: TextStyle(
+              fontWeight: FontWeight.w700,
+              fontSize: 15,
+              color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+            ),
+            textAlign: TextAlign.center,
+          ),
           const SizedBox(height: 6),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
+            style: TextStyle(fontSize: 13, color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
           ),
         ],
       ),

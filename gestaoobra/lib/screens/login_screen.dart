@@ -48,145 +48,167 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final auth      = context.watch<AuthProvider>();
-    final theme     = Theme.of(context);
-    final isDark    = theme.brightness == Brightness.dark;
-    final colorScheme = theme.colorScheme;
+    final auth     = context.watch<AuthProvider>();
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
+    const seed     = Color(0xFF185FA5);
 
-    // Cores adaptadas ao tema
-    final bgColor      = isDark ? const Color(0xFF121212) : const Color(0xFF1A1A2E);
-    final cardColor    = isDark ? const Color(0xFF1E1F2A) : Colors.white;
-    final iconColor    = isDark ? Colors.white70 : Colors.white;
-    final tituloColor  = isDark ? Colors.white70 : Colors.white54;
+    // Fundo: gradiente azul escuro em ambos os temas
+    const bgTop    = Color(0xFF0D2B4E);
+    const bgBottom = Color(0xFF185FA5);
 
     return Scaffold(
-      backgroundColor: bgColor,
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // ── Logo ─────────────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.08),
-                    shape: BoxShape.circle,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [bgTop, bgBottom],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // ── Ícone ────────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.12),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                    ),
+                    child: const Icon(Icons.construction_rounded, color: Colors.white, size: 48),
                   ),
-                  child: Icon(Icons.construction, color: iconColor, size: 52),
-                ),
-                const SizedBox(height: 20),
-                Text(
-                  'Gestão de Obra',
-                  style: TextStyle(
-                    color: iconColor,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Gestão de Obra',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 28,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.5,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  'Inicia sessão para continuar',
-                  style: TextStyle(color: tituloColor, fontSize: 14),
-                ),
-                const SizedBox(height: 40),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Inicia sessão para continuar',
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.7),
+                      fontSize: 14,
+                    ),
+                  ),
+                  const SizedBox(height: 36),
 
-                // ── Card de login ─────────────────────────────────────────
-                Container(
-                  padding: const EdgeInsets.all(28),
-                  decoration: BoxDecoration(
-                    color: cardColor,
-                    borderRadius: BorderRadius.circular(20),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(isDark ? 0.4 : 0.15),
-                        blurRadius: 24,
-                        offset: const Offset(0, 8),
-                      ),
-                    ],
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        'Iniciar sessão',
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
+                  // ── Card ─────────────────────────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(24),
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2530) : Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.25),
+                          blurRadius: 32,
+                          offset: const Offset(0, 12),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-
-                      // Email
-                      TextField(
-                        controller:    _emailCtrl,
-                        keyboardType:  TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
-                        autocorrect:   false,
-                        decoration: InputDecoration(
-                          labelText:  'Email',
-                          prefixIcon: Icon(Icons.email_outlined, color: colorScheme.primary),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Password
-                      TextField(
-                        controller:      _passwordCtrl,
-                        obscureText:     !_verPassword,
-                        textInputAction: TextInputAction.done,
-                        onSubmitted:     (_) => _login(),
-                        decoration: InputDecoration(
-                          labelText:  'Password',
-                          prefixIcon: Icon(Icons.lock_outline, color: colorScheme.primary),
-                          suffixIcon: IconButton(
-                            icon: Icon(
-                              _verPassword
-                                  ? Icons.visibility_off_outlined
-                                  : Icons.visibility_outlined,
-                              color: Colors.grey,
-                            ),
-                            onPressed: () => setState(() => _verPassword = !_verPassword),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Text(
+                          'Iniciar sessão',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w700,
+                            color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 28),
+                        const SizedBox(height: 20),
 
-                      // Botão entrar
-                      AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 200),
-                        child: ElevatedButton(
-                          key: ValueKey(auth.loading),
-                          onPressed: auth.loading ? null : _login,
-                          child: auth.loading
-                              ? const SizedBox(
-                                  height: 22,
-                                  width:  22,
-                                  child:  CircularProgressIndicator(
-                                    color:       Colors.white,
-                                    strokeWidth: 2.5,
-                                  ),
-                                )
-                              : const Text(
-                                  'Entrar',
-                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                                ),
+                        // Email
+                        TextField(
+                          controller: _emailCtrl,
+                          keyboardType: TextInputType.emailAddress,
+                          textInputAction: TextInputAction.next,
+                          autocorrect: false,
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Email',
+                            prefixIcon: Icon(Icons.email_outlined, color: seed),
+                          ),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 14),
+
+                        // Password
+                        TextField(
+                          controller: _passwordCtrl,
+                          obscureText: !_verPassword,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _login(),
+                          style: TextStyle(
+                            color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
+                          ),
+                          decoration: InputDecoration(
+                            labelText: 'Password',
+                            prefixIcon: Icon(Icons.lock_outline, color: seed),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _verPassword
+                                    ? Icons.visibility_off_outlined
+                                    : Icons.visibility_outlined,
+                                color: const Color(0xFF8B9BB4),
+                              ),
+                              onPressed: () => setState(() => _verPassword = !_verPassword),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Botão
+                        SizedBox(
+                          height: 50,
+                          child: ElevatedButton(
+                            onPressed: auth.loading ? null : _login,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: seed,
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: auth.loading
+                                ? const SizedBox(
+                                    height: 22,
+                                    width: 22,
+                                    child: CircularProgressIndicator(
+                                      color: Colors.white,
+                                      strokeWidth: 2.5,
+                                    ),
+                                  )
+                                : const Text(
+                                    'Entrar',
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
-                ),
 
-                const SizedBox(height: 32),
-
-                // Versão discreta
-                Text(
-                  'v1.6.7',
-                  style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
-                ),
-              ],
+                  const SizedBox(height: 28),
+                  Text(
+                    'v1.6.7',
+                    style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
