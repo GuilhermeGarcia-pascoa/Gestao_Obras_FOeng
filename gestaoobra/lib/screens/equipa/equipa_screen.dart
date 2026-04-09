@@ -141,6 +141,16 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
   }
 
   Future<void> _apagar(dynamic item) async {
+    if (_tabs.index == 0 || _tabs.index == 1 || _tabs.index == 2) {
+      final tipoLabel = _tabs.index == 0
+          ? 'trabalhadores'
+          : _tabs.index == 1
+              ? 'maquinas'
+              : 'viaturas';
+      await _mostrarAvisoNaoPodeApagar(tipoLabel);
+      return;
+    }
+
     final title = item['nome'] ?? item['modelo'] ?? 'registo';
     final result = await showDialog<bool>(
       context: context,
@@ -166,9 +176,39 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
       await _carregar();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+        if (e.codigo == 403) {
+          final tipoLabel = _tabs.index == 0
+              ? 'trabalhadores'
+              : _tabs.index == 1
+                  ? 'maquinas'
+                  : 'viaturas';
+          await _mostrarAvisoNaoPodeApagar(tipoLabel, mensagem: e.mensagem);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+        }
       }
     }
+  }
+
+  Future<void> _mostrarAvisoNaoPodeApagar(String tipoLabel, {String? mensagem}) async {
+    if (!mounted) return;
+
+    await showDialog<void>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Acao nao permitida'),
+        content: Text(
+          mensagem ??
+              'Os $tipoLabel nao podem ser apagados porque isso compromete o historico e os graficos. Marque-os como inativos.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Ok'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _alterarEstado(dynamic item, String tipo, bool ativo) async {
@@ -495,11 +535,13 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
             if (value == 'estado') _alterarEstado(item, tipo, !ativo);
             if (value == 'apagar') _apagar(item);
           },
-          itemBuilder: (_) => [
-            const PopupMenuItem(value: 'editar', child: Text('Editar')),
-            PopupMenuItem(value: 'estado', child: Text(ativo ? 'Marcar inativo' : 'Marcar ativo')),
-            const PopupMenuItem(value: 'apagar', child: Text('Apagar')),
-          ],
+          itemBuilder: (_) {
+            final items = <PopupMenuEntry<String>>[
+              const PopupMenuItem(value: 'editar', child: Text('Editar')),
+              PopupMenuItem(value: 'estado', child: Text(ativo ? 'Marcar inativo' : 'Marcar ativo')),
+            ];
+            return items;
+          },
         ),
       ),
     );
