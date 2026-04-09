@@ -583,10 +583,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   // ── Helpers ───────────────────────────────────────────────────────────────
   Widget _tabEvolucaoNova() {
     final evolucao = List<Map<String, dynamic>>.from(_dados!['evolucao'] ?? []);
-    final metricas = _dados!['metricas'] as Map<String, dynamic>? ?? {};
-    final mp = metricas['pessoas'] as Map<String, dynamic>? ?? {};
-    final mm = metricas['maquinas'] as Map<String, dynamic>? ?? {};
-    final mv = metricas['viaturas'] as Map<String, dynamic>? ?? {};
     final totalGasto = _parseValor(_dados!['totalGasto']).toDouble();
     final totalFaturado = _parseValor(_dados!['totalFaturado']).toDouble();
 
@@ -637,21 +633,6 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _metricRow([
-          _metricCard('Faturado', _eur.format(totalFaturado), Icons.euro, const Color(0xFF185FA5)),
-          _metricCard('Total Gasto', _eur.format(totalGasto), Icons.payments, const Color(0xFFE76F51)),
-        ]),
-        const SizedBox(height: 10),
-        _metricRow([
-          _metricCard('H. Pessoas', '${_parseValor(mp['total_horas']).toStringAsFixed(1)}h', Icons.people, const Color(0xFF4CAF82)),
-          _metricCard('Km Viaturas', '${_parseValor(mv['total_km']).toStringAsFixed(1)}km', Icons.directions_car, const Color(0xFFF4A261)),
-        ]),
-        const SizedBox(height: 10),
-        _metricRow([
-          _metricCard('H. Máquinas', '${_parseValor(mm['total_horas']).toStringAsFixed(1)}h', Icons.construction, const Color(0xFFE76F51)),
-          _metricCard('Custo Pessoal', _eur.format(_parseValor(mp['total_custo'])), Icons.person, const Color(0xFF9C6ADE)),
-        ]),
-        const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
