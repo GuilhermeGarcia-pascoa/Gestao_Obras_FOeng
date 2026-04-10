@@ -1,7 +1,5 @@
 import 'dart:convert';
-
 import 'package:flutter/material.dart';
-
 import '../services/api_service.dart';
 
 class LogsScreen extends StatefulWidget {
@@ -39,39 +37,25 @@ class _LogsScreenState extends State<LogsScreen> {
     }
   }
 
-  // ── Cores por action ──────────────────────────────────────────────────────
-
   Color _corAction(String action) {
     switch (action.toUpperCase()) {
-      case 'CREATE':
-        return const Color(0xFF4CAF82);
-      case 'UPDATE':
-        return const Color(0xFF185FA5);
-      case 'DELETE':
-        return Colors.red;
-      case 'LOGIN':
-        return const Color(0xFF9C6ADE);
-      default:
-        return Colors.grey;
+      case 'CREATE': return const Color(0xFF4CAF82);
+      case 'UPDATE': return const Color(0xFF185FA5);
+      case 'DELETE': return Colors.red;
+      case 'LOGIN': return const Color(0xFF9C6ADE);
+      default: return Colors.grey;
     }
   }
 
   IconData _iconAction(String action) {
     switch (action.toUpperCase()) {
-      case 'CREATE':
-        return Icons.add_circle_outline;
-      case 'UPDATE':
-        return Icons.edit_outlined;
-      case 'DELETE':
-        return Icons.delete_outline;
-      case 'LOGIN':
-        return Icons.login;
-      default:
-        return Icons.info_outline;
+      case 'CREATE': return Icons.add_circle_outline;
+      case 'UPDATE': return Icons.edit_outlined;
+      case 'DELETE': return Icons.delete_outline;
+      case 'LOGIN': return Icons.login;
+      default: return Icons.info_outline;
     }
   }
-
-  // ── Formatação de data ────────────────────────────────────────────────────
 
   String _fmtData(String? raw) {
     if (raw == null || raw.isEmpty) return '—';
@@ -87,15 +71,13 @@ class _LogsScreenState extends State<LogsScreen> {
     }
   }
 
-  // ── Dialog de detalhes ────────────────────────────────────────────────────
-
+  // ── FUNÇÃO CORRIGIDA ──────────────────────────────────────────────────────
   void _verDetalhes(dynamic log) {
     final action   = (log['action']  ?? '').toString().toUpperCase();
     final entity   = log['entity']   ?? '';
     final details  = log['details'];
     final cor      = _corAction(action);
 
-    // Tenta formatar o JSON de forma legível
     String detalhesFormatados;
     if (details == null || details.toString().trim().isEmpty) {
       detalhesFormatados = 'Sem detalhes registados.';
@@ -131,17 +113,18 @@ class _LogsScreenState extends State<LogsScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
-                _detalheRow(Icons.person_outline,    'Utilizador',   '${log['user_id'] ?? '—'}'),
-                _detalheRow(Icons.tag,               'Entidade ID',  '${log['entity_id'] ?? '—'}'),
-                _detalheRow(Icons.wifi,              'IP',           log['ip'] ?? '—'),
-                _detalheRow(Icons.http,              'Método',       log['method'] ?? '—'),
-                _detalheRow(Icons.link,              'URL',          log['url'] ?? '—'),
-                _detalheRow(Icons.calendar_today,    'Data',         _fmtData(log['created_at']?.toString())),
-                const Divider(height: 24),
-                const Text(
-                  'Detalhes',
-                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                _detalheRow(
+                  Icons.person_outline, 
+                  'Utilizador', 
+                  '${log['user_nome'] ?? 'Desconhecido'} (ID: ${log['user_id'] ?? '—'})'
                 ),
+                _detalheRow(Icons.tag, 'Entidade ID', '${log['entity_id'] ?? '—'}'),
+                _detalheRow(Icons.wifi, 'IP', log['ip'] ?? '—'),
+                _detalheRow(Icons.http, 'Método', log['method'] ?? '—'),
+                _detalheRow(Icons.link, 'URL', log['url'] ?? '—'),
+                _detalheRow(Icons.calendar_today, 'Data', _fmtData(log['created_at']?.toString())),
+                const Divider(height: 24),
+                const Text('Detalhes', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
                 const SizedBox(height: 8),
                 Container(
                   width: double.infinity,
@@ -153,11 +136,7 @@ class _LogsScreenState extends State<LogsScreen> {
                   ),
                   child: SelectableText(
                     detalhesFormatados,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      fontFamily: 'monospace',
-                      height: 1.5,
-                    ),
+                    style: const TextStyle(fontSize: 12, fontFamily: 'monospace', height: 1.5),
                   ),
                 ),
               ],
@@ -165,10 +144,7 @@ class _LogsScreenState extends State<LogsScreen> {
           ),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Fechar'),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Fechar')),
         ],
       ),
     );
@@ -183,22 +159,14 @@ class _LogsScreenState extends State<LogsScreen> {
             const SizedBox(width: 6),
             SizedBox(
               width: 90,
-              child: Text(
-                label,
-                style: const TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              child: Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
             ),
             Expanded(
-              child: Text(
-                value,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-              ),
+              child: Text(value, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
             ),
           ],
         ),
       );
-
-  // ── Build ─────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -206,11 +174,7 @@ class _LogsScreenState extends State<LogsScreen> {
       appBar: AppBar(
         title: const Text('Logs de Auditoria'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar',
-            onPressed: _carregar,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _carregar),
         ],
       ),
       body: _loading
@@ -228,7 +192,7 @@ class _LogsScreenState extends State<LogsScreen> {
                         final action = (log['action'] ?? '').toString().toUpperCase();
                         final entity = log['entity']?.toString() ?? '';
                         final cor    = _corAction(action);
-                        
+
                         return Card(
                           child: ListTile(
                             leading: Container(
@@ -240,115 +204,38 @@ class _LogsScreenState extends State<LogsScreen> {
                               ),
                               child: Icon(_iconAction(action), color: cor, size: 20),
                             ),
-                            title: Row(
+                            title: Text(
+                              entity,
+                              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 7, vertical: 2),
-                                  decoration: BoxDecoration(
-                                    color: cor.withOpacity(0.12),
-                                    borderRadius: BorderRadius.circular(6),
-                                    border:
-                                        Border.all(color: cor.withOpacity(0.3)),
+                                const SizedBox(height: 4),
+                                Row(children: [
+                                  const Icon(Icons.person_outline, size: 12, color: Colors.grey),
+                                  const SizedBox(width: 3),
+                                  Text(
+                                    log['user_nome'] ?? 'Sistema',
+                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
                                   ),
-                                  child: Text(
-                                    action,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.bold,
-                                      color: cor,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                Expanded(
-                                  child: Text(
-                                    entity,
-                                    style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                ]),
+                                Text(
+                                  _fmtData(log['created_at']?.toString()),
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
                                 ),
                               ],
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  // user_id + entity_id
-                                  // ... dentro do itemBuilder
-Row(children: [
-  const Icon(Icons.person_outline, size: 12, color: Colors.grey),
-  const SizedBox(width: 3),
-  Text(
-    // Alterado de log['user_id'] para log['user_nome']
-    log['user_nome'] ?? 'Sistema/Desconhecido', 
-    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
-  ),
-  if (log['entity_id'] != null) ...[
-    const SizedBox(width: 10),
-    const Icon(Icons.tag, size: 12, color: Colors.grey),
-    const SizedBox(width: 3),
-    Text(
-      'id ${log['entity_id']}',
-      style: const TextStyle(fontSize: 11),
-    ),
-  ],
-]),
-                                  const SizedBox(height: 2),
-                                  // method + url
-                                  Row(children: [
-                                    const Icon(Icons.link,
-                                        size: 12, color: Colors.grey),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      '${log['method'] ?? ''} ${log['url'] ?? ''}',
-                                      style: const TextStyle(
-                                          fontSize: 11, color: Colors.grey),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ]),
-                                  const SizedBox(height: 2),
-                                  // IP + data
-                                  Row(children: [
-                                    const Icon(Icons.wifi,
-                                        size: 12, color: Colors.grey),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      log['ip'] ?? '—',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    const SizedBox(width: 10),
-                                    const Icon(Icons.calendar_today,
-                                        size: 12, color: Colors.grey),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      _fmtData(log['created_at']?.toString()),
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                  ]),
-                                ],
-                              ),
                             ),
                             isThreeLine: true,
                             trailing: IconButton(
                               icon: const Icon(Icons.open_in_new, size: 18),
-                              tooltip: 'Ver detalhes',
-                              onPressed: () => _verDetalhes(// ... dentro da função _verDetalhes, na Column do AlertDialog
-_detalheRow(
-  Icons.person_outline, 
-  'Utilizador', 
-  '${log['user_nome'] ?? 'Desconhecido'} (ID: ${log['user_id'] ?? '—'})'
-),),
+                              // AQUI ESTAVA O ERRO: Agora apenas chama a função corretamente
+                              onPressed: () => _verDetalhes(log),
                             ),
                           ),
                         );
-                        
                       },
                     ),
-                    
             ),
     );
   }
