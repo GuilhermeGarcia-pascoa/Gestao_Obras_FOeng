@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
-import 'logs_screen.dart'; // ← NOVO
+import 'logs_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -136,36 +136,135 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     }
   }
 
+  void _abrirLogs() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const LogsScreen()),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final currentUserId = auth.utilizador?['id'];
+    final primaryColor = Theme.of(context).colorScheme.primary;
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Painel de Administração'),
-        actions: [
-          // ── NOVO: acesso aos logs de auditoria ──
-          IconButton(
-            icon: const Icon(Icons.history),
-            tooltip: 'Logs de auditoria',
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => const LogsScreen()),
-              );
-            },
-          ),
-        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
               onRefresh: _carregar,
-              child: _utilizadores.isEmpty
-                  ? const Center(child: Text('Nenhum utilizador encontrado'))
-                  : ListView.separated(
-                      padding: const EdgeInsets.all(16),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  // ── Banner de acesso rápido aos logs ──────────────────────
+                  InkWell(
+                    onTap: _abrirLogs,
+                    borderRadius: BorderRadius.circular(14),
+                    child: Ink(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            primaryColor,
+                            primaryColor.withOpacity(0.80),
+                          ],
+                          begin: Alignment.centerLeft,
+                          end: Alignment.centerRight,
+                        ),
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 14),
+                      child: Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.18),
+                              shape: BoxShape.circle,
+                            ),
+                            child: const Icon(Icons.history,
+                                color: Colors.white, size: 20),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  'Logs de Auditoria',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                                SizedBox(height: 2),
+                                Text(
+                                  'Ver registo de ações do sistema',
+                                  style: TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const Icon(Icons.arrow_forward_ios,
+                              color: Colors.white70, size: 14),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Cabeçalho da secção de utilizadores ───────────────────
+                  Row(
+                    children: [
+                      Text(
+                        'Utilizadores',
+                        style: TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.grey.shade600,
+                          letterSpacing: 0.4,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 1),
+                        decoration: BoxDecoration(
+                          color: primaryColor.withOpacity(0.10),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${_utilizadores.length}',
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            color: primaryColor,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+
+                  // ── Lista de utilizadores ──────────────────────────────────
+                  if (_utilizadores.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 32),
+                      child:
+                          Center(child: Text('Nenhum utilizador encontrado')),
+                    )
+                  else
+                    ListView.separated(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       itemCount: _utilizadores.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
@@ -192,7 +291,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                               children: [
                                 Text(
                                   nome,
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
                                 ),
                                 if (isCurrentUser) ...[
                                   const SizedBox(width: 8),
@@ -210,7 +310,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                             subtitle: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                Text(email, style: const TextStyle(fontSize: 12)),
+                                Text(email,
+                                    style: const TextStyle(fontSize: 12)),
                                 Text(
                                   _labelRole(role),
                                   style: const TextStyle(
@@ -237,15 +338,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                       PopupMenuItem(
                                         child: const Row(
                                           children: [
-                                            Icon(
-                                              Icons.delete,
-                                              size: 18,
-                                              color: Colors.red,
-                                            ),
+                                            Icon(Icons.delete,
+                                                size: 18, color: Colors.red),
                                             SizedBox(width: 8),
                                             Text(
                                               'Apagar',
-                                              style: TextStyle(color: Colors.red),
+                                              style: TextStyle(
+                                                  color: Colors.red),
                                             ),
                                           ],
                                         ),
@@ -257,6 +356,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         );
                       },
                     ),
+                ],
+              ),
             ),
       floatingActionButton: FloatingActionButton(
         onPressed: _abrirFormularioCriar,
@@ -363,7 +464,8 @@ class _FormularioCriarUtilizadorState
                   const SizedBox(width: 8),
                   const Text(
                     'Novo utilizador',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
@@ -405,7 +507,9 @@ class _FormularioCriarUtilizadorState
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
                     icon: Icon(
-                      _obscureSenha ? Icons.visibility_off : Icons.visibility,
+                      _obscureSenha
+                          ? Icons.visibility_off
+                          : Icons.visibility,
                     ),
                     onPressed: () =>
                         setState(() => _obscureSenha = !_obscureSenha),
@@ -475,7 +579,8 @@ class _FormularioCriarUtilizadorState
                           ),
                         )
                       : const Icon(Icons.check),
-                  label: Text(_carregando ? 'A criar...' : 'Criar utilizador'),
+                  label:
+                      Text(_carregando ? 'A criar...' : 'Criar utilizador'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,
