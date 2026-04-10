@@ -11,7 +11,6 @@ import 'screens/main_shell.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('pt_PT', null);
-
   runApp(
     MultiProvider(
       providers: [

@@ -154,6 +154,18 @@ class ApiService {
 
   static Future<void> alterarSenhaUtilizador(int id, String novaSenha) async =>
       await put('/admin/utilizadores/$id/senha', {'password': novaSenha});
+
+
+static Future<List<dynamic>> listarLogs() async {
+  final response = await get('/admin/logs');
+  return response as List<dynamic>;
+}
+ 
+
+
+
+
+
 }
 
 class ApiException implements Exception {
@@ -163,3 +175,4 @@ class ApiException implements Exception {
   @override
   String toString() => mensagem;
 }
+

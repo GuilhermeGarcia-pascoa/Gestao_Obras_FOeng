@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../services/api_service.dart';
 import '../services/auth_provider.dart';
+import 'logs_screen.dart'; // ← NOVO
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -141,7 +142,22 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     final currentUserId = auth.utilizador?['id'];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Painel de Administração')),
+      appBar: AppBar(
+        title: const Text('Painel de Administração'),
+        actions: [
+          // ── NOVO: acesso aos logs de auditoria ──
+          IconButton(
+            icon: const Icon(Icons.history),
+            tooltip: 'Logs de auditoria',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const LogsScreen()),
+              );
+            },
+          ),
+        ],
+      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(

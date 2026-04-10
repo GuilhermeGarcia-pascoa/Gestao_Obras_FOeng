@@ -154,4 +154,27 @@ router.delete('/utilizadores/:id', async (req, res) => {
   }
 });
 
+// ── GET /api/admin/logs ────────────────────────────────────────────────────
+router.get('/logs', async (req, res) => {
+  try {
+    const limit  = Math.min(parseInt(req.query.limit  ?? 200), 500);
+    const offset = parseInt(req.query.offset ?? 0);
+
+    const [rows] = await pool.query(
+      `SELECT
+         id, user_id, action, entity, entity_id,
+         details, ip, method, url, created_at
+       FROM logs
+       ORDER BY created_at DESC
+       LIMIT ? OFFSET ?`,
+      [limit, offset]
+    );
+
+    res.json(rows);
+  } catch (err) {
+    console.error('[ADMIN GET LOGS]', err.message);
+    res.status(500).json({ erro: err.message });
+  }
+});
+
 module.exports = router;
