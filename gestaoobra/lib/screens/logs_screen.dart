@@ -228,7 +228,7 @@ class _LogsScreenState extends State<LogsScreen> {
                         final action = (log['action'] ?? '').toString().toUpperCase();
                         final entity = log['entity']?.toString() ?? '';
                         final cor    = _corAction(action);
-
+                        
                         return Card(
                           child: ListTile(
                             leading: Container(
@@ -278,25 +278,25 @@ class _LogsScreenState extends State<LogsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   // user_id + entity_id
-                                  Row(children: [
-                                    const Icon(Icons.person_outline,
-                                        size: 12, color: Colors.grey),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'user ${log['user_id'] ?? '—'}',
-                                      style: const TextStyle(fontSize: 11),
-                                    ),
-                                    if (log['entity_id'] != null) ...[
-                                      const SizedBox(width: 10),
-                                      const Icon(Icons.tag,
-                                          size: 12, color: Colors.grey),
-                                      const SizedBox(width: 3),
-                                      Text(
-                                        'id ${log['entity_id']}',
-                                        style: const TextStyle(fontSize: 11),
-                                      ),
-                                    ],
-                                  ]),
+                                  // ... dentro do itemBuilder
+Row(children: [
+  const Icon(Icons.person_outline, size: 12, color: Colors.grey),
+  const SizedBox(width: 3),
+  Text(
+    // Alterado de log['user_id'] para log['user_nome']
+    log['user_nome'] ?? 'Sistema/Desconhecido', 
+    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold),
+  ),
+  if (log['entity_id'] != null) ...[
+    const SizedBox(width: 10),
+    const Icon(Icons.tag, size: 12, color: Colors.grey),
+    const SizedBox(width: 3),
+    Text(
+      'id ${log['entity_id']}',
+      style: const TextStyle(fontSize: 11),
+    ),
+  ],
+]),
                                   const SizedBox(height: 2),
                                   // method + url
                                   Row(children: [
@@ -336,12 +336,19 @@ class _LogsScreenState extends State<LogsScreen> {
                             trailing: IconButton(
                               icon: const Icon(Icons.open_in_new, size: 18),
                               tooltip: 'Ver detalhes',
-                              onPressed: () => _verDetalhes(log),
+                              onPressed: () => _verDetalhes(// ... dentro da função _verDetalhes, na Column do AlertDialog
+_detalheRow(
+  Icons.person_outline, 
+  'Utilizador', 
+  '${log['user_nome'] ?? 'Desconhecido'} (ID: ${log['user_id'] ?? '—'})'
+),),
                             ),
                           ),
                         );
+                        
                       },
                     ),
+                    
             ),
     );
   }

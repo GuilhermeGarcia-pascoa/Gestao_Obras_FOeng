@@ -162,10 +162,20 @@ router.get('/logs', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT
-         id, user_id, action, entity, entity_id,
-         details, ip, method, url, created_at
-       FROM logs
-       ORDER BY created_at DESC
+         l.id, 
+         l.user_id, 
+         u.nome AS user_nome, -- Adicionamos o nome do utilizador
+         l.action, 
+         l.entity, 
+         l.entity_id,
+         l.details, 
+         l.ip, 
+         l.method, 
+         l.url, 
+         l.created_at
+       FROM logs l
+       LEFT JOIN utilizadores u ON l.user_id = u.id -- JOIN para buscar o nome
+       ORDER BY l.created_at DESC
        LIMIT ? OFFSET ?`,
       [limit, offset]
     );
