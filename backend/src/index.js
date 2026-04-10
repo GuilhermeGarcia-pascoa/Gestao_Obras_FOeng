@@ -28,13 +28,14 @@ try { helmet      = require('helmet');      } catch (_) { helmet      = null; }
 try { compression = require('compression'); } catch (_) { compression = null; }
 try { morgan      = require('morgan');      } catch (_) { morgan      = null; }
 
-const authRouter      = require('./routes/auth');
-const obrasRouter     = require('./routes/obras');
-const diasRouter      = require('./routes/dias');
-const equipaRouter    = require('./routes/equipa');
+const authRouter       = require('./routes/auth');
+const obrasRouter      = require('./routes/obras');
+const diasRouter       = require('./routes/dias');
+const equipaRouter     = require('./routes/equipa');
 const relatoriosRouter = require('./routes/relatorios');
-const adminRouter     = require('./routes/admin');
+const adminRouter      = require('./routes/admin');
 const { exportarExcel, exportarPdf } = require('./routes/export');
+const { auth, soGestor } = require('./middleware/auth');
 
 const app  = express();
 const PORT = process.env.PORT || 3000;
@@ -91,8 +92,12 @@ app.use('/api/relatorios', relatoriosRouter);
 app.use('/api/admin',      adminRouter);
 
 // ── Exportações ────────────────────────────────────────────────────────────
-app.get('/api/export/excel/:obraId', exportarExcel);
-app.get('/api/export/pdf',           exportarPdf);
+// ── Exportações (protegidas — requerem gestor ou admin) ────────────────────
+const exportRouter = require('express').Router();
+exportRouter.use(auth);
+exportRouter.get('/excel/:obraId', soGestor, exportarExcel);
+exportRouter.get('/pdf',           soGestor, exportarPdf);
+app.use('/api/export', exportRouter);
 
 // ── Health check ───────────────────────────────────────────────────────────
 app.get('/api/health', (_, res) => {

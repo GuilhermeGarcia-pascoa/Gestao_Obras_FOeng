@@ -1,8 +1,21 @@
 const router = require('express').Router();
-const pool = require('../db/pool');
-const { auth, soGestor } = require('../middleware/auth');
+const { z }  = require('zod');
+const pool   = require('../db/pool');
+const { auth, soGestor, soAdmin } = require('../middleware/auth');
 
 router.use(auth);
+
+// ── Schemas Zod ────────────────────────────────────────────────────────────
+const schemaObra = z.object({
+  codigo:    z.string().min(3, 'Código deve ter pelo menos 3 caracteres'),
+  nome:      z.string().min(3, 'Nome deve ter pelo menos 3 caracteres'),
+  tipo:      z.string().optional().nullable(),
+  estado:    z.string().optional().nullable(),
+  orcamento: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : Number(v)),
+    z.number().min(0, 'Orçamento inválido').nullable().optional()
+  ),
+});
 
 function parseNumeroNaoNegativo(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -10,17 +23,7 @@ function parseNumeroNaoNegativo(value) {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function validarObra(body) {
-  if (!body.codigo || !String(body.codigo).trim()) return 'Código é obrigatório';
-  if (!body.nome || !String(body.nome).trim()) return 'Nome é obrigatório';
-  if (String(body.codigo).trim().length < 3) return 'Código demasiado curto';
-  if (String(body.nome).trim().length < 3) return 'Nome demasiado curto';
-  if (body.orcamento !== null && body.orcamento !== undefined && body.orcamento !== '' && parseNumeroNaoNegativo(body.orcamento) == null) {
-    return 'Orçamento inválido';
-  }
-  return null;
-}
-
+// ── GET /api/obras ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
   const { estado, tipo } = req.query;
   let sql = 'SELECT * FROM obras WHERE 1=1';
@@ -41,48 +44,75 @@ router.get('/', async (req, res) => {
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
+// ── GET /api/obras/:id ─────────────────────────────────────────────────────
 router.get('/:id', async (req, res) => {
   try {
     const [[obra]] = await pool.query('SELECT * FROM obras WHERE id = ?', [req.params.id]);
     if (!obra) return res.status(404).json({ erro: 'Obra não encontrada' });
     res.json(obra);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
+// ── POST /api/obras ────────────────────────────────────────────────────────
 router.post('/', soGestor, async (req, res) => {
-  const { codigo, nome, tipo, estado, orcamento } = req.body;
-  const erro = validarObra(req.body);
-  if (erro) return res.status(400).json({ erro });
+  const parsed = schemaObra.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ erro: parsed.error.errors[0].message });
+  }
+
+  const { codigo, nome, tipo, estado, orcamento } = parsed.data;
 
   try {
     const [result] = await pool.query(
       'INSERT INTO obras (codigo, nome, tipo, estado, orcamento, criado_por) VALUES (?, ?, ?, ?, ?, ?)',
-      [String(codigo).trim(), String(nome).trim(), tipo || null, estado || 'planeada', parseNumeroNaoNegativo(orcamento), req.user.id]
+      [
+        codigo.trim(),
+        nome.trim(),
+        tipo || null,
+        estado || 'planeada',
+        parseNumeroNaoNegativo(orcamento),
+        req.user.id,
+      ]
     );
     res.status(201).json({ id: result.insertId, codigo, nome });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ erro: 'Código já existe' });
     }
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
+// ── PUT /api/obras/:id ─────────────────────────────────────────────────────
 router.put('/:id', soGestor, async (req, res) => {
-  const { codigo, nome, tipo, estado, orcamento } = req.body;
-  const erro = validarObra(req.body);
-  if (erro) return res.status(400).json({ erro });
+  const parsed = schemaObra.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ erro: parsed.error.errors[0].message });
+  }
+
+  const { codigo, nome, tipo, estado, orcamento } = parsed.data;
 
   try {
+    // Verify obra exists before updating
+    const [[obra]] = await pool.query('SELECT id FROM obras WHERE id = ?', [req.params.id]);
+    if (!obra) return res.status(404).json({ erro: 'Obra não encontrada' });
+
     const [result] = await pool.query(
       'UPDATE obras SET codigo=?, nome=?, tipo=?, estado=?, orcamento=? WHERE id=?',
-      [String(codigo).trim(), String(nome).trim(), tipo, estado, parseNumeroNaoNegativo(orcamento), req.params.id]
+      [
+        codigo.trim(),
+        nome.trim(),
+        tipo,
+        estado,
+        parseNumeroNaoNegativo(orcamento),
+        req.params.id,
+      ]
     );
 
     if (result.affectedRows === 0) return res.status(404).json({ erro: 'Obra não encontrada' });
@@ -91,16 +121,22 @@ router.put('/:id', soGestor, async (req, res) => {
     if (err.code === 'ER_DUP_ENTRY') {
       return res.status(409).json({ erro: 'Código já existe' });
     }
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
-router.delete('/:id', async (req, res) => {
-  if (req.user.role !== 'admin') return res.status(403).json({ erro: 'Sem permissão' });
-
+// ── DELETE /api/obras/:id ──────────────────────────────────────────────────
+router.delete('/:id', soAdmin, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    // Verify obra exists
+    const [[obra]] = await conn.query('SELECT id FROM obras WHERE id = ?', [req.params.id]);
+    if (!obra) {
+      await conn.rollback();
+      return res.status(404).json({ erro: 'Obra não encontrada' });
+    }
 
     await conn.query(
       'DELETE dp FROM dia_pessoas dp JOIN dias d ON d.id = dp.dia_id WHERE d.obra_id = ?',
@@ -115,18 +151,13 @@ router.delete('/:id', async (req, res) => {
       [req.params.id]
     );
     await conn.query('DELETE FROM dias WHERE obra_id = ?', [req.params.id]);
-
-    const [result] = await conn.query('DELETE FROM obras WHERE id = ?', [req.params.id]);
-    if (result.affectedRows === 0) {
-      await conn.rollback();
-      return res.status(404).json({ erro: 'Obra não encontrada' });
-    }
+    await conn.query('DELETE FROM obras WHERE id = ?', [req.params.id]);
 
     await conn.commit();
     res.json({ ok: true });
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   } finally {
     conn.release();
   }

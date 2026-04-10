@@ -1,6 +1,6 @@
 const express = require('express');
-const pool = require('../db/pool');
-const { auth } = require('../middleware/auth');
+const pool    = require('../db/pool');
+const { auth, soGestor, soAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 router.use(auth);
@@ -86,7 +86,7 @@ router.get('/anteriores', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -104,7 +104,7 @@ router.get('/lista', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -112,6 +112,12 @@ router.get('/lista', async (req, res) => {
 router.get('/por-data', async (req, res) => {
   const { obra_id, data } = req.query;
   if (!obra_id || !data) return res.status(400).json({ erro: 'obra_id e data obrigatórios' });
+
+  // Basic date format validation
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
+    return res.status(400).json({ erro: 'Formato de data inválido. Use YYYY-MM-DD' });
+  }
+
   try {
     let [[dia]] = await pool.query(
       'SELECT * FROM dias WHERE obra_id = ? AND data = ? LIMIT 1',
@@ -129,7 +135,7 @@ router.get('/por-data', async (req, res) => {
     const [horasViaturas] = await pool.query('SELECT * FROM dia_viaturas WHERE dia_id = ?', [dia.id]);
     res.json({ dia, horasPessoas, horasMaquinas, horasViaturas });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -143,7 +149,7 @@ router.get('/:id', async (req, res) => {
     const [horasViaturas] = await pool.query('SELECT * FROM dia_viaturas WHERE dia_id = ?', [dia.id]);
     res.json({ dia, horasPessoas, horasMaquinas, horasViaturas });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -179,7 +185,7 @@ router.get('/:id/anterior', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -208,18 +214,26 @@ router.get('/:id/copiar-de', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
-// ── PUT /api/dias/:id
-router.put('/:id', async (req, res) => {
+// ── PUT /api/dias/:id — requires soGestor
+router.put('/:id', soGestor, async (req, res) => {
   const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas, gastos } = req.body;
   const erro = validarDia(req.body);
   if (erro) return res.status(400).json({ erro });
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    // Verify the dia exists
+    const [[dia]] = await conn.query('SELECT id FROM dias WHERE id = ?', [req.params.id]);
+    if (!dia) {
+      await conn.rollback();
+      return res.status(404).json({ erro: 'Dia não encontrado' });
+    }
 
     await conn.query(
       `UPDATE dias SET
@@ -239,7 +253,6 @@ router.put('/:id', async (req, res) => {
       ]
     );
 
-    // Pessoas — guarda custo_extra e custo_hora_override por pessoa
     if (horasPessoas !== undefined) {
       await conn.query('DELETE FROM dia_pessoas WHERE dia_id = ?', [req.params.id]);
       for (const p of horasPessoas || []) {
@@ -260,7 +273,6 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Máquinas
     if (horasMaquinas !== undefined) {
       await conn.query('DELETE FROM dia_maquinas WHERE dia_id = ?', [req.params.id]);
       for (const m of horasMaquinas || []) {
@@ -273,7 +285,6 @@ router.put('/:id', async (req, res) => {
       }
     }
 
-    // Viaturas
     if (horasViaturas !== undefined) {
       await conn.query('DELETE FROM dia_viaturas WHERE dia_id = ?', [req.params.id]);
       for (const v of horasViaturas || []) {
@@ -288,14 +299,14 @@ router.put('/:id', async (req, res) => {
     res.json({ mensagem: 'Dia guardado com sucesso' });
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   } finally {
     conn.release();
   }
 });
 
-// ── DELETE /api/dias/:id
-router.delete('/:id', async (req, res) => {
+// ── DELETE /api/dias/:id — requires soAdmin
+router.delete('/:id', soAdmin, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -311,7 +322,7 @@ router.delete('/:id', async (req, res) => {
     res.json({ mensagem: 'Dia eliminado com sucesso' });
   } catch (err) {
     await conn.rollback();
-    res.status(500).json({ erro: err.message });
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   } finally {
     conn.release();
   }

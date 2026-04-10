@@ -1,12 +1,15 @@
 const jwt = require('jsonwebtoken');
 
 // ── Rate limiting simples em memória para login ────────────────────────────
-// Sem dependências externas — funciona imediatamente
 const tentativas = new Map(); // ip -> { count, bloqueadoAte }
 
 const MAX_TENTATIVAS = 5;
 const JANELA_MS      = 15 * 60 * 1000; // 15 minutos
 const BLOQUEIO_MS    = 30 * 60 * 1000; // 30 minutos de bloqueio
+
+// JWT claims obrigatórios — devem coincidir em sign() e verify()
+const JWT_ISSUER   = 'foeng-api';
+const JWT_AUDIENCE = 'foeng-users';
 
 function rateLimitLogin(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
@@ -14,7 +17,6 @@ function rateLimitLogin(req, res, next) {
   const registo = tentativas.get(ip);
 
   if (registo) {
-    // Verifica se ainda está bloqueado
     if (registo.bloqueadoAte && agora < registo.bloqueadoAte) {
       const restam = Math.ceil((registo.bloqueadoAte - agora) / 60000);
       return res.status(429).json({
@@ -22,7 +24,6 @@ function rateLimitLogin(req, res, next) {
       });
     }
 
-    // Janela expirou — reset
     if (agora - registo.inicio > JANELA_MS) {
       tentativas.delete(ip);
     }
@@ -35,7 +36,6 @@ function registarFalhaLogin(ip) {
   const agora = Date.now();
   const registo = tentativas.get(ip) || { count: 0, inicio: agora, bloqueadoAte: null };
 
-  // Janela expirou — reset
   if (agora - registo.inicio > JANELA_MS) {
     registo.count = 0;
     registo.inicio = agora;
@@ -70,7 +70,10 @@ function auth(req, res, next) {
   const token = partes[1];
 
   try {
-    req.user = jwt.verify(token, process.env.JWT_SECRET);
+    req.user = jwt.verify(token, process.env.JWT_SECRET, {
+      issuer:   JWT_ISSUER,
+      audience: JWT_AUDIENCE,
+    });
     next();
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
@@ -95,4 +98,13 @@ function soAdmin(req, res, next) {
   next();
 }
 
-module.exports = { auth, soGestor, soAdmin, rateLimitLogin, registarFalhaLogin, limparFalhasLogin };
+module.exports = {
+  auth,
+  soGestor,
+  soAdmin,
+  rateLimitLogin,
+  registarFalhaLogin,
+  limparFalhasLogin,
+  JWT_ISSUER,
+  JWT_AUDIENCE,
+};
