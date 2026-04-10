@@ -67,11 +67,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final resumo = (_dados?['resumo'] as Map<String, dynamic>?) ?? {};
     final obras  = List<Map<String, dynamic>>.from(_dados?['obras'] ?? []);
 
-    final totalFaturado  = _toDouble(resumo['total_faturado']);
-    final totalGasto     = _toDouble(resumo['total_gasto']);
-    final margem         = _toDouble(resumo['margem']);
-    final totalObras     = _toInt(resumo['total_obras']);
-    final obrasEmCurso   = obras.where((o) => o['estado'] == 'em_curso').toList();
+    final totalFaturado   = _toDouble(resumo['total_faturado']);
+    final totalGasto      = _toDouble(resumo['total_gasto']);
+    final margem          = _toDouble(resumo['margem']);
+    final totalObras      = _toInt(resumo['total_obras']);
+    final obrasEmCurso    = obras.where((o) => o['estado'] == 'em_curso').toList();
     final obrasConcluidas = obras.where((o) => o['estado'] == 'concluida').length;
 
     return LayoutBuilder(
@@ -94,15 +94,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
             _kpiGrid(
               crossAxisCount: crossAxisCount,
               items: [
-                _KpiData('Total obras',   '$totalObras',              Icons.apartment_rounded,      const Color(0xFF185FA5)),
-                _KpiData('Em curso',      '${obrasEmCurso.length}',   Icons.construction_rounded,   const Color(0xFF0F9D8A)),
-                _KpiData('Faturado',      Fmt.moeda0(totalFaturado),  Icons.euro_rounded,            const Color(0xFF2F6FED)),
+                _KpiData('Total obras',  '$totalObras',             Icons.apartment_rounded,       const Color(0xFF185FA5)),
+                _KpiData('Em curso',     '${obrasEmCurso.length}',  Icons.construction_rounded,    const Color(0xFF0F9D8A)),
+                _KpiData('Faturado',     Fmt.moeda0(totalFaturado), Icons.euro_rounded,             const Color(0xFF2F6FED)),
                 _KpiData('Margem',
                     Fmt.moeda0(margem),
                     margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                     margem >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51)),
-                _KpiData('Gasto total',   Fmt.moeda0(totalGasto),     Icons.receipt_long_rounded,    const Color(0xFFE6824D)),
-                _KpiData('Concluídas',    '$obrasConcluidas',         Icons.verified_rounded,        const Color(0xFF6E7F92)),
+                _KpiData('Gasto total',  Fmt.moeda0(totalGasto),    Icons.receipt_long_rounded,    const Color(0xFFE6824D)),
+                _KpiData('Concluídas',   '$obrasConcluidas',        Icons.verified_rounded,         const Color(0xFF6E7F92)),
               ],
             ),
             const SizedBox(height: 24),
@@ -121,51 +121,96 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _heroCard(String nome, int totalObras, int emCurso, double margem) {
-    return Container(
-      padding: const EdgeInsets.all(22),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(16),
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [Color(0xFF0D2B4E), Color(0xFF185FA5)],
-        ),
+  // ── Hero card (Logo Maior e Sem Fundo) ─────────────────────────────────────
+ // ── Hero card (Logo Maior e Bem Posicionado) ────────────────────────────────
+Widget _heroCard(String nome, int totalObras, int emCurso, double margem) {
+  return Container(
+    padding: const EdgeInsets.all(22),
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(16),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: [Color(0xFF0D2B4E), Color(0xFF185FA5)],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Olá, $nome 👋',
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 22,
-              fontWeight: FontWeight.w800,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            Fmt.dataLonga(DateTime.now()),
-            style: TextStyle(color: Colors.white.withOpacity(0.65), fontSize: 13),
-          ),
-          const SizedBox(height: 16),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _heroChip(Icons.apartment_rounded,      '$totalObras obras'),
-              _heroChip(Icons.play_circle_fill_rounded, '$emCurso ativas'),
-              _heroChip(
-                margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
-                margem >= 0 ? 'Margem positiva' : 'Margem negativa',
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // 🔥 HEADER COM LOGO MELHORADO
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Texto (lado esquerdo)
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    'Olá, $nome',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    Fmt.dataLonga(DateTime.now()),
+                    style: TextStyle(
+                      color: Colors.white.withOpacity(0.65),
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
+            ),
+
+            const SizedBox(width: 12),
+
+            // 🔥 LOGO GRANDE À DIREITA
+            Align(
+              alignment: Alignment.centerRight,
+              child: SizedBox(
+                height: 120,
+                width: 120,
+                child: Image.asset(
+                  'assets/images/logo.png',
+                  fit: BoxFit.contain,
+                  errorBuilder: (_, __, ___) => const Icon(
+                    Icons.business_rounded,
+                    color: Colors.white70,
+                    size: 48,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // 🔥 CHIPS DE RESUMO
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            _heroChip(Icons.apartment_rounded, '$totalObras obras'),
+            _heroChip(Icons.play_circle_fill_rounded, '$emCurso ativas'),
+            _heroChip(
+              margem >= 0
+                  ? Icons.trending_up_rounded
+                  : Icons.trending_down_rounded,
+              margem >= 0 ? 'Margem positiva' : 'Margem negativa',
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
 
   Widget _heroChip(IconData icon, String text) {
     return Container(
@@ -180,7 +225,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
         children: [
           Icon(icon, size: 14, color: Colors.white),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12)),
+          Text(
+            text,
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
+            ),
+          ),
         ],
       ),
     );
@@ -203,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final totalSpacing = spacing * (crossAxisCount - 1);
-        final itemWidth = (constraints.maxWidth - totalSpacing) / crossAxisCount;
+        final itemWidth    = (constraints.maxWidth - totalSpacing) / crossAxisCount;
 
         return Wrap(
           spacing: spacing,
@@ -271,7 +323,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _cardObra(Map<String, dynamic> obra) {
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final isDark   = Theme.of(context).brightness == Brightness.dark;
     final faturado = _toDouble(obra['total_faturado']);
     final gasto    = _toDouble(obra['total_gastos']);
     final dias     = _toInt(obra['total_dias']);
@@ -293,7 +345,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
           LayoutBuilder(
             builder: (context, constraints) {
               final compact = constraints.maxWidth < 430;
-
               return compact
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -365,7 +416,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       child: Text(
         text,
-        style: TextStyle(color: color, fontWeight: FontWeight.w700, fontSize: 11),
+        style: TextStyle(
+          color: color,
+          fontWeight: FontWeight.w700,
+          fontSize: 11,
+        ),
       ),
     );
   }
@@ -386,7 +441,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           const SizedBox(height: 2),
           Text(
             value,
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color),
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: color,
+            ),
             overflow: TextOverflow.ellipsis,
           ),
         ],
@@ -401,7 +460,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF252D3A) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED)),
+        border: Border.all(
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+        ),
       ),
       child: Column(
         children: [
