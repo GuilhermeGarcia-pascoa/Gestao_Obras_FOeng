@@ -1092,7 +1092,7 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
 
   // ── Seletor de obra ───────────────────────────────────────────────────────
   Widget _seletorObra() {
-    final selecionada = _obras.cast<dynamic?>().firstWhere(
+    final selecionada = _obras.cast<dynamic>().firstWhere(
       (o) => o?['id'] == _obraId,
       orElse: () => null,
     );
