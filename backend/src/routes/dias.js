@@ -1,6 +1,7 @@
 const express = require('express');
 const pool    = require('../db/pool');
 const { auth, soGestor, soAdmin } = require('../middleware/auth');
+const { logAction, reqMeta } = require('../utils/logger');
 
 const router = express.Router();
 router.use(auth);
@@ -30,7 +31,6 @@ function numeroEntre(value, min, max) {
 
 function validarDia(payload) {
   if (numeroNaoNegativo(payload.faturado ?? 0) == null) return 'Faturado inválido';
-
   const gastos = payload.gastos ?? {};
   const camposGasto = [
     ['valor_to', 'Mão de obra'],
@@ -39,11 +39,9 @@ function validarDia(payload) {
     ['valor_materiais', 'Materiais'],
     ['valor_refeicoes', 'Refeições'],
   ];
-
   for (const [campo, label] of camposGasto) {
     if (numeroNaoNegativo(gastos[campo] ?? 0) == null) return `${label} inválido`;
   }
-
   for (const p of payload.horasPessoas || []) {
     if (!p.pessoa_id) return 'Pessoa inválida';
     if (numeroEntre(p.horas_total, 0, 24) == null) return 'Horas de pessoa têm de estar entre 0 e 24';
@@ -52,7 +50,6 @@ function validarDia(payload) {
     if (p.custo_hora_override != null && numeroNaoNegativo(p.custo_hora_override) == null) return 'Custo/hora personalizado inválido';
     if (numeroNaoNegativo(p.custo_hora_snapshot ?? 0) == null) return 'Snapshot de custo/hora inválido';
   }
-
   for (const m of payload.horasMaquinas || []) {
     if (!m.maquina_id) return 'Máquina inválida';
     if (numeroEntre(m.horas_total, 0, 24) == null) return 'Horas de máquina têm de estar entre 0 e 24';
@@ -61,18 +58,16 @@ function validarDia(payload) {
     if (numeroNaoNegativo(m.custo_hora_snapshot ?? 0) == null) return 'Snapshot de custo/hora da máquina inválido';
     if (numeroNaoNegativo(m.combustivel_hora_snapshot ?? 0) == null) return 'Snapshot de combustível/hora inválido';
   }
-
   for (const v of payload.horasViaturas || []) {
     if (!v.viatura_id) return 'Viatura inválida';
     if (numeroEntre(v.km_total, 0, 2000) == null) return 'Quilómetros da viatura têm de estar entre 0 e 2000';
     if (numeroNaoNegativo(v.custo_total ?? 0) == null) return 'Custo total da viatura inválido';
     if (numeroNaoNegativo(v.custo_km_snapshot ?? 0) == null) return 'Snapshot de custo/km inválido';
   }
-
   return null;
 }
 
-// ── GET /api/dias/anteriores?obra_id=X&mes=YYYY-MM
+// ── GET /api/dias/anteriores
 router.get('/anteriores', async (req, res) => {
   const { obra_id, mes } = req.query;
   if (!obra_id || !mes) return res.status(400).json({ erro: 'obra_id e mes obrigatórios' });
@@ -90,7 +85,7 @@ router.get('/anteriores', async (req, res) => {
   }
 });
 
-// ── GET /api/dias/lista?obra_id=X
+// ── GET /api/dias/lista
 router.get('/lista', async (req, res) => {
   const { obra_id } = req.query;
   if (!obra_id) return res.status(400).json({ erro: 'obra_id obrigatório' });
@@ -108,16 +103,13 @@ router.get('/lista', async (req, res) => {
   }
 });
 
-// ── GET /api/dias/por-data?obra_id=X&data=YYYY-MM-DD
+// ── GET /api/dias/por-data
 router.get('/por-data', async (req, res) => {
   const { obra_id, data } = req.query;
   if (!obra_id || !data) return res.status(400).json({ erro: 'obra_id e data obrigatórios' });
-
-  // Basic date format validation
   if (!/^\d{4}-\d{2}-\d{2}$/.test(data)) {
     return res.status(400).json({ erro: 'Formato de data inválido. Use YYYY-MM-DD' });
   }
-
   try {
     let [[dia]] = await pool.query(
       'SELECT * FROM dias WHERE obra_id = ? AND data = ? LIMIT 1',
@@ -159,23 +151,15 @@ router.get('/:id/anterior', async (req, res) => {
     const [[atual]] = await pool.query('SELECT * FROM dias WHERE id = ?', [req.params.id]);
     if (!atual) return res.status(404).json({ erro: 'Dia não encontrado' });
     const [[anterior]] = await pool.query(
-      `SELECT *
-       FROM dias
-       WHERE obra_id = ? AND data < ? AND ${DIA_COM_DADOS_SQL}
-       ORDER BY data DESC
-       LIMIT 1`,
+      `SELECT * FROM dias WHERE obra_id = ? AND data < ? AND ${DIA_COM_DADOS_SQL} ORDER BY data DESC LIMIT 1`,
       [atual.obra_id, atual.data]
     );
     if (!anterior) return res.status(404).json({ erro: 'Não existe dia anterior com dados' });
-
     const [horasPessoas]  = await pool.query('SELECT * FROM dia_pessoas  WHERE dia_id = ?', [anterior.id]);
     const [horasMaquinas] = await pool.query('SELECT * FROM dia_maquinas WHERE dia_id = ?', [anterior.id]);
     const [horasViaturas] = await pool.query('SELECT * FROM dia_viaturas WHERE dia_id = ?', [anterior.id]);
-
     res.json({
-      horasPessoas,
-      horasMaquinas,
-      horasViaturas,
+      horasPessoas, horasMaquinas, horasViaturas,
       gastos: {
         valor_to:          anterior.valor_to          || 0,
         valor_combustivel: anterior.valor_combustivel || 0,
@@ -189,22 +173,18 @@ router.get('/:id/anterior', async (req, res) => {
   }
 });
 
-// ── GET /api/dias/:id/copiar-de?fonte_id=Y
+// ── GET /api/dias/:id/copiar-de
 router.get('/:id/copiar-de', async (req, res) => {
   const { fonte_id } = req.query;
   if (!fonte_id) return res.status(400).json({ erro: 'fonte_id obrigatório' });
   try {
     const [[fonte]] = await pool.query('SELECT * FROM dias WHERE id = ?', [fonte_id]);
     if (!fonte) return res.status(404).json({ erro: 'Dia fonte não encontrado' });
-
     const [horasPessoas]  = await pool.query('SELECT * FROM dia_pessoas  WHERE dia_id = ?', [fonte_id]);
     const [horasMaquinas] = await pool.query('SELECT * FROM dia_maquinas WHERE dia_id = ?', [fonte_id]);
     const [horasViaturas] = await pool.query('SELECT * FROM dia_viaturas WHERE dia_id = ?', [fonte_id]);
-
     res.json({
-      horasPessoas,
-      horasMaquinas,
-      horasViaturas,
+      horasPessoas, horasMaquinas, horasViaturas,
       gastos: {
         valor_to:          fonte.valor_to          || 0,
         valor_combustivel: fonte.valor_combustivel || 0,
@@ -218,7 +198,7 @@ router.get('/:id/copiar-de', async (req, res) => {
   }
 });
 
-// ── PUT /api/dias/:id — requires soGestor
+// ── PUT /api/dias/:id — soGestor
 router.put('/:id', soGestor, async (req, res) => {
   const { estado, faturado, horasPessoas, horasMaquinas, horasViaturas, gastos } = req.body;
   const erro = validarDia(req.body);
@@ -228,28 +208,23 @@ router.put('/:id', soGestor, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Verify the dia exists
-    const [[dia]] = await conn.query('SELECT id FROM dias WHERE id = ?', [req.params.id]);
+    const [[dia]] = await conn.query('SELECT id, obra_id, data FROM dias WHERE id = ?', [req.params.id]);
     if (!dia) {
       await conn.rollback();
       return res.status(404).json({ erro: 'Dia não encontrado' });
     }
 
     await conn.query(
-      `UPDATE dias SET
-         estado = ?, faturado = ?,
-         valor_to = ?, valor_combustivel = ?, valor_estadias = ?,
-         valor_materiais = ?, valor_refeicoes = ?
-       WHERE id = ?`,
+      `UPDATE dias SET estado=?, faturado=?, valor_to=?, valor_combustivel=?,
+       valor_estadias=?, valor_materiais=?, valor_refeicoes=? WHERE id=?`,
       [
-        estado,
-        faturado,
+        estado, faturado,
         gastos?.valor_to          ?? 0,
         gastos?.valor_combustivel ?? 0,
         gastos?.valor_estadias    ?? 0,
         gastos?.valor_materiais   ?? 0,
         gastos?.valor_refeicoes   ?? 0,
-        req.params.id
+        req.params.id,
       ]
     );
 
@@ -257,18 +232,10 @@ router.put('/:id', soGestor, async (req, res) => {
       await conn.query('DELETE FROM dia_pessoas WHERE dia_id = ?', [req.params.id]);
       for (const p of horasPessoas || []) {
         await conn.query(
-          `INSERT INTO dia_pessoas
-             (dia_id, pessoa_id, horas_total, custo_total, custo_extra, custo_hora_override, custo_hora_snapshot)
+          `INSERT INTO dia_pessoas (dia_id, pessoa_id, horas_total, custo_total, custo_extra, custo_hora_override, custo_hora_snapshot)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [
-            req.params.id,
-            p.pessoa_id,
-            p.horas_total,
-            p.custo_total,
-            p.custo_extra ?? 0,
-            p.custo_hora_override ?? null,
-            p.custo_hora_snapshot ?? p.custo_hora_override ?? null,
-          ]
+          [req.params.id, p.pessoa_id, p.horas_total, p.custo_total, p.custo_extra ?? 0,
+           p.custo_hora_override ?? null, p.custo_hora_snapshot ?? p.custo_hora_override ?? null]
         );
       }
     }
@@ -277,10 +244,10 @@ router.put('/:id', soGestor, async (req, res) => {
       await conn.query('DELETE FROM dia_maquinas WHERE dia_id = ?', [req.params.id]);
       for (const m of horasMaquinas || []) {
         await conn.query(
-          `INSERT INTO dia_maquinas
-             (dia_id, maquina_id, horas_total, custo_total, combustivel_total, custo_hora_snapshot, combustivel_hora_snapshot)
+          `INSERT INTO dia_maquinas (dia_id, maquina_id, horas_total, custo_total, combustivel_total, custo_hora_snapshot, combustivel_hora_snapshot)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [req.params.id, m.maquina_id, m.horas_total, m.custo_total ?? 0, m.combustivel_total ?? 0, m.custo_hora_snapshot ?? null, m.combustivel_hora_snapshot ?? null]
+          [req.params.id, m.maquina_id, m.horas_total, m.custo_total ?? 0,
+           m.combustivel_total ?? 0, m.custo_hora_snapshot ?? null, m.combustivel_hora_snapshot ?? null]
         );
       }
     }
@@ -296,6 +263,24 @@ router.put('/:id', soGestor, async (req, res) => {
     }
 
     await conn.commit();
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'dias',
+      entityId: parseInt(req.params.id),
+      details:  {
+        obra_id:  dia.obra_id,
+        data:     dia.data,
+        estado,
+        faturado,
+        pessoas:  (horasPessoas  || []).length,
+        maquinas: (horasMaquinas || []).length,
+        viaturas: (horasViaturas || []).length,
+      },
+      ...reqMeta(req),
+    });
+
     res.json({ mensagem: 'Dia guardado com sucesso' });
   } catch (err) {
     await conn.rollback();
@@ -305,11 +290,14 @@ router.put('/:id', soGestor, async (req, res) => {
   }
 });
 
-// ── DELETE /api/dias/:id — requires soAdmin
+// ── DELETE /api/dias/:id — soAdmin
 router.delete('/:id', soAdmin, async (req, res) => {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
+
+    const [[dia]] = await conn.query('SELECT id, obra_id, data FROM dias WHERE id = ?', [req.params.id]);
+
     await conn.query('DELETE FROM dia_pessoas  WHERE dia_id = ?', [req.params.id]);
     await conn.query('DELETE FROM dia_maquinas WHERE dia_id = ?', [req.params.id]);
     await conn.query('DELETE FROM dia_viaturas WHERE dia_id = ?', [req.params.id]);
@@ -319,6 +307,16 @@ router.delete('/:id', soAdmin, async (req, res) => {
       return res.status(404).json({ erro: 'Dia não encontrado' });
     }
     await conn.commit();
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'DELETE',
+      entity:   'dias',
+      entityId: parseInt(req.params.id),
+      details:  dia ? { obra_id: dia.obra_id, data: dia.data } : {},
+      ...reqMeta(req),
+    });
+
     res.json({ mensagem: 'Dia eliminado com sucesso' });
   } catch (err) {
     await conn.rollback();

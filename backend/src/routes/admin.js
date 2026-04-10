@@ -2,21 +2,16 @@ const router  = require('express').Router();
 const bcrypt  = require('bcryptjs');
 const pool    = require('../db/pool');
 const { auth, soAdmin } = require('../middleware/auth');
+const { logAction, reqMeta } = require('../utils/logger');
 
 // Todas as rotas requerem login de admin
 router.use(auth, soAdmin);
 
 // ── Validação de password ──────────────────────────────────────────────────
 function validarPassword(password) {
-  if (!password || password.length < 8) {
-    return 'A password deve ter pelo menos 8 caracteres';
-  }
-  if (!/[a-zA-Z]/.test(password)) {
-    return 'A password deve conter pelo menos uma letra';
-  }
-  if (!/[0-9]/.test(password)) {
-    return 'A password deve conter pelo menos um número';
-  }
+  if (!password || password.length < 8) return 'A password deve ter pelo menos 8 caracteres';
+  if (!/[a-zA-Z]/.test(password)) return 'A password deve conter pelo menos uma letra';
+  if (!/[0-9]/.test(password))    return 'A password deve conter pelo menos um número';
   return null;
 }
 
@@ -41,19 +36,14 @@ router.post('/utilizadores', async (req, res) => {
     return res.status(400).json({ erro: 'Nome, email e password obrigatórios' });
   }
 
-  // Validar email
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
     return res.status(400).json({ erro: 'Formato de email inválido' });
   }
 
-  // Validar password
   const erroPassword = validarPassword(password);
-  if (erroPassword) {
-    return res.status(400).json({ erro: erroPassword });
-  }
+  if (erroPassword) return res.status(400).json({ erro: erroPassword });
 
-  // Validar role
   const rolesPermitidos = ['utilizador', 'gestor', 'admin'];
   if (role && !rolesPermitidos.includes(role)) {
     return res.status(400).json({ erro: 'Role inválido' });
@@ -65,6 +55,15 @@ router.post('/utilizadores', async (req, res) => {
       'INSERT INTO utilizadores (nome, email, password_hash, role) VALUES (?, ?, ?, ?)',
       [nome.trim(), email.toLowerCase().trim(), hash, role || 'utilizador']
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'utilizadores',
+      entityId: result.insertId,
+      details:  { nome: nome.trim(), email: email.toLowerCase().trim(), role: role || 'utilizador', criado_por_admin: true },
+      ...reqMeta(req),
+    });
 
     res.status(201).json({
       id:    result.insertId,
@@ -85,14 +84,10 @@ router.post('/utilizadores', async (req, res) => {
 router.put('/utilizadores/:id/senha', async (req, res) => {
   const { password } = req.body;
 
-  if (!password) {
-    return res.status(400).json({ erro: 'Password obrigatória' });
-  }
+  if (!password) return res.status(400).json({ erro: 'Password obrigatória' });
 
   const erroPassword = validarPassword(password);
-  if (erroPassword) {
-    return res.status(400).json({ erro: erroPassword });
-  }
+  if (erroPassword) return res.status(400).json({ erro: erroPassword });
 
   try {
     const hash = await bcrypt.hash(password, 12);
@@ -105,6 +100,15 @@ router.put('/utilizadores/:id/senha', async (req, res) => {
       return res.status(404).json({ erro: 'Utilizador não encontrado' });
     }
 
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'utilizadores',
+      entityId: parseInt(req.params.id),
+      details:  { campo: 'password', alterado_por_admin: true },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     console.error('[ADMIN SENHA]', err.message);
@@ -114,12 +118,17 @@ router.put('/utilizadores/:id/senha', async (req, res) => {
 
 // ── DELETE /api/admin/utilizadores/:id ─────────────────────────────────────
 router.delete('/utilizadores/:id', async (req, res) => {
-  // Não permitir apagar a si próprio
   if (parseInt(req.params.id) === req.user?.id) {
     return res.status(403).json({ erro: 'Não podes apagar a tua própria conta' });
   }
 
   try {
+    // Fetch name/email before deletion for the log
+    const [[alvo]] = await pool.query(
+      'SELECT id, nome, email, role FROM utilizadores WHERE id = ?',
+      [req.params.id]
+    );
+
     const [result] = await pool.query(
       'DELETE FROM utilizadores WHERE id = ?',
       [req.params.id]
@@ -128,6 +137,15 @@ router.delete('/utilizadores/:id', async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ erro: 'Utilizador não encontrado' });
     }
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'DELETE',
+      entity:   'utilizadores',
+      entityId: parseInt(req.params.id),
+      details:  alvo ? { nome: alvo.nome, email: alvo.email, role: alvo.role } : {},
+      ...reqMeta(req),
+    });
 
     res.json({ ok: true });
   } catch (err) {

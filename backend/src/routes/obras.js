@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { z }  = require('zod');
 const pool   = require('../db/pool');
 const { auth, soGestor, soAdmin } = require('../middleware/auth');
+const { logAction, reqMeta } = require('../utils/logger');
 
 router.use(auth);
 
@@ -29,15 +30,8 @@ router.get('/', async (req, res) => {
   let sql = 'SELECT * FROM obras WHERE 1=1';
   const params = [];
 
-  if (estado) {
-    sql += ' AND estado = ?';
-    params.push(estado);
-  }
-  if (tipo) {
-    sql += ' AND tipo = ?';
-    params.push(tipo);
-  }
-
+  if (estado) { sql += ' AND estado = ?'; params.push(estado); }
+  if (tipo)   { sql += ' AND tipo = ?';   params.push(tipo); }
   sql += ' ORDER BY criado_em DESC';
 
   try {
@@ -80,6 +74,16 @@ router.post('/', soGestor, async (req, res) => {
         req.user.id,
       ]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'obras',
+      entityId: result.insertId,
+      details:  { codigo, nome, tipo, estado, orcamento },
+      ...reqMeta(req),
+    });
+
     res.status(201).json({ id: result.insertId, codigo, nome });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -99,7 +103,6 @@ router.put('/:id', soGestor, async (req, res) => {
   const { codigo, nome, tipo, estado, orcamento } = parsed.data;
 
   try {
-    // Verify obra exists before updating
     const [[obra]] = await pool.query('SELECT id FROM obras WHERE id = ?', [req.params.id]);
     if (!obra) return res.status(404).json({ erro: 'Obra não encontrada' });
 
@@ -116,6 +119,16 @@ router.put('/:id', soGestor, async (req, res) => {
     );
 
     if (result.affectedRows === 0) return res.status(404).json({ erro: 'Obra não encontrada' });
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'obras',
+      entityId: parseInt(req.params.id),
+      details:  { codigo, nome, tipo, estado, orcamento },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
@@ -131,8 +144,7 @@ router.delete('/:id', soAdmin, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // Verify obra exists
-    const [[obra]] = await conn.query('SELECT id FROM obras WHERE id = ?', [req.params.id]);
+    const [[obra]] = await conn.query('SELECT id, codigo, nome FROM obras WHERE id = ?', [req.params.id]);
     if (!obra) {
       await conn.rollback();
       return res.status(404).json({ erro: 'Obra não encontrada' });
@@ -154,6 +166,16 @@ router.delete('/:id', soAdmin, async (req, res) => {
     await conn.query('DELETE FROM obras WHERE id = ?', [req.params.id]);
 
     await conn.commit();
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'DELETE',
+      entity:   'obras',
+      entityId: parseInt(req.params.id),
+      details:  { codigo: obra.codigo, nome: obra.nome },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     await conn.rollback();

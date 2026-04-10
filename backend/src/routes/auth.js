@@ -12,6 +12,7 @@ const {
   JWT_ISSUER,
   JWT_AUDIENCE,
 } = require('../middleware/auth');
+const { logAction, reqMeta } = require('../utils/logger');
 
 // ── Schemas Zod ────────────────────────────────────────────────────────────
 const schemaLogin = z.object({
@@ -44,6 +45,7 @@ router.post('/login', rateLimitLogin, async (req, res) => {
 
   const { email, password } = parsed.data;
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const meta = reqMeta(req);
 
   try {
     const [rows] = await pool.query(
@@ -53,6 +55,13 @@ router.post('/login', rateLimitLogin, async (req, res) => {
 
     if (rows.length === 0) {
       registarFalhaLogin(ip);
+      await logAction({
+        userId: null,
+        action: 'LOGIN_FAILED',
+        entity: 'auth',
+        details: { email: email.toLowerCase().trim(), motivo: 'utilizador não encontrado' },
+        ...meta,
+      });
       return res.status(401).json({ erro: 'Credenciais inválidas' });
     }
 
@@ -61,6 +70,13 @@ router.post('/login', rateLimitLogin, async (req, res) => {
 
     if (!ok) {
       registarFalhaLogin(ip);
+      await logAction({
+        userId: user.id,
+        action: 'LOGIN_FAILED',
+        entity: 'auth',
+        details: { email: email.toLowerCase().trim(), motivo: 'password incorreta' },
+        ...meta,
+      });
       return res.status(401).json({ erro: 'Credenciais inválidas' });
     }
 
@@ -75,6 +91,14 @@ router.post('/login', rateLimitLogin, async (req, res) => {
         audience:  JWT_AUDIENCE,
       }
     );
+
+    await logAction({
+      userId: user.id,
+      action: 'LOGIN_SUCCESS',
+      entity: 'auth',
+      details: { role: user.role },
+      ...meta,
+    });
 
     res.json({
       token,
@@ -122,7 +146,13 @@ router.get('/me', auth, async (req, res) => {
 });
 
 // ── POST /api/auth/logout ──────────────────────────────────────────────────
-router.post('/logout', auth, (req, res) => {
+router.post('/logout', auth, async (req, res) => {
+  await logAction({
+    userId: req.user.id,
+    action: 'LOGOUT',
+    entity: 'auth',
+    ...reqMeta(req),
+  });
   res.json({ success: true, mensagem: 'Sessão terminada com sucesso' });
 });
 
@@ -141,6 +171,15 @@ router.post('/registar', auth, soAdmin, async (req, res) => {
       'INSERT INTO utilizadores (nome, email, password_hash, role) VALUES (?, ?, ?, ?)',
       [nome.trim(), email.toLowerCase().trim(), hash, role || 'utilizador']
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'utilizadores',
+      entityId: result.insertId,
+      details:  { nome: nome.trim(), email: email.toLowerCase().trim(), role: role || 'utilizador' },
+      ...reqMeta(req),
+    });
 
     res.status(201).json({
       id:    result.insertId,
@@ -171,6 +210,16 @@ router.put('/prefs/tema', auth, async (req, res) => {
       'UPDATE utilizadores SET tema_preferido = ? WHERE id = ?',
       [tema_preferido, req.user.id]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'utilizadores',
+      entityId: req.user.id,
+      details:  { tema_preferido },
+      ...reqMeta(req),
+    });
+
     res.json({ sucesso: true, tema_preferido });
   } catch (err) {
     console.error('[TEMA ERROR]', err.message);

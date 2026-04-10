@@ -1,6 +1,7 @@
 const ExcelJS = require('exceljs');
 const PDFDocument = require('pdfkit');
 const pool = require('../db/pool');
+const { logAction, reqMeta } = require('../utils/logger');
 
 const EUR = '[$EUR ]#,##0.00;[Red]-[$EUR ]#,##0.00';
 
@@ -64,9 +65,18 @@ async function exportarExcel(req, res) {
 
     const filename = `obra_${safeName(obra.codigo)}_${Date.now()}.xlsx`;
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.setHeader('Content-Disposition', `attachment; filename="\${filename}"`);
     await wb.xlsx.write(res);
     res.end();
+
+    await logAction({
+      userId:   req.user ? req.user.id : null,
+      action:   'EXPORT',
+      entity:   'obras',
+      entityId: parseInt(obraId),
+      details:  { formato: 'excel', obra_codigo: obra.codigo, obra_nome: obra.nome },
+      ...reqMeta(req),
+    });
   } catch (err) {
     console.error('Erro exportarExcel:', err);
     res.status(500).json({ erro: 'Erro ao gerar Excel' });
@@ -161,6 +171,14 @@ async function exportarPdf(req, res) {
     }
     doc.fillColor(CINZA).fontSize(8).font('Helvetica').text(`Gerado em ${new Date().toLocaleString('pt-PT')}`, 40, doc.y, { align: 'right', width: L });
     doc.end();
+
+    await logAction({
+      userId:   req.user ? req.user.id : null,
+      action:   'EXPORT',
+      entity:   'relatorio_diario',
+      details:  { formato: 'pdf', dataInicio, dataFim, total_dias: dias.length },
+      ...reqMeta(req),
+    });
   } catch (err) {
     console.error('Erro exportarPdf:', err);
     if (!res.headersSent) res.status(500).json({ erro: 'Erro ao gerar PDF' });

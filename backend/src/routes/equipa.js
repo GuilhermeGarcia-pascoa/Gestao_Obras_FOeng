@@ -2,6 +2,7 @@ const router = require('express').Router();
 const { z }  = require('zod');
 const pool   = require('../db/pool');
 const { auth, soGestor } = require('../middleware/auth');
+const { logAction, reqMeta } = require('../utils/logger');
 
 router.use(auth);
 
@@ -12,20 +13,20 @@ function toDbAtivo(value) {
 
 // ── Schemas Zod ────────────────────────────────────────────────────────────
 const schemaPessoa = z.object({
-  nome:                z.string().min(1, 'Nome obrigatório'),
-  cargo:               z.string().optional().nullable(),
-  categoria_sindical:  z.string().optional().nullable(),
-  custo_hora:          z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
-  pais:                z.string().optional().nullable(),
-  ativo:               z.any().optional(),
+  nome:               z.string().min(1, 'Nome obrigatório'),
+  cargo:              z.string().optional().nullable(),
+  categoria_sindical: z.string().optional().nullable(),
+  custo_hora:         z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
+  pais:               z.string().optional().nullable(),
+  ativo:              z.any().optional(),
 });
 
 const schemaMaquina = z.object({
-  nome:              z.string().min(1, 'Nome obrigatório'),
-  tipo:              z.string().optional().nullable(),
-  matricula:         z.string().optional().nullable(),
-  custo_hora:        z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
-  combustivel_hora:  z.preprocess(
+  nome:             z.string().min(1, 'Nome obrigatório'),
+  tipo:             z.string().optional().nullable(),
+  matricula:        z.string().optional().nullable(),
+  custo_hora:       z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
+  combustivel_hora: z.preprocess(
     (v) => (v === null || v === undefined ? 0 : Number(v)),
     z.number().min(0, 'Combustível por hora inválido')
   ),
@@ -33,10 +34,10 @@ const schemaMaquina = z.object({
 });
 
 const schemaViatura = z.object({
-  modelo:          z.string().min(1, 'Modelo obrigatório'),
-  matricula:       z.string().optional().nullable(),
-  custo_km:        z.preprocess(Number, z.number().min(0, 'Custo por km inválido')),
-  consumo_l100km:  z.preprocess(
+  modelo:         z.string().min(1, 'Modelo obrigatório'),
+  matricula:      z.string().optional().nullable(),
+  custo_km:       z.preprocess(Number, z.number().min(0, 'Custo por km inválido')),
+  consumo_l100km: z.preprocess(
     (v) => (v === null || v === undefined ? 0 : Number(v)),
     z.number().min(0, 'Consumo inválido')
   ),
@@ -47,13 +48,8 @@ const schemaViatura = z.object({
 // ── SQL helper ─────────────────────────────────────────────────────────────
 function sqlEstado(tabela, campoNome, estado) {
   let sql = `SELECT * FROM ${tabela}`;
-
-  if (estado === 'ativas') {
-    sql += ' WHERE COALESCE(ativo, 1) = 1';
-  } else if (estado === 'inativas') {
-    sql += ' WHERE COALESCE(ativo, 1) = 0';
-  }
-
+  if (estado === 'ativas')   sql += ' WHERE COALESCE(ativo, 1) = 1';
+  if (estado === 'inativas') sql += ' WHERE COALESCE(ativo, 1) = 0';
   sql += ` ORDER BY ${campoNome}`;
   return sql;
 }
@@ -82,12 +78,9 @@ router.get('/pessoas/:id', async (req, res) => {
   }
 });
 
-// POST — requires soGestor (was missing before)
 router.post('/pessoas', soGestor, async (req, res) => {
   const parsed = schemaPessoa.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { nome, cargo, categoria_sindical, custo_hora, pais, ativo } = parsed.data;
 
@@ -96,6 +89,16 @@ router.post('/pessoas', soGestor, async (req, res) => {
       'INSERT INTO operadores (nome, cargo, categoria_sindical, custo_hora, pais, ativo) VALUES (?, ?, ?, ?, ?, ?)',
       [nome.trim(), cargo, categoria_sindical, Number(custo_hora), pais || null, toDbAtivo(ativo)]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'operadores',
+      entityId: result.insertId,
+      details:  { nome: nome.trim(), cargo, custo_hora },
+      ...reqMeta(req),
+    });
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -104,9 +107,7 @@ router.post('/pessoas', soGestor, async (req, res) => {
 
 router.put('/pessoas/:id', soGestor, async (req, res) => {
   const parsed = schemaPessoa.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { nome, cargo, categoria_sindical, custo_hora, pais, ativo } = parsed.data;
 
@@ -115,6 +116,16 @@ router.put('/pessoas/:id', soGestor, async (req, res) => {
       'UPDATE operadores SET nome=?, cargo=?, categoria_sindical=?, custo_hora=?, pais=?, ativo=? WHERE id=?',
       [nome.trim(), cargo, categoria_sindical, Number(custo_hora), pais || null, toDbAtivo(ativo), req.params.id]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'operadores',
+      entityId: parseInt(req.params.id),
+      details:  { nome: nome.trim(), cargo, custo_hora, ativo },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -141,12 +152,9 @@ router.get('/maquinas', async (req, res) => {
   }
 });
 
-// POST — requires soGestor (was missing before)
 router.post('/maquinas', soGestor, async (req, res) => {
   const parsed = schemaMaquina.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { nome, tipo, matricula, custo_hora, combustivel_hora, ativo } = parsed.data;
 
@@ -155,6 +163,16 @@ router.post('/maquinas', soGestor, async (req, res) => {
       'INSERT INTO maquinas (nome, tipo, matricula, custo_hora, combustivel_hora, ativo) VALUES (?, ?, ?, ?, ?, ?)',
       [nome.trim(), tipo, matricula, Number(custo_hora), Number(combustivel_hora ?? 0), toDbAtivo(ativo)]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'maquinas',
+      entityId: result.insertId,
+      details:  { nome: nome.trim(), tipo, matricula, custo_hora },
+      ...reqMeta(req),
+    });
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -163,9 +181,7 @@ router.post('/maquinas', soGestor, async (req, res) => {
 
 router.put('/maquinas/:id', soGestor, async (req, res) => {
   const parsed = schemaMaquina.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { nome, tipo, matricula, custo_hora, combustivel_hora, ativo } = parsed.data;
 
@@ -174,6 +190,16 @@ router.put('/maquinas/:id', soGestor, async (req, res) => {
       'UPDATE maquinas SET nome=?, tipo=?, matricula=?, custo_hora=?, combustivel_hora=?, ativo=? WHERE id=?',
       [nome.trim(), tipo, matricula, Number(custo_hora), Number(combustivel_hora ?? 0), toDbAtivo(ativo), req.params.id]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'maquinas',
+      entityId: parseInt(req.params.id),
+      details:  { nome: nome.trim(), tipo, matricula, custo_hora, ativo },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -200,12 +226,9 @@ router.get('/viaturas', async (req, res) => {
   }
 });
 
-// POST — requires soGestor (was missing before)
 router.post('/viaturas', soGestor, async (req, res) => {
   const parsed = schemaViatura.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { modelo, matricula, custo_km, consumo_l100km, motorista_id, ativo } = parsed.data;
 
@@ -214,6 +237,16 @@ router.post('/viaturas', soGestor, async (req, res) => {
       'INSERT INTO viaturas (modelo, matricula, custo_km, consumo_l100km, motorista_id, ativo) VALUES (?, ?, ?, ?, ?, ?)',
       [modelo.trim(), matricula, Number(custo_km), Number(consumo_l100km ?? 0), motorista_id, toDbAtivo(ativo)]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'CREATE',
+      entity:   'viaturas',
+      entityId: result.insertId,
+      details:  { modelo: modelo.trim(), matricula, custo_km },
+      ...reqMeta(req),
+    });
+
     res.status(201).json({ id: result.insertId });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -222,9 +255,7 @@ router.post('/viaturas', soGestor, async (req, res) => {
 
 router.put('/viaturas/:id', soGestor, async (req, res) => {
   const parsed = schemaViatura.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ erro: parsed.error.errors[0].message });
-  }
+  if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
   const { modelo, matricula, custo_km, consumo_l100km, motorista_id, ativo } = parsed.data;
 
@@ -233,6 +264,16 @@ router.put('/viaturas/:id', soGestor, async (req, res) => {
       'UPDATE viaturas SET modelo=?, matricula=?, custo_km=?, consumo_l100km=?, motorista_id=?, ativo=? WHERE id=?',
       [modelo.trim(), matricula, Number(custo_km), Number(consumo_l100km ?? 0), motorista_id, toDbAtivo(ativo), req.params.id]
     );
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'UPDATE',
+      entity:   'viaturas',
+      entityId: parseInt(req.params.id),
+      details:  { modelo: modelo.trim(), matricula, custo_km, ativo },
+      ...reqMeta(req),
+    });
+
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
