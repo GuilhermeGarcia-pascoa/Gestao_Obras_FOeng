@@ -37,8 +37,8 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
-      final estado = _filtroEstado.isEmpty ? null : _filtroEstado;
-      final data = await ApiService.listarObras(estado: estado);
+      // Pedimos SEMPRE todas as obras à API para os totais ficarem corretos
+      final data = await ApiService.listarObras();
       setState(() {
         _obras = data;
         _loading = false;
@@ -56,9 +56,15 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     final search = _searchText.toLowerCase();
     setState(() {
       _obrasFiltradas = _obras.where((obra) {
+        // Filtro de texto
         final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
         final nome = (obra['nome'] ?? '').toString().toLowerCase();
-        return codigo.contains(search) || nome.contains(search);
+        final matchSearch = codigo.contains(search) || nome.contains(search);
+
+        // Filtro de estado local
+        final matchEstado = _filtroEstado.isEmpty || obra['estado'] == _filtroEstado;
+
+        return matchSearch && matchEstado;
       }).toList();
     });
   }
@@ -240,9 +246,10 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
 
       return Expanded(
         child: GestureDetector(
-          onTap: () async {
+          onTap: () {
+            // Apenas atualizamos a variável local e filtramos em vez de chamar a API
             _filtroEstado = key;
-            await _carregar();
+            _filtrarObras();
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),

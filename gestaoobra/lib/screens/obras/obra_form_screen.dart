@@ -114,7 +114,7 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
               controller: _codigoCtrl,
               decoration: const InputDecoration(
                 labelText: 'Código *',
-                hintText: 'ex: AC/174/PE',
+                hintText: 'ex: AC67/T174/PE432',
               ),
               textCapitalization: TextCapitalization.characters,
               validator: (v) {
