@@ -57,7 +57,6 @@ class ApiService {
   // ── AUTH ───────────────────────────────────────────────────────────────────
   static Future<Map<String, dynamic>> login(String email, String password) async {
     final data = await post('/auth/login', {'email': email, 'password': password});
-    // Guarda token e utilizador num único sítio: SecureStorage
     await SecureStorage.saveToken(data['token']);
     await SecureStorage.saveUser(data['utilizador']);
     return data;
@@ -139,10 +138,57 @@ class ApiService {
   static Future<Map<String, dynamic>> getGraficosTodasObras() async =>
       await get('/relatorios/todas-obras');
 
-  // ── EXPORTAÇÕES ────────────────────────────────────────────────────────────
-  static String urlExcel(int obraId) => '${ApiConfig.baseUrl}/export/excel/$obraId';
-  static String urlPdf(String dataInicio, String dataFim) =>
-      '${ApiConfig.baseUrl}/export/pdf?dataInicio=$dataInicio&dataFim=$dataFim';
+  // ── EXPORTAÇÕES (download autenticado) ────────────────────────────────────
+  //
+  // Estes métodos fazem o pedido HTTP com o header Authorization: Bearer <token>
+  // e devolvem os bytes crus do ficheiro. O chamador é responsável por guardar
+  // os bytes no disco (ver config_screen.dart).
+  //
+  // Substituem os antigos urlExcel / urlPdf que abriam o browser sem auth.
+
+  /// Descarrega o Excel da obra [obraId] com autenticação JWT.
+  /// Devolve os bytes do ficheiro .xlsx.
+  static Future<List<int>> downloadExcel(int obraId) async {
+    final headers = await _headers();
+    final res = await http.get(
+      Uri.parse('${ApiConfig.baseUrl}/export/excel/$obraId'),
+      headers: headers,
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.bodyBytes;
+    }
+    // Tenta extrair mensagem de erro do JSON; caso contrário usa texto cru.
+    String mensagem;
+    try {
+      final data = jsonDecode(res.body);
+      mensagem = data['erro'] ?? 'Erro ao descarregar Excel';
+    } catch (_) {
+      mensagem = 'Erro ao descarregar Excel (${res.statusCode})';
+    }
+    throw ApiException(mensagem, res.statusCode);
+  }
+
+  /// Descarrega o PDF do intervalo [[dataInicio], [dataFim]] com autenticação JWT.
+  /// Devolve os bytes do ficheiro .pdf.
+  static Future<List<int>> downloadPdf(String dataInicio, String dataFim) async {
+    final headers = await _headers();
+    final res = await http.get(
+      Uri.parse(
+          '${ApiConfig.baseUrl}/export/pdf?dataInicio=$dataInicio&dataFim=$dataFim'),
+      headers: headers,
+    );
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return res.bodyBytes;
+    }
+    String mensagem;
+    try {
+      final data = jsonDecode(res.body);
+      mensagem = data['erro'] ?? 'Erro ao descarregar PDF';
+    } catch (_) {
+      mensagem = 'Erro ao descarregar PDF (${res.statusCode})';
+    }
+    throw ApiException(mensagem, res.statusCode);
+  }
 
   // ── ADMIN: Utilizadores ────────────────────────────────────────────────────
   static Future<List<dynamic>> listarUtilizadores() async => await get('/admin/utilizadores');
@@ -155,17 +201,10 @@ class ApiService {
   static Future<void> alterarSenhaUtilizador(int id, String novaSenha) async =>
       await put('/admin/utilizadores/$id/senha', {'password': novaSenha});
 
-
-static Future<List<dynamic>> listarLogs() async {
-  final response = await get('/admin/logs');
-  return response as List<dynamic>;
-}
- 
-
-
-
-
-
+  static Future<List<dynamic>> listarLogs() async {
+    final response = await get('/admin/logs');
+    return response as List<dynamic>;
+  }
 }
 
 class ApiException implements Exception {
@@ -175,4 +214,3 @@ class ApiException implements Exception {
   @override
   String toString() => mensagem;
 }
-

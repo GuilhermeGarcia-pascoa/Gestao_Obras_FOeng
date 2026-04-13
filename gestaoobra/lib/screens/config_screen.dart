@@ -1,7 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 import '../services/auth_provider.dart';
 import '../services/api_service.dart';
 import '../services/theme_provider.dart';
@@ -324,18 +326,17 @@ class ConfigScreen extends StatelessWidget {
     );
   }
 
-  // ── Export helpers (lógica inalterada) ───────────────────────────────────
+  // ── Export helpers ────────────────────────────────────────────────────────
+
   Future<void> _exportarExcel(BuildContext context) async {
     try {
       final obras = await ApiService.listarObras();
       if (!context.mounted) return;
       if (obras.isEmpty) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Nenhuma obra disponível')),
-        );
+        _snackInfo(context, 'Nenhuma obra disponível');
         return;
       }
-      Theme.of(context).brightness == Brightness.dark;
+
       final obra = await showDialog<Map<String, dynamic>>(
         context: context,
         builder: (_) => AlertDialog(
@@ -370,10 +371,18 @@ class ConfigScreen extends StatelessWidget {
           ],
         ),
       );
+
       if (obra == null || !context.mounted) return;
-      await _abrirUrl(context,
-          url: ApiService.urlExcel(int.parse(obra['id'].toString())),
-          successMsg: 'Excel aberto!');
+
+      final obraId = int.parse(obra['id'].toString());
+      final codigo = obra['codigo'] ?? 'obra';
+
+      await _descarregarFicheiro(
+        context: context,
+        bytes: () => ApiService.downloadExcel(obraId),
+        nomeFicheiro: 'excel_${codigo}_${_fmtApi(DateTime.now())}.xlsx',
+        successMsg: 'Excel guardado com sucesso!',
+      );
     } on ApiException catch (e) {
       if (context.mounted) _snackError(context, e.mensagem);
     }
@@ -404,37 +413,84 @@ class ConfigScreen extends StatelessWidget {
     );
 
     if (intervalo == null || !context.mounted) return;
+
     final ini = _fmtApi(intervalo.start);
     final fim = _fmtApi(intervalo.end);
-    await _abrirUrl(context, url: ApiService.urlPdf(ini, fim), successMsg: 'PDF de $ini a $fim aberto!');
+
+    await _descarregarFicheiro(
+      context: context,
+      bytes: () => ApiService.downloadPdf(ini, fim),
+      nomeFicheiro: 'relatorio_${ini}_$fim.pdf',
+      successMsg: 'PDF guardado ($ini a $fim)!',
+    );
   }
 
-  Future<void> _abrirUrl(BuildContext context, {required String url, required String successMsg}) async {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('A abrir ficheiro...'), duration: Duration(seconds: 3)),
-    );
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(successMsg), backgroundColor: const Color(0xFF0F9D8A)),
-        );
+  /// Descarrega um ficheiro autenticado, guarda-o localmente e mostra feedback.
+  ///
+  /// [bytes]        — função assíncrona que chama o ApiService e devolve os bytes.
+  /// [nomeFicheiro] — nome do ficheiro a criar no dispositivo.
+  /// [successMsg]   — mensagem apresentada no SnackBar de sucesso.
+  Future<void> _descarregarFicheiro({
+    required BuildContext context,
+    required Future<List<int>> Function() bytes,
+    required String nomeFicheiro,
+    required String successMsg,
+  }) async {
+    // Feedback imediato ao utilizador
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('A descarregar ficheiro…'),
+          duration: Duration(seconds: 60), // será cancelado manualmente
+        ),
+      );
+    }
+
+    try {
+      // 1. Descarregar bytes com autenticação
+      final data = await bytes();
+
+      // 2. Determinar diretório de destino — tentamos múltiplas opções por
+      //    ordem de preferência para garantir compatibilidade entre plataformas
+      //    e permissões de armazenamento.
+      Directory? dir;
+      try {
+        if (Platform.isAndroid) {
+          // getExternalStorageDirectory devolve algo como
+          // /storage/emulated/0/Android/data/<pkg>/files — não precisa de
+          // permissão WRITE_EXTERNAL_STORAGE em Android 10+.
+          dir = await getExternalStorageDirectory();
+        }
+      } catch (_) {
+        dir = null;
       }
-    } else {
+      // Fallback universal (funciona em iOS e Android sem permissões extra)
+      dir ??= await getApplicationDocumentsDirectory();
+
+      // 3. Garantir que o diretório existe
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+
+      // 4. Escrever ficheiro
+      final file = File('${dir.path}/$nomeFicheiro');
+      await file.writeAsBytes(data, flush: true);
+
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Não foi possível abrir automaticamente'),
+            content: Text(successMsg),
+            backgroundColor: const Color(0xFF0F9D8A),
+            duration: const Duration(seconds: 5),
             action: SnackBarAction(
-              label: 'Copiar URL',
+              label: 'Copiar caminho',
+              textColor: Colors.white,
               onPressed: () async {
-                await Clipboard.setData(ClipboardData(text: url));
+                await Clipboard.setData(ClipboardData(text: file.path));
                 if (context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('URL copiada!')),
+                    const SnackBar(content: Text('Caminho copiado!')),
                   );
                 }
               },
@@ -442,12 +498,29 @@ class ConfigScreen extends StatelessWidget {
           ),
         );
       }
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _snackError(context, e.mensagem);
+      }
+    } catch (e, stack) {
+      // Mostra o erro real para facilitar diagnóstico
+      debugPrint('_descarregarFicheiro erro: $e\n$stack');
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _snackError(context, 'Erro: ${e.toString()}');
+      }
     }
   }
 
   void _snackError(BuildContext context, String msg) =>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(msg), backgroundColor: const Color(0xFFE53935)),
+      );
+
+  void _snackInfo(BuildContext context, String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(msg)),
       );
 
   String _fmtApi(DateTime d) =>
