@@ -20,6 +20,9 @@ dependencies:
   shared_preferences: ^2.2.2
   url_launcher: ^6.2.0
 
+  # Ficheiros
+  path_provider: ^2.1.0
+
   # Gráficos
   fl_chart: ^0.65.0
 
@@ -47,4 +50,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/LogoApp.png
-    - assets/images/logo.png  
+    - assets/images/logo.png
