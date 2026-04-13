@@ -555,7 +555,6 @@ class _FormularioCriarUtilizadorState
                     value: 'utilizador',
                     child: Text('Utilizador'),
                   ),
-                  DropdownMenuItem(value: 'gestor', child: Text('Gestor')),
                   DropdownMenuItem(
                     value: 'admin',
                     child: Text('Administrador'),
