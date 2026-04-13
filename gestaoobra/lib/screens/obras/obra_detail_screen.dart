@@ -288,14 +288,14 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                                         border: Border.all(color: const Color(0xFF1A1A2E).withOpacity(0.18)),
                                         shape: BoxShape.circle,
                                       ),
-                                      selectedDecoration: BoxDecoration(
-                                        color: const Color(0xFF1A1A2E),
+                                      selectedDecoration: const BoxDecoration(
+                                        color: Color(0xFF1A1A2E),
                                         shape: BoxShape.circle,
                                       ),
-                                      defaultDecoration: BoxDecoration(
+                                      defaultDecoration: const BoxDecoration(
                                         shape: BoxShape.circle,
                                       ),
-                                      weekendDecoration: BoxDecoration(
+                                      weekendDecoration: const BoxDecoration(
                                         shape: BoxShape.circle,
                                       ),
                                       defaultTextStyle: TextStyle(

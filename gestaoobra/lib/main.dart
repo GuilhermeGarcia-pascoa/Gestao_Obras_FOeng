@@ -207,9 +207,9 @@ ThemeData _buildTheme(Brightness brightness) {
     navigationRailTheme: NavigationRailThemeData(
       backgroundColor: Colors.transparent,
       indicatorColor: seed.withOpacity(isDark ? 0.25 : 0.12),
-      selectedIconTheme: IconThemeData(color: seed),
+      selectedIconTheme: const IconThemeData(color: seed),
       unselectedIconTheme: IconThemeData(color: onSurfaceVariantColor),
-      selectedLabelTextStyle: TextStyle(color: seed, fontWeight: FontWeight.w700),
+      selectedLabelTextStyle: const TextStyle(color: seed, fontWeight: FontWeight.w700),
       unselectedLabelTextStyle: TextStyle(color: onSurfaceVariantColor, fontWeight: FontWeight.w500),
     ),
 

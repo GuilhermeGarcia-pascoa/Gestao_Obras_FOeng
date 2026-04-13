@@ -79,7 +79,7 @@ class ConfigScreen extends StatelessWidget {
                                 Container(
                                   width: 36, height: 36,
                                   decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
-                                  child: Icon(Icons.palette_outlined, size: 18, color: seed),
+                                  child: const Icon(Icons.palette_outlined, size: 18, color: seed),
                                 ),
                                 const SizedBox(width: 14),
                                 Expanded(child: Text('Tema da app', style: TextStyle(color: txtMain, fontSize: 14))),
@@ -94,7 +94,7 @@ class ConfigScreen extends StatelessWidget {
                             Container(
                               width: 36, height: 36,
                               decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(10)),
-                              child: Icon(Icons.palette_outlined, size: 18, color: seed),
+                              child: const Icon(Icons.palette_outlined, size: 18, color: seed),
                             ),
                             const SizedBox(width: 14),
                             Expanded(child: Text('Tema da app', style: TextStyle(color: txtMain, fontSize: 14))),

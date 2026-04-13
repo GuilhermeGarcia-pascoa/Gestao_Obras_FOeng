@@ -66,10 +66,18 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
 
   @override
   void dispose() {
-    for (final c in _horasP.values) c.dispose();
-    for (final c in _horasM.values) c.dispose();
-    for (final c in _kmV.values) c.dispose();
-    for (final c in _custoExtraP.values) c.dispose();
+    for (final c in _horasP.values) {
+      c.dispose();
+    }
+    for (final c in _horasM.values) {
+      c.dispose();
+    }
+    for (final c in _kmV.values) {
+      c.dispose();
+    }
+    for (final c in _custoExtraP.values) {
+      c.dispose();
+    }
     _moCtrl.dispose(); _combustivelCtrl.dispose();
     _estadiasCtrl.dispose(); _materiaisCtrl.dispose();
     _refeicoesCtrl.dispose(); _faturadoCtrl.dispose();
@@ -157,10 +165,18 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
   }
 
   void _limparControllers() {
-    for (final c in _horasP.values) c.dispose();
-    for (final c in _horasM.values) c.dispose();
-    for (final c in _kmV.values) c.dispose();
-    for (final c in _custoExtraP.values) c.dispose();
+    for (final c in _horasP.values) {
+      c.dispose();
+    }
+    for (final c in _horasM.values) {
+      c.dispose();
+    }
+    for (final c in _kmV.values) {
+      c.dispose();
+    }
+    for (final c in _custoExtraP.values) {
+      c.dispose();
+    }
     _horasP.clear(); _horasM.clear(); _kmV.clear(); _custoExtraP.clear(); _custoHoraOverride.clear();
   }
 

@@ -34,10 +34,8 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^3.0.0
-  # Dependência para gerar os ícones automaticamente
   flutter_launcher_icons: ^0.13.1
 
-# Configuração do gerador de ícones (fora do bloco flutter:)
 flutter_launcher_icons:
   android: "launcher_icon"
   ios: true
@@ -49,4 +47,4 @@ flutter:
   uses-material-design: true
   assets:
     - assets/images/LogoApp.png
-    - assets/images/logo.png
+    - assets/images/logo.png  

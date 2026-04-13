@@ -385,8 +385,8 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
               ),
             ],
             const SizedBox(height: 12),
-            Row(
-              children: const [
+            const Row(
+              children: [
                 Icon(Icons.arrow_forward_rounded, size: 14, color: Color(0xFF185FA5)),
                 SizedBox(width: 5),
                 Text(
