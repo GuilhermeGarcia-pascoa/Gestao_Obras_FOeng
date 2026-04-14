@@ -11,3 +11,5 @@ backend/.env
 # Sistema
 .DS_Store
 Thumbs.db
+
+backend/src/utilizadores_pass.txt
