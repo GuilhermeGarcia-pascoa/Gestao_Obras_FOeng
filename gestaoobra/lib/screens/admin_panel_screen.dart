@@ -15,11 +15,21 @@ class AdminPanelScreen extends StatefulWidget {
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
   List<dynamic> _utilizadores = [];
   bool _loading = true;
+  
+  // 1. Variáveis para a pesquisa
+  String _filtroPesquisa = '';
+  final TextEditingController _pesquisaCtrl = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _carregar();
+  }
+
+  @override
+  void dispose() {
+    _pesquisaCtrl.dispose(); // Não esquecer de fazer dispose do controller
+    super.dispose();
   }
 
   Future<void> _carregar() async {
@@ -149,6 +159,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     final currentUserId = auth.utilizador?['id'];
     final primaryColor = Theme.of(context).colorScheme.primary;
 
+    // 2. Filtrar a lista de utilizadores com base na pesquisa
+    final utilizadoresFiltrados = _utilizadores.where((u) {
+      final nome = (u['nome'] ?? '').toString().toLowerCase();
+      final email = (u['email'] ?? '').toString().toLowerCase();
+      final filtro = _filtroPesquisa.toLowerCase();
+      
+      // Pesquisa por nome ou por email
+      return nome.contains(filtro) || email.contains(filtro);
+    }).toList();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Painel de Administração'),
@@ -221,6 +241,38 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 20),
 
+                  // ── Barra de Pesquisa ───────────────────────────────────────
+                  TextField(
+                    controller: _pesquisaCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Pesquisar utilizador...',
+                      hintText: 'Nome ou email',
+                      prefixIcon: const Icon(Icons.search),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      isDense: true,
+                      // Botão para limpar a pesquisa se houver texto
+                      suffixIcon: _filtroPesquisa.isNotEmpty
+                          ? IconButton(
+                              icon: const Icon(Icons.clear),
+                              onPressed: () {
+                                _pesquisaCtrl.clear();
+                                setState(() {
+                                  _filtroPesquisa = '';
+                                });
+                              },
+                            )
+                          : null,
+                    ),
+                    onChanged: (valor) {
+                      setState(() {
+                        _filtroPesquisa = valor;
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 20),
+
                   // ── Cabeçalho da secção de utilizadores ───────────────────
                   Row(
                     children: [
@@ -242,7 +294,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${_utilizadores.length}',
+                          '${utilizadoresFiltrados.length}', // Usa o length dos filtrados
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -255,20 +307,25 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   const SizedBox(height: 10),
 
                   // ── Lista de utilizadores ──────────────────────────────────
-                  if (_utilizadores.isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 32),
-                      child:
-                          Center(child: Text('Nenhum utilizador encontrado')),
+                  if (utilizadoresFiltrados.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 32),
+                      child: Center(
+                        child: Text(
+                          _filtroPesquisa.isEmpty
+                              ? 'Nenhum utilizador encontrado'
+                              : 'Nenhum resultado para "$_filtroPesquisa"',
+                        ),
+                      ),
                     )
                   else
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: _utilizadores.length,
+                      itemCount: utilizadoresFiltrados.length, // Usa os filtrados
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
-                        final user = _utilizadores[i];
+                        final user = utilizadoresFiltrados[i]; // Usa os filtrados
                         final id = user['id'];
                         final nome = user['nome'] ?? 'Sem nome';
                         final email = user['email'] ?? '';

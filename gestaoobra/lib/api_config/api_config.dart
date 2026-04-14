@@ -16,7 +16,7 @@ class ApiConfig {
     if (!isLocalhost) {
       // Produção — servidor real
       return servidorProducao;
-    }
+          }
 
     // Desenvolvimento local — deteta automaticamente a plataforma
     if (kIsWeb) {
