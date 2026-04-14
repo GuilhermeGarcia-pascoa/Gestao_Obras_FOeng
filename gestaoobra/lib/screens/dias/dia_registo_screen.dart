@@ -276,24 +276,86 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final ativo = p['ativo'] == null || p['ativo'] == true || p['ativo'] == 1;
       return ativo && !jaIds.contains(p['id']);
     }).toList();
-    if (disp.isEmpty) { _snack('⚠️ Todas as pessoas já adicionadas', Colors.orange); return; }
+    
+    if (disp.isEmpty) { 
+      _snack('⚠️ Todas as pessoas já adicionadas', Colors.orange); 
+      return; 
+    }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Selecionar pessoa'),
-        children: disp.map((p) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(dialogContext, p as Map<String, dynamic>),
-          child: ListTile(
-            leading: CircleAvatar(child: Text((p['nome'] as String)[0])),
-            title: Text(p['nome']),
-            subtitle: Text('${p['cargo'] ?? ''}  ·  €${p['custo_hora'] ?? 0}/h'),
-          ),
-        )).toList(),
-      ),
+      builder: (dialogContext) {
+        String filtro = ''; // Guarda o texto da pesquisa
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            // Filtra a lista com base no texto inserido
+            final filtradas = disp.where((p) {
+              final nome = (p['nome'] as String).toLowerCase();
+              return nome.contains(filtro.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Selecionar pessoa'),
+              content: SizedBox(
+                width: double.maxFinite,
+                // Limita a altura para não dar overflow no ecrã
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Pesquisar...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (valor) {
+                        // Atualiza o estado APENAS do dialog
+                        setStateDialog(() {
+                          filtro = valor;
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtradas.isEmpty
+                          ? const Center(child: Text('Nenhuma pessoa encontrada.'))
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtradas.length,
+                              itemBuilder: (context, index) {
+                                final p = filtradas[index] as Map<String, dynamic>;
+                                return ListTile(
+                                  leading: CircleAvatar(
+                                    child: Text((p['nome'] as String)[0]),
+                                  ),
+                                  title: Text(p['nome']),
+                                  subtitle: Text('${p['cargo'] ?? ''}  ·  €${p['custo_hora'] ?? 0}/h'),
+                                  onTap: () => Navigator.pop(dialogContext, p),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
     if (!mounted) return;
     if (escolhida == null) return;
+    
     final id = escolhida['id'] as int;
     setState(() {
       _pessoas.add({'pessoa_id': id, 'horas_total': 8, 'custo_extra': 0});
@@ -302,32 +364,86 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       _temAlteracoes   = true;
     });
   }
-
-  // ── Adicionar máquina ─────────────────────────────────────────────────────
+// ── Adicionar máquina ─────────────────────────────────────────────────────
   Future<void> _adicionarMaquina() async {
     final jaIds = _maquinas.map((m) => m['maquina_id']).toSet();
     final disp  = _todasMaquinas.where((m) {
       final ativo = m['ativo'] == null || m['ativo'] == true || m['ativo'] == 1;
       return ativo && !jaIds.contains(m['id']);
     }).toList();
-    if (disp.isEmpty) { _snack('⚠️ Todas as máquinas já adicionadas', Colors.orange); return; }
+    
+    if (disp.isEmpty) { 
+      _snack('⚠️ Todas as máquinas já adicionadas', Colors.orange); 
+      return; 
+    }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Selecionar máquina'),
-        children: disp.map((m) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(dialogContext, m as Map<String, dynamic>),
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.construction)),
-            title: Text(m['nome']),
-            subtitle: Text(m['tipo'] ?? ''),
-          ),
-        )).toList(),
-      ),
+      builder: (dialogContext) {
+        String filtro = '';
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final filtradas = disp.where((m) {
+              final nome = (m['nome'] as String).toLowerCase();
+              return nome.contains(filtro.toLowerCase());
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Selecionar máquina'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Pesquisar máquina...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (valor) {
+                        setStateDialog(() => filtro = valor);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtradas.isEmpty
+                          ? const Center(child: Text('Nenhuma máquina encontrada.'))
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtradas.length,
+                              itemBuilder: (context, index) {
+                                final m = filtradas[index] as Map<String, dynamic>;
+                                return ListTile(
+                                  leading: const CircleAvatar(child: Icon(Icons.construction)),
+                                  title: Text(m['nome']),
+                                  subtitle: Text(m['tipo'] ?? ''),
+                                  onTap: () => Navigator.pop(dialogContext, m),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
     if (!mounted) return;
     if (escolhida == null) return;
+    
     final id = escolhida['id'] as int;
     setState(() {
       _maquinas.add({'maquina_id': id, 'horas_total': 0});
@@ -335,7 +451,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       _temAlteracoes = true;
     });
   }
-
   // ── Adicionar viatura ─────────────────────────────────────────────────────
   Future<void> _adicionarViatura() async {
     final jaIds = _viaturas.map((v) => v['viatura_id']).toSet();
@@ -343,24 +458,83 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       final ativo = v['ativo'] == null || v['ativo'] == true || v['ativo'] == 1;
       return ativo && !jaIds.contains(v['id']);
     }).toList();
-    if (disp.isEmpty) { _snack('⚠️ Todas as viaturas já adicionadas', Colors.orange); return; }
+    
+    if (disp.isEmpty) { 
+      _snack('⚠️ Todas as viaturas já adicionadas', Colors.orange); 
+      return; 
+    }
 
     final escolhida = await showDialog<Map<String, dynamic>>(
       context: context,
-      builder: (dialogContext) => SimpleDialog(
-        title: const Text('Selecionar viatura'),
-        children: disp.map((v) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(dialogContext, v as Map<String, dynamic>),
-          child: ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-            title: Text(v['modelo'] ?? ''),
-            subtitle: Text('${v['matricula'] ?? ''}  ·  €${v['custo_km'] ?? 0}/km'),
-          ),
-        )).toList(),
-      ),
+      builder: (dialogContext) {
+        String filtro = '';
+        
+        return StatefulBuilder(
+          builder: (context, setStateDialog) {
+            final filtradas = disp.where((v) {
+              // Pesquisa tanto no modelo como na matrícula
+              final modelo = (v['modelo'] ?? '').toString().toLowerCase();
+              final matricula = (v['matricula'] ?? '').toString().toLowerCase();
+              final textoFiltro = filtro.toLowerCase();
+              
+              return modelo.contains(textoFiltro) || matricula.contains(textoFiltro);
+            }).toList();
+
+            return AlertDialog(
+              title: const Text('Selecionar viatura'),
+              content: SizedBox(
+                width: double.maxFinite,
+                height: MediaQuery.of(context).size.height * 0.6,
+                child: Column(
+                  children: [
+                    TextField(
+                      autofocus: true,
+                      decoration: const InputDecoration(
+                        labelText: 'Pesquisar modelo ou matrícula...',
+                        prefixIcon: Icon(Icons.search),
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                      onChanged: (valor) {
+                        setStateDialog(() => filtro = valor);
+                      },
+                    ),
+                    const SizedBox(height: 12),
+                    Expanded(
+                      child: filtradas.isEmpty
+                          ? const Center(child: Text('Nenhuma viatura encontrada.'))
+                          : ListView.builder(
+                              shrinkWrap: true,
+                              itemCount: filtradas.length,
+                              itemBuilder: (context, index) {
+                                final v = filtradas[index] as Map<String, dynamic>;
+                                return ListTile(
+                                  leading: const CircleAvatar(child: Icon(Icons.directions_car)),
+                                  title: Text(v['modelo'] ?? ''),
+                                  subtitle: Text('${v['matricula'] ?? ''}  ·  €${v['custo_km'] ?? 0}/km'),
+                                  onTap: () => Navigator.pop(dialogContext, v),
+                                );
+                              },
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(dialogContext),
+                  child: const Text('Cancelar'),
+                ),
+              ],
+            );
+          },
+        );
+      },
     );
+
     if (!mounted) return;
     if (escolhida == null) return;
+    
     final id = escolhida['id'] as int;
     setState(() {
       _viaturas.add({'viatura_id': id, 'km_total': 0});
@@ -368,7 +542,6 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
       _temAlteracoes = true;
     });
   }
-
   // ── Totais ────────────────────────────────────────────────────────────────
   Map<String, dynamic> _pessoaBase(int id) =>
       Map<String, dynamic>.from(
