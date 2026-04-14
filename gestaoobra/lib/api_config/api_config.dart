@@ -6,9 +6,9 @@ import 'dart:io' show Platform;
 // Edita apenas este ficheiro quando precisares de mudar o ambiente.
 // isLocalhost = true  → usa o servidor local (desenvolvimento)
 // isLocalhost = false → usa o servidor de produção (servidor real)
-const bool isLocalhost = true;
+const bool isLocalhost = false;
 const String meuIpDoPC = '192.168.1.62'; // O teu IP local (para telemóvel via Wi-Fi)
-const int port = 3000;
+const int port = 3001;
 const String servidorProducao = 'http://192.168.1.246:3001/api';
 
 class ApiConfig {
