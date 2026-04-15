@@ -1,5 +1,5 @@
 const router  = require('express').Router();
-const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');          // módulo nativo do Node — sem instalação
 const jwt     = require('jsonwebtoken');
 const { z }   = require('zod');
 const pool    = require('../db/pool');
@@ -13,6 +13,30 @@ const {
   JWT_AUDIENCE,
 } = require('../middleware/auth');
 const { logAction, reqMeta } = require('../utils/logger');
+
+// ── Utilitário MD5 ─────────────────────────────────────────────────────────
+/**
+ * Recebe uma password em texto e devolve o hash MD5 (string hexadecimal de 32 chars).
+ * NOTA: MD5 é extremamente inseguro para passwords. Use apenas se for um
+ *       requisito externo obrigatório. Prefira bcrypt, argon2 ou scrypt.
+ *
+ * @param {string} password - Password em texto limpo
+ * @returns {string} Hash MD5 em hexadecimal
+ */
+function md5Hash(password) {
+  return crypto.createHash('md5').update(password).digest('hex');
+}
+
+/**
+ * Compara uma password em texto com um hash MD5 guardado.
+ *
+ * @param {string} password   - Password em texto limpo (inserida pelo utilizador)
+ * @param {string} hashGuardado - Hash MD5 guardado na base de dados
+ * @returns {boolean}
+ */
+function verificarPasswordMd5(password, hashGuardado) {
+  return md5Hash(password) === hashGuardado;
+}
 
 // ── Schemas Zod ────────────────────────────────────────────────────────────
 const schemaLogin = z.object({
@@ -44,7 +68,7 @@ router.post('/login', rateLimitLogin, async (req, res) => {
   }
 
   const { email, password } = parsed.data;
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
+  const ip   = req.ip || req.connection.remoteAddress || 'unknown';
   const meta = reqMeta(req);
 
   try {
@@ -66,7 +90,9 @@ router.post('/login', rateLimitLogin, async (req, res) => {
     }
 
     const user = rows[0];
-    const ok   = await bcrypt.compare(password, user.password_hash);
+
+    // ── Validação da password com MD5 ──────────────────────────────────────
+    const ok = verificarPasswordMd5(password, user.password_hash);
 
     if (!ok) {
       registarFalhaLogin(ip);
@@ -166,7 +192,9 @@ router.post('/registar', auth, soAdmin, async (req, res) => {
   const { nome, email, password, role } = parsed.data;
 
   try {
-    const hash = await bcrypt.hash(password, 12);
+    // ── Hash MD5 da password ───────────────────────────────────────────────
+    const hash = md5Hash(password);
+
     const [result] = await pool.query(
       'INSERT INTO utilizadores (nome, email, password_hash, role) VALUES (?, ?, ?, ?)',
       [nome.trim(), email.toLowerCase().trim(), hash, role || 'utilizador']

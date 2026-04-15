@@ -1,11 +1,23 @@
 const router  = require('express').Router();
-const bcrypt  = require('bcryptjs');
+const crypto  = require('crypto');          // módulo nativo do Node — sem instalação
 const pool    = require('../db/pool');
 const { auth, soAdmin } = require('../middleware/auth');
 const { logAction, reqMeta } = require('../utils/logger');
 
 // Todas as rotas requerem login de admin
 router.use(auth, soAdmin);
+
+// ── Utilitário MD5 ─────────────────────────────────────────────────────────
+/**
+ * Devolve o hash MD5 de uma string (32 chars hexadecimais).
+ * NOTA: MD5 é inseguro para passwords — use só se for requisito obrigatório.
+ *
+ * @param {string} password
+ * @returns {string}
+ */
+function md5Hash(password) {
+  return crypto.createHash('md5').update(password).digest('hex');
+}
 
 // ── Validação de password ──────────────────────────────────────────────────
 function validarPassword(password) {
@@ -50,7 +62,9 @@ router.post('/utilizadores', async (req, res) => {
   }
 
   try {
-    const hash = await bcrypt.hash(password, 12);
+    // ── Hash MD5 da password ───────────────────────────────────────────────
+    const hash = md5Hash(password);
+
     const [result] = await pool.query(
       'INSERT INTO utilizadores (nome, email, password_hash, role) VALUES (?, ?, ?, ?)',
       [nome.trim(), email.toLowerCase().trim(), hash, role || 'utilizador']
@@ -90,7 +104,9 @@ router.put('/utilizadores/:id/senha', async (req, res) => {
   if (erroPassword) return res.status(400).json({ erro: erroPassword });
 
   try {
-    const hash = await bcrypt.hash(password, 12);
+    // ── Hash MD5 da nova password ──────────────────────────────────────────
+    const hash = md5Hash(password);
+
     const [result] = await pool.query(
       'UPDATE utilizadores SET password_hash = ? WHERE id = ?',
       [hash, req.params.id]
@@ -123,7 +139,6 @@ router.delete('/utilizadores/:id', async (req, res) => {
   }
 
   try {
-    // Fetch name/email before deletion for the log
     const [[alvo]] = await pool.query(
       'SELECT id, nome, email, role FROM utilizadores WHERE id = ?',
       [req.params.id]
@@ -162,19 +177,19 @@ router.get('/logs', async (req, res) => {
 
     const [rows] = await pool.query(
       `SELECT
-         l.id, 
-         l.user_id, 
-         u.nome AS user_nome, -- Adicionamos o nome do utilizador
-         l.action, 
-         l.entity, 
+         l.id,
+         l.user_id,
+         u.nome AS user_nome,
+         l.action,
+         l.entity,
          l.entity_id,
-         l.details, 
-         l.ip, 
-         l.method, 
-         l.url, 
+         l.details,
+         l.ip,
+         l.method,
+         l.url,
          l.created_at
        FROM logs l
-       LEFT JOIN utilizadores u ON l.user_id = u.id -- JOIN para buscar o nome
+       LEFT JOIN utilizadores u ON l.user_id = u.id
        ORDER BY l.created_at DESC
        LIMIT ? OFFSET ?`,
       [limit, offset]
