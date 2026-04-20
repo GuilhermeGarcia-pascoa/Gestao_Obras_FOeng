@@ -269,37 +269,36 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     });
   }
 
-  // ── Adicionar pessoa ──────────────────────────────────────────────────────
+  // ── Adicionar pessoa (seleção múltipla) ──────────────────────────────────
   Future<void> _adicionarPessoa() async {
     final jaIds = _pessoas.map((p) => p['pessoa_id']).toSet();
     final disp  = _todasPessoas.where((p) {
       final ativo = p['ativo'] == null || p['ativo'] == true || p['ativo'] == 1;
       return ativo && !jaIds.contains(p['id']);
     }).toList();
-    
-    if (disp.isEmpty) { 
-      _snack('⚠️ Todas as pessoas já adicionadas', Colors.orange); 
-      return; 
+
+    if (disp.isEmpty) {
+      _snack('⚠️ Todas as pessoas já adicionadas', Colors.orange);
+      return;
     }
 
-    final escolhida = await showDialog<Map<String, dynamic>>(
+    final escolhidas = await showDialog<List<Map<String, dynamic>>>(
       context: context,
       builder: (dialogContext) {
-        String filtro = ''; // Guarda o texto da pesquisa
-        
+        String filtro = '';
+        final selecionadas = <int>{};
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
-            // Filtra a lista com base no texto inserido
             final filtradas = disp.where((p) {
               final nome = (p['nome'] as String).toLowerCase();
               return nome.contains(filtro.toLowerCase());
             }).toList();
 
             return AlertDialog(
-              title: const Text('Selecionar pessoa'),
+              title: const Text('Selecionar pessoas'),
               content: SizedBox(
                 width: double.maxFinite,
-                // Limita a altura para não dar overflow no ecrã
                 height: MediaQuery.of(context).size.height * 0.6,
                 child: Column(
                   children: [
@@ -311,29 +310,45 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      onChanged: (valor) {
-                        // Atualiza o estado APENAS do dialog
-                        setStateDialog(() {
-                          filtro = valor;
-                        });
-                      },
+                      onChanged: (valor) => setStateDialog(() => filtro = valor),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    if (selecionadas.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${selecionadas.length} selecionada(s)',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF185FA5), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    const SizedBox(height: 4),
                     Expanded(
                       child: filtradas.isEmpty
                           ? const Center(child: Text('Nenhuma pessoa encontrada.'))
                           : ListView.builder(
-                              shrinkWrap: true,
                               itemCount: filtradas.length,
                               itemBuilder: (context, index) {
                                 final p = filtradas[index] as Map<String, dynamic>;
-                                return ListTile(
-                                  leading: CircleAvatar(
-                                    child: Text((p['nome'] as String)[0]),
+                                final id = p['id'] as int;
+                                final selecionado = selecionadas.contains(id);
+                                return CheckboxListTile(
+                                  value: selecionado,
+                                  onChanged: (val) => setStateDialog(() {
+                                    if (val == true) selecionadas.add(id);
+                                    else selecionadas.remove(id);
+                                  }),
+                                  secondary: CircleAvatar(
+                                    backgroundColor: const Color(0xFFE6F1FB),
+                                    child: Text(
+                                      (p['nome'] as String)[0].toUpperCase(),
+                                      style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.bold),
+                                    ),
                                   ),
-                                  title: Text(p['nome']),
-                                  subtitle: Text('${p['cargo'] ?? ''}  ·  €${p['custo_hora'] ?? 0}/h'),
-                                  onTap: () => Navigator.pop(dialogContext, p),
+                                  title: Text(p['nome'], style: const TextStyle(fontSize: 14)),
+                                  subtitle: Text('${p['cargo'] ?? ''}  ·  €${p['custo_hora'] ?? 0}/h',
+                                      style: const TextStyle(fontSize: 12)),
+                                  dense: true,
+                                  controlAffinity: ListTileControlAffinity.trailing,
                                 );
                               },
                             ),
@@ -346,6 +361,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancelar'),
                 ),
+                ElevatedButton(
+                  onPressed: selecionadas.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                            dialogContext,
+                            disp.where((p) => selecionadas.contains(p['id'] as int)).cast<Map<String, dynamic>>().toList(),
+                          ),
+                  child: Text('Confirmar (${selecionadas.length})'),
+                ),
               ],
             );
           },
@@ -354,34 +378,37 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     );
 
     if (!mounted) return;
-    if (escolhida == null) return;
-    
-    final id = escolhida['id'] as int;
+    if (escolhidas == null || escolhidas.isEmpty) return;
+
     setState(() {
-      _pessoas.add({'pessoa_id': id, 'horas_total': 8, 'custo_extra': 0});
-      _horasP[id]      = TextEditingController(text: '8');
-      _custoExtraP[id] = TextEditingController(text: '0');
-      _temAlteracoes   = true;
+      for (final p in escolhidas) {
+        final id = p['id'] as int;
+        _pessoas.add({'pessoa_id': id, 'horas_total': 8, 'custo_extra': 0});
+        _horasP[id]      = TextEditingController(text: '8');
+        _custoExtraP[id] = TextEditingController(text: '0');
+      }
+      _temAlteracoes = true;
     });
   }
-// ── Adicionar máquina ─────────────────────────────────────────────────────
+// ── Adicionar máquina (seleção múltipla) ──────────────────────────────────
   Future<void> _adicionarMaquina() async {
     final jaIds = _maquinas.map((m) => m['maquina_id']).toSet();
     final disp  = _todasMaquinas.where((m) {
       final ativo = m['ativo'] == null || m['ativo'] == true || m['ativo'] == 1;
       return ativo && !jaIds.contains(m['id']);
     }).toList();
-    
-    if (disp.isEmpty) { 
-      _snack('⚠️ Todas as máquinas já adicionadas', Colors.orange); 
-      return; 
+
+    if (disp.isEmpty) {
+      _snack('⚠️ Todas as máquinas já adicionadas', Colors.orange);
+      return;
     }
 
-    final escolhida = await showDialog<Map<String, dynamic>>(
+    final escolhidas = await showDialog<List<Map<String, dynamic>>>(
       context: context,
       builder: (dialogContext) {
         String filtro = '';
-        
+        final selecionadas = <int>{};
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             final filtradas = disp.where((m) {
@@ -390,7 +417,7 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
             }).toList();
 
             return AlertDialog(
-              title: const Text('Selecionar máquina'),
+              title: const Text('Selecionar máquinas'),
               content: SizedBox(
                 width: double.maxFinite,
                 height: MediaQuery.of(context).size.height * 0.6,
@@ -404,24 +431,41 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      onChanged: (valor) {
-                        setStateDialog(() => filtro = valor);
-                      },
+                      onChanged: (valor) => setStateDialog(() => filtro = valor),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    if (selecionadas.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${selecionadas.length} selecionada(s)',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF5F5E5A), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    const SizedBox(height: 4),
                     Expanded(
                       child: filtradas.isEmpty
                           ? const Center(child: Text('Nenhuma máquina encontrada.'))
                           : ListView.builder(
-                              shrinkWrap: true,
                               itemCount: filtradas.length,
                               itemBuilder: (context, index) {
                                 final m = filtradas[index] as Map<String, dynamic>;
-                                return ListTile(
-                                  leading: const CircleAvatar(child: Icon(Icons.construction)),
-                                  title: Text(m['nome']),
-                                  subtitle: Text(m['tipo'] ?? ''),
-                                  onTap: () => Navigator.pop(dialogContext, m),
+                                final id = m['id'] as int;
+                                final selecionado = selecionadas.contains(id);
+                                return CheckboxListTile(
+                                  value: selecionado,
+                                  onChanged: (val) => setStateDialog(() {
+                                    if (val == true) selecionadas.add(id);
+                                    else selecionadas.remove(id);
+                                  }),
+                                  secondary: CircleAvatar(
+                                    backgroundColor: const Color(0xFFF1EFE8),
+                                    child: const Icon(Icons.construction, color: Color(0xFF5F5E5A), size: 20),
+                                  ),
+                                  title: Text(m['nome'], style: const TextStyle(fontSize: 14)),
+                                  subtitle: Text(m['tipo'] ?? '', style: const TextStyle(fontSize: 12)),
+                                  dense: true,
+                                  controlAffinity: ListTileControlAffinity.trailing,
                                 );
                               },
                             ),
@@ -434,6 +478,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancelar'),
                 ),
+                ElevatedButton(
+                  onPressed: selecionadas.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                            dialogContext,
+                            disp.where((m) => selecionadas.contains(m['id'] as int)).cast<Map<String, dynamic>>().toList(),
+                          ),
+                  child: Text('Confirmar (${selecionadas.length})'),
+                ),
               ],
             );
           },
@@ -442,46 +495,47 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     );
 
     if (!mounted) return;
-    if (escolhida == null) return;
-    
-    final id = escolhida['id'] as int;
+    if (escolhidas == null || escolhidas.isEmpty) return;
+
     setState(() {
-      _maquinas.add({'maquina_id': id, 'horas_total': 0});
-      _horasM[id]    = TextEditingController(text: '0');
+      for (final m in escolhidas) {
+        final id = m['id'] as int;
+        _maquinas.add({'maquina_id': id, 'horas_total': 0});
+        _horasM[id] = TextEditingController(text: '0');
+      }
       _temAlteracoes = true;
     });
   }
-  // ── Adicionar viatura ─────────────────────────────────────────────────────
+  // ── Adicionar viatura (seleção múltipla) ──────────────────────────────────
   Future<void> _adicionarViatura() async {
     final jaIds = _viaturas.map((v) => v['viatura_id']).toSet();
     final disp  = _todasViaturas.where((v) {
       final ativo = v['ativo'] == null || v['ativo'] == true || v['ativo'] == 1;
       return ativo && !jaIds.contains(v['id']);
     }).toList();
-    
-    if (disp.isEmpty) { 
-      _snack('⚠️ Todas as viaturas já adicionadas', Colors.orange); 
-      return; 
+
+    if (disp.isEmpty) {
+      _snack('⚠️ Todas as viaturas já adicionadas', Colors.orange);
+      return;
     }
 
-    final escolhida = await showDialog<Map<String, dynamic>>(
+    final escolhidas = await showDialog<List<Map<String, dynamic>>>(
       context: context,
       builder: (dialogContext) {
         String filtro = '';
-        
+        final selecionadas = <int>{};
+
         return StatefulBuilder(
           builder: (context, setStateDialog) {
             final filtradas = disp.where((v) {
-              // Pesquisa tanto no modelo como na matrícula
-              final modelo = (v['modelo'] ?? '').toString().toLowerCase();
+              final modelo    = (v['modelo'] ?? '').toString().toLowerCase();
               final matricula = (v['matricula'] ?? '').toString().toLowerCase();
-              final textoFiltro = filtro.toLowerCase();
-              
-              return modelo.contains(textoFiltro) || matricula.contains(textoFiltro);
+              final texto     = filtro.toLowerCase();
+              return modelo.contains(texto) || matricula.contains(texto);
             }).toList();
 
             return AlertDialog(
-              title: const Text('Selecionar viatura'),
+              title: const Text('Selecionar viaturas'),
               content: SizedBox(
                 width: double.maxFinite,
                 height: MediaQuery.of(context).size.height * 0.6,
@@ -495,24 +549,42 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                         border: OutlineInputBorder(),
                         isDense: true,
                       ),
-                      onChanged: (valor) {
-                        setStateDialog(() => filtro = valor);
-                      },
+                      onChanged: (valor) => setStateDialog(() => filtro = valor),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 8),
+                    if (selecionadas.isNotEmpty)
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '${selecionadas.length} selecionada(s)',
+                          style: const TextStyle(fontSize: 12, color: Color(0xFF0F6E56), fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    const SizedBox(height: 4),
                     Expanded(
                       child: filtradas.isEmpty
                           ? const Center(child: Text('Nenhuma viatura encontrada.'))
                           : ListView.builder(
-                              shrinkWrap: true,
                               itemCount: filtradas.length,
                               itemBuilder: (context, index) {
                                 final v = filtradas[index] as Map<String, dynamic>;
-                                return ListTile(
-                                  leading: const CircleAvatar(child: Icon(Icons.directions_car)),
-                                  title: Text(v['modelo'] ?? ''),
-                                  subtitle: Text('${v['matricula'] ?? ''}  ·  €${v['custo_km'] ?? 0}/km'),
-                                  onTap: () => Navigator.pop(dialogContext, v),
+                                final id = v['id'] as int;
+                                final selecionado = selecionadas.contains(id);
+                                return CheckboxListTile(
+                                  value: selecionado,
+                                  onChanged: (val) => setStateDialog(() {
+                                    if (val == true) selecionadas.add(id);
+                                    else selecionadas.remove(id);
+                                  }),
+                                  secondary: CircleAvatar(
+                                    backgroundColor: const Color(0xFFE1F5EE),
+                                    child: const Icon(Icons.directions_car, color: Color(0xFF0F6E56), size: 20),
+                                  ),
+                                  title: Text(v['modelo'] ?? '', style: const TextStyle(fontSize: 14)),
+                                  subtitle: Text('${v['matricula'] ?? ''}  ·  €${v['custo_km'] ?? 0}/km',
+                                      style: const TextStyle(fontSize: 12)),
+                                  dense: true,
+                                  controlAffinity: ListTileControlAffinity.trailing,
                                 );
                               },
                             ),
@@ -525,6 +597,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                   onPressed: () => Navigator.pop(dialogContext),
                   child: const Text('Cancelar'),
                 ),
+                ElevatedButton(
+                  onPressed: selecionadas.isEmpty
+                      ? null
+                      : () => Navigator.pop(
+                            dialogContext,
+                            disp.where((v) => selecionadas.contains(v['id'] as int)).cast<Map<String, dynamic>>().toList(),
+                          ),
+                  child: Text('Confirmar (${selecionadas.length})'),
+                ),
               ],
             );
           },
@@ -533,12 +614,14 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
     );
 
     if (!mounted) return;
-    if (escolhida == null) return;
-    
-    final id = escolhida['id'] as int;
+    if (escolhidas == null || escolhidas.isEmpty) return;
+
     setState(() {
-      _viaturas.add({'viatura_id': id, 'km_total': 0});
-      _kmV[id]       = TextEditingController(text: '0');
+      for (final v in escolhidas) {
+        final id = v['id'] as int;
+        _viaturas.add({'viatura_id': id, 'km_total': 0});
+        _kmV[id] = TextEditingController(text: '0');
+      }
       _temAlteracoes = true;
     });
   }

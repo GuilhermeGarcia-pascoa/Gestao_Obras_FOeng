@@ -40,7 +40,7 @@ function verificarPasswordMd5(password, hashGuardado) {
 
 // ── Schemas Zod ────────────────────────────────────────────────────────────
 const schemaLogin = z.object({
-  email:    z.string().email('Email inválido'),
+  email:    z.string().email('Email inválido'), 
   password: z.string().min(1, 'Password obrigatória'),
 });
 
