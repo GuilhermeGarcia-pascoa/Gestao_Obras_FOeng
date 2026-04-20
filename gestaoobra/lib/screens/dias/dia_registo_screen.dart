@@ -334,8 +334,11 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                                 return CheckboxListTile(
                                   value: selecionado,
                                   onChanged: (val) => setStateDialog(() {
-                                    if (val == true) selecionadas.add(id);
-                                    else selecionadas.remove(id);
+                                    if (val == true) {
+                                      selecionadas.add(id);
+                                    } else {
+                                      selecionadas.remove(id);
+                                    }
                                   }),
                                   secondary: CircleAvatar(
                                     backgroundColor: const Color(0xFFE6F1FB),
@@ -455,12 +458,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                                 return CheckboxListTile(
                                   value: selecionado,
                                   onChanged: (val) => setStateDialog(() {
-                                    if (val == true) selecionadas.add(id);
-                                    else selecionadas.remove(id);
+                                    if (val == true) {
+                                      selecionadas.add(id);
+                                    } else {
+                                      selecionadas.remove(id);
+                                    }
                                   }),
-                                  secondary: CircleAvatar(
-                                    backgroundColor: const Color(0xFFF1EFE8),
-                                    child: const Icon(Icons.construction, color: Color(0xFF5F5E5A), size: 20),
+                                  secondary: const CircleAvatar(
+                                    backgroundColor: Color(0xFFF1EFE8),
+                                    child: Icon(Icons.construction, color: Color(0xFF5F5E5A), size: 20),
                                   ),
                                   title: Text(m['nome'], style: const TextStyle(fontSize: 14)),
                                   subtitle: Text(m['tipo'] ?? '', style: const TextStyle(fontSize: 12)),
@@ -573,12 +579,15 @@ class _DiaRegistoScreenState extends State<DiaRegistoScreen> {
                                 return CheckboxListTile(
                                   value: selecionado,
                                   onChanged: (val) => setStateDialog(() {
-                                    if (val == true) selecionadas.add(id);
-                                    else selecionadas.remove(id);
+                                    if (val == true) {
+                                      selecionadas.add(id);
+                                    } else {
+                                      selecionadas.remove(id);
+                                    }
                                   }),
-                                  secondary: CircleAvatar(
-                                    backgroundColor: const Color(0xFFE1F5EE),
-                                    child: const Icon(Icons.directions_car, color: Color(0xFF0F6E56), size: 20),
+                                  secondary: const CircleAvatar(
+                                    backgroundColor: Color(0xFFE1F5EE),
+                                    child: Icon(Icons.directions_car, color: Color(0xFF0F6E56), size: 20),
                                   ),
                                   title: Text(v['modelo'] ?? '', style: const TextStyle(fontSize: 14)),
                                   subtitle: Text('${v['matricula'] ?? ''}  ·  €${v['custo_km'] ?? 0}/km',
