@@ -28,6 +28,18 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   String _filtroEstado = '';
   String _searchText = '';
 
+  static const int _obrasPorPagina = 50;
+  int _paginaAtual = 0;
+
+  // Scroll controller para voltar ao topo ao mudar de página
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -37,7 +49,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
-      // Pedimos SEMPRE todas as obras à API para os totais ficarem corretos
       final data = await ApiService.listarObras();
       setState(() {
         _obras = data;
@@ -55,18 +66,37 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   void _filtrarObras() {
     final search = _searchText.toLowerCase();
     setState(() {
+      _paginaAtual = 0; // Volta sempre à primeira página ao filtrar
       _obrasFiltradas = _obras.where((obra) {
-        // Filtro de texto
         final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
         final nome = (obra['nome'] ?? '').toString().toLowerCase();
         final matchSearch = codigo.contains(search) || nome.contains(search);
-
-        // Filtro de estado local
         final matchEstado = _filtroEstado.isEmpty || obra['estado'] == _filtroEstado;
-
         return matchSearch && matchEstado;
       }).toList();
     });
+  }
+
+  // Obras apenas da página atual
+  List<dynamic> get _obrasPaginaAtual {
+    final inicio = _paginaAtual * _obrasPorPagina;
+    final fim = (inicio + _obrasPorPagina).clamp(0, _obrasFiltradas.length);
+    return _obrasFiltradas.sublist(inicio, fim);
+  }
+
+  int get _totalPaginas => (_obrasFiltradas.length / _obrasPorPagina).ceil();
+
+  void _irParaPagina(int pagina) {
+    if (pagina < 0 || pagina >= _totalPaginas) return;
+    setState(() => _paginaAtual = pagina);
+    // Scroll para o topo
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        0,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
   }
 
   Color _corEstado(String? estado) {
@@ -137,6 +167,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                     child: ConstrainedBox(
                       constraints: BoxConstraints(maxWidth: maxContentWidth),
                       child: ListView(
+                        controller: _scrollController,
                         padding: EdgeInsets.fromLTRB(16, 12, 16, isDesktop ? 32 : 96),
                         children: [
                           _resumoChips(total, emCurso, planeadas, concluidas, isDark),
@@ -165,26 +196,39 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                               subtitle: 'Ajusta a pesquisa ou o filtro.',
                               isDark: isDark,
                             )
-                          else if (isDesktop)
-                            GridView.builder(
-                              shrinkWrap: true,
-                              physics: const NeverScrollableScrollPhysics(),
-                              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                                crossAxisCount: gridColumns,
-                                crossAxisSpacing: 12,
-                                mainAxisSpacing: 12,
-                                mainAxisExtent: 168,
+                          else ...[
+                            // Indicador de resultados e página atual
+                            _paginacaoInfo(isDark),
+                            const SizedBox(height: 10),
+
+                            // Grid ou lista de obras da página atual
+                            if (isDesktop)
+                              GridView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                  crossAxisCount: gridColumns,
+                                  crossAxisSpacing: 12,
+                                  mainAxisSpacing: 12,
+                                  mainAxisExtent: 168,
+                                ),
+                                itemCount: _obrasPaginaAtual.length,
+                                itemBuilder: (context, i) => _obraCard(_obrasPaginaAtual[i], isDark),
+                              )
+                            else
+                              ..._obrasPaginaAtual.map(
+                                (obra) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 10),
+                                  child: _obraCard(obra, isDark),
+                                ),
                               ),
-                              itemCount: _obrasFiltradas.length,
-                              itemBuilder: (context, i) => _obraCard(_obrasFiltradas[i], isDark),
-                            )
-                          else
-                            ..._obrasFiltradas.map(
-                              (obra) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _obraCard(obra, isDark),
-                              ),
-                            ),
+
+                            // Controlos de paginação
+                            if (_totalPaginas > 1) ...[
+                              const SizedBox(height: 20),
+                              _paginacaoControlos(isDark),
+                            ],
+                          ],
                         ],
                       ),
                     ),
@@ -193,6 +237,143 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
               ),
             ),
     );
+  }
+
+  /// Linha de info: "A mostrar 1–50 de 234 obras"
+  Widget _paginacaoInfo(bool isDark) {
+    final inicio = _paginaAtual * _obrasPorPagina + 1;
+    final fim = ((_paginaAtual + 1) * _obrasPorPagina).clamp(0, _obrasFiltradas.length);
+    final textColor = isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478);
+
+    return Text(
+      'A mostrar $inicio–$fim de ${_obrasFiltradas.length} obras',
+      style: TextStyle(fontSize: 12, color: textColor),
+    );
+  }
+
+  /// Botões de navegação entre páginas
+  Widget _paginacaoControlos(bool isDark) {
+    final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final textColor = isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233);
+    const accent = Color(0xFF185FA5);
+
+    // Calcula quais páginas mostrar (máximo 5 botões visíveis)
+    final paginas = _paginasVisiveis();
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: border),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          // Botão anterior
+          _botaoPagina(
+            icon: Icons.chevron_left_rounded,
+            onTap: _paginaAtual > 0 ? () => _irParaPagina(_paginaAtual - 1) : null,
+            isDark: isDark,
+          ),
+          const SizedBox(width: 6),
+
+          // Números de página
+          ...paginas.map((p) {
+            if (p == -1) {
+              // Reticências
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text('...', style: TextStyle(color: textColor, fontWeight: FontWeight.w600)),
+              );
+            }
+            final isAtiva = p == _paginaAtual;
+            return Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 3),
+              child: GestureDetector(
+                onTap: isAtiva ? null : () => _irParaPagina(p),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 160),
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: isAtiva ? accent : Colors.transparent,
+                    borderRadius: BorderRadius.circular(8),
+                    border: isAtiva ? null : Border.all(color: border),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    '${p + 1}',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 13,
+                      color: isAtiva ? Colors.white : textColor,
+                    ),
+                  ),
+                ),
+              ),
+            );
+          }),
+
+          const SizedBox(width: 6),
+          // Botão seguinte
+          _botaoPagina(
+            icon: Icons.chevron_right_rounded,
+            onTap: _paginaAtual < _totalPaginas - 1 ? () => _irParaPagina(_paginaAtual + 1) : null,
+            isDark: isDark,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _botaoPagina({required IconData icon, VoidCallback? onTap, required bool isDark}) {
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final color = onTap == null
+        ? (isDark ? const Color(0xFF374151) : const Color(0xFFB0BCC8))
+        : (isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233));
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 36,
+        height: 36,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: border),
+        ),
+        alignment: Alignment.center,
+        child: Icon(icon, size: 20, color: color),
+      ),
+    );
+  }
+
+  /// Gera a lista de índices de página a mostrar, com -1 para reticências
+  List<int> _paginasVisiveis() {
+    if (_totalPaginas <= 7) {
+      return List.generate(_totalPaginas, (i) => i);
+    }
+
+    final paginas = <int>[];
+    // Sempre mostra a primeira
+    paginas.add(0);
+
+    if (_paginaAtual > 2) paginas.add(-1); // reticências à esquerda
+
+    // Páginas à volta da atual
+    final inicio = (_paginaAtual - 1).clamp(1, _totalPaginas - 2);
+    final fim = (_paginaAtual + 1).clamp(1, _totalPaginas - 2);
+    for (int i = inicio; i <= fim; i++) {
+      paginas.add(i);
+    }
+
+    if (_paginaAtual < _totalPaginas - 3) paginas.add(-1); // reticências à direita
+
+    // Sempre mostra a última
+    paginas.add(_totalPaginas - 1);
+
+    return paginas;
   }
 
   Widget _resumoChips(int total, int emCurso, int planeadas, int concluidas, bool isDark) {
@@ -247,7 +428,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       return Expanded(
         child: GestureDetector(
           onTap: () {
-            // Apenas atualizamos a variável local e filtramos em vez de chamar a API
             _filtroEstado = key;
             _filtrarObras();
           },
