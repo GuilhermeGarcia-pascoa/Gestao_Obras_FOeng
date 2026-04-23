@@ -15,22 +15,29 @@ class AdminPanelScreen extends StatefulWidget {
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
   List<dynamic> _utilizadores = [];
   bool _loading = true;
-  
-  // 1. Variáveis para a pesquisa
+
+  // Pesquisa
   String _filtroPesquisa = '';
   final TextEditingController _pesquisaCtrl = TextEditingController();
+
+  // Sync
+  Map<String, dynamic>? _syncStatus;
+  bool _syncLoading = false;
 
   @override
   void initState() {
     super.initState();
     _carregar();
+    _carregarSyncStatus();
   }
 
   @override
   void dispose() {
-    _pesquisaCtrl.dispose(); // Não esquecer de fazer dispose do controller
+    _pesquisaCtrl.dispose();
     super.dispose();
   }
+
+  // ── Utilizadores ────────────────────────────────────────────────────────────
 
   Future<void> _carregar() async {
     setState(() => _loading = true);
@@ -49,6 +56,95 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       }
     }
   }
+
+  // ── Sync ────────────────────────────────────────────────────────────────────
+
+  Future<void> _carregarSyncStatus() async {
+    try {
+      final status = await ApiService.getSyncStatus();
+      if (mounted) setState(() => _syncStatus = status);
+    } catch (_) {
+      // Silencioso — sync pode não estar disponível
+    }
+  }
+
+  Future<void> _sincronizarAgora() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Sincronizar obras'),
+        content: const Text(
+          'Vai importar todas as obras do fo_panel para esta aplicação.\n\nDeseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF185FA5),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sincronizar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    setState(() => _syncLoading = true);
+    try {
+      final resultado = await ApiService.sincronizarAgora();
+      await _carregarSyncStatus();
+
+      if (mounted) {
+        final inseridas     = resultado['inseridas']     ?? 0;
+        final actualizadas  = resultado['actualizadas']  ?? 0;
+        final ignoradas     = resultado['ignoradas']     ?? 0;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Sync concluído — $inseridas novas, $actualizadas actualizadas, $ignoradas sem alterações',
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erro no sync: ${e.mensagem}'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _syncLoading = false);
+    }
+  }
+
+  // ── Formatação de datas ──────────────────────────────────────────────────────
+
+  String _formatarData(String? isoString) {
+    if (isoString == null) return 'Nunca';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      final dia  = dt.day.toString().padLeft(2, '0');
+      final mes  = dt.month.toString().padLeft(2, '0');
+      final hora = dt.hour.toString().padLeft(2, '0');
+      final min  = dt.minute.toString().padLeft(2, '0');
+      return '$dia/$mes/${dt.year} $hora:$min';
+    } catch (_) {
+      return isoString;
+    }
+  }
+
+  // ── Utilizadores helpers ─────────────────────────────────────────────────────
 
   void _abrirFormularioCriar() {
     showModalBottomSheet(
@@ -153,19 +249,18 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
+  // ── Build ────────────────────────────────────────────────────────────────────
+
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final currentUserId = auth.utilizador?['id'];
     final primaryColor = Theme.of(context).colorScheme.primary;
 
-    // 2. Filtrar a lista de utilizadores com base na pesquisa
     final utilizadoresFiltrados = _utilizadores.where((u) {
-      final nome = (u['nome'] ?? '').toString().toLowerCase();
+      final nome  = (u['nome']  ?? '').toString().toLowerCase();
       final email = (u['email'] ?? '').toString().toLowerCase();
       final filtro = _filtroPesquisa.toLowerCase();
-      
-      // Pesquisa por nome ou por email
       return nome.contains(filtro) || email.contains(filtro);
     }).toList();
 
@@ -176,11 +271,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
-              onRefresh: _carregar,
+              onRefresh: () async {
+                await _carregar();
+                await _carregarSyncStatus();
+              },
               child: ListView(
                 padding: const EdgeInsets.all(16),
                 children: [
-                  // ── Banner de acesso rápido aos logs ──────────────────────
+
+                  // ── Banner Logs ──────────────────────────────────────────
                   InkWell(
                     onTap: _abrirLogs,
                     borderRadius: BorderRadius.circular(14),
@@ -239,9 +338,137 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       ),
                     ),
                   ),
+                  const SizedBox(height: 16),
+
+                  // ── Secção Sincronização fo_panel ────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).cardColor,
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(
+                        color: Colors.grey.withOpacity(0.15),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.04),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Cabeçalho
+                        Row(
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.all(8),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF185FA5).withOpacity(0.10),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Icon(
+                                Icons.sync,
+                                color: Color(0xFF185FA5),
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Sincronização fo_panel',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Importar obras do sistema fo_panel',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      color: Colors.grey,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+
+                        // Info última / próxima sync
+                        if (_syncStatus != null) ...[
+                          _SyncInfoRow(
+                            icon: Icons.check_circle_outline,
+                            label: 'Último sync',
+                            valor: _formatarData(_syncStatus!['ultimoSync'] as String?),
+                            cor: Colors.green.shade600,
+                          ),
+                          const SizedBox(height: 6),
+                          _SyncInfoRow(
+                            icon: Icons.schedule,
+                            label: 'Próximo sync',
+                            valor: _formatarData(_syncStatus!['proximoSync'] as String?),
+                            cor: Colors.orange.shade700,
+                          ),
+                          const SizedBox(height: 6),
+                          _SyncInfoRow(
+                            icon: Icons.add_circle_outline,
+                            label: 'Total importadas',
+                            valor: '${_syncStatus!['totalInseridas'] ?? 0} obras',
+                            cor: const Color(0xFF185FA5),
+                          ),
+                          if (_syncStatus!['ultimoErro'] != null) ...[
+                            const SizedBox(height: 6),
+                            _SyncInfoRow(
+                              icon: Icons.error_outline,
+                              label: 'Último erro',
+                              valor: _syncStatus!['ultimoErro'] as String,
+                              cor: Colors.red.shade600,
+                            ),
+                          ],
+                          const SizedBox(height: 14),
+                        ],
+
+                        // Botão sincronizar
+                        SizedBox(
+                          width: double.infinity,
+                          child: ElevatedButton.icon(
+                            onPressed: _syncLoading ? null : _sincronizarAgora,
+                            icon: _syncLoading
+                                ? const SizedBox(
+                                    width: 16,
+                                    height: 16,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Icon(Icons.sync, size: 18),
+                            label: Text(
+                              _syncLoading ? 'A sincronizar...' : 'Sincronizar agora',
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF185FA5),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                   const SizedBox(height: 20),
 
-                  // ── Barra de Pesquisa ───────────────────────────────────────
+                  // ── Barra de Pesquisa ────────────────────────────────────
                   TextField(
                     controller: _pesquisaCtrl,
                     decoration: InputDecoration(
@@ -252,28 +479,21 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         borderRadius: BorderRadius.circular(12),
                       ),
                       isDense: true,
-                      // Botão para limpar a pesquisa se houver texto
                       suffixIcon: _filtroPesquisa.isNotEmpty
                           ? IconButton(
                               icon: const Icon(Icons.clear),
                               onPressed: () {
                                 _pesquisaCtrl.clear();
-                                setState(() {
-                                  _filtroPesquisa = '';
-                                });
+                                setState(() => _filtroPesquisa = '');
                               },
                             )
                           : null,
                     ),
-                    onChanged: (valor) {
-                      setState(() {
-                        _filtroPesquisa = valor;
-                      });
-                    },
+                    onChanged: (valor) => setState(() => _filtroPesquisa = valor),
                   ),
                   const SizedBox(height: 20),
 
-                  // ── Cabeçalho da secção de utilizadores ───────────────────
+                  // ── Cabeçalho utilizadores ───────────────────────────────
                   Row(
                     children: [
                       Text(
@@ -294,7 +514,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          '${utilizadoresFiltrados.length}', // Usa o length dos filtrados
+                          '${utilizadoresFiltrados.length}',
                           style: TextStyle(
                             fontSize: 11,
                             fontWeight: FontWeight.bold,
@@ -306,7 +526,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 10),
 
-                  // ── Lista de utilizadores ──────────────────────────────────
+                  // ── Lista utilizadores ───────────────────────────────────
                   if (utilizadoresFiltrados.isEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 32),
@@ -322,14 +542,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     ListView.separated(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      itemCount: utilizadoresFiltrados.length, // Usa os filtrados
+                      itemCount: utilizadoresFiltrados.length,
                       separatorBuilder: (_, __) => const SizedBox(height: 8),
                       itemBuilder: (context, i) {
-                        final user = utilizadoresFiltrados[i]; // Usa os filtrados
-                        final id = user['id'];
-                        final nome = user['nome'] ?? 'Sem nome';
+                        final user = utilizadoresFiltrados[i];
+                        final id   = user['id'];
+                        final nome  = user['nome']  ?? 'Sem nome';
                         final email = user['email'] ?? '';
-                        final role = user['role'] ?? 'utilizador';
+                        final role  = user['role']  ?? 'utilizador';
                         final isCurrentUser = id == currentUserId;
 
                         return Card(
@@ -346,11 +566,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                             ),
                             title: Row(
                               children: [
-                                Text(
-                                  nome,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
-                                ),
+                                Text(nome,
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.w600)),
                                 if (isCurrentUser) ...[
                                   const SizedBox(width: 8),
                                   const Text(
@@ -398,11 +616,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                             Icon(Icons.delete,
                                                 size: 18, color: Colors.red),
                                             SizedBox(width: 8),
-                                            Text(
-                                              'Apagar',
-                                              style: TextStyle(
-                                                  color: Colors.red),
-                                            ),
+                                            Text('Apagar',
+                                                style: TextStyle(
+                                                    color: Colors.red)),
                                           ],
                                         ),
                                         onTap: () => _apagarUtilizador(user),
@@ -424,6 +640,49 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 }
 
+// ── Widget auxiliar para linhas de info do sync ──────────────────────────────
+
+class _SyncInfoRow extends StatelessWidget {
+  const _SyncInfoRow({
+    required this.icon,
+    required this.label,
+    required this.valor,
+    required this.cor,
+  });
+
+  final IconData icon;
+  final String label;
+  final String valor;
+  final Color cor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Icon(icon, size: 14, color: cor),
+        const SizedBox(width: 6),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        Expanded(
+          child: Text(
+            valor,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cor,
+            ),
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Formulário criar utilizador ──────────────────────────────────────────────
+
 class _FormularioCriarUtilizador extends StatefulWidget {
   const _FormularioCriarUtilizador({required this.onCriado});
 
@@ -436,15 +695,15 @@ class _FormularioCriarUtilizador extends StatefulWidget {
 
 class _FormularioCriarUtilizadorState
     extends State<_FormularioCriarUtilizador> {
-  final _formKey = GlobalKey<FormState>();
-  final _nomeCtrl = TextEditingController();
-  final _emailCtrl = TextEditingController();
-  final _senhaCtrl = TextEditingController();
+  final _formKey            = GlobalKey<FormState>();
+  final _nomeCtrl           = TextEditingController();
+  final _emailCtrl          = TextEditingController();
+  final _senhaCtrl          = TextEditingController();
   final _confirmarSenhaCtrl = TextEditingController();
 
-  bool _obscureSenha = true;
+  bool _obscureSenha     = true;
   bool _obscureConfirmar = true;
-  bool _carregando = false;
+  bool _carregando       = false;
 
   String _roleSeleccionado = 'utilizador';
 
@@ -483,10 +742,10 @@ class _FormularioCriarUtilizadorState
     setState(() => _carregando = true);
     try {
       await ApiService.criarUtilizador({
-        'nome': _nomeCtrl.text.trim(),
-        'email': _emailCtrl.text.trim(),
+        'nome':     _nomeCtrl.text.trim(),
+        'email':    _emailCtrl.text.trim(),
         'password': _senhaCtrl.text,
-        'role': _roleSeleccionado,
+        'role':     _roleSeleccionado,
       });
       if (mounted) Navigator.pop(context);
       widget.onCriado();
@@ -504,7 +763,7 @@ class _FormularioCriarUtilizadorState
   @override
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
-    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    final bottomSafe  = MediaQuery.of(context).padding.bottom;
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
       child: Form(
@@ -521,8 +780,7 @@ class _FormularioCriarUtilizadorState
                   const SizedBox(width: 8),
                   const Text(
                     'Novo utilizador',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const Spacer(),
                   IconButton(
@@ -563,11 +821,9 @@ class _FormularioCriarUtilizadorState
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureSenha
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
+                    icon: Icon(_obscureSenha
+                        ? Icons.visibility_off
+                        : Icons.visibility),
                     onPressed: () =>
                         setState(() => _obscureSenha = !_obscureSenha),
                   ),
@@ -583,14 +839,11 @@ class _FormularioCriarUtilizadorState
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: const OutlineInputBorder(),
                   suffixIcon: IconButton(
-                    icon: Icon(
-                      _obscureConfirmar
-                          ? Icons.visibility_off
-                          : Icons.visibility,
-                    ),
+                    icon: Icon(_obscureConfirmar
+                        ? Icons.visibility_off
+                        : Icons.visibility),
                     onPressed: () => setState(
-                      () => _obscureConfirmar = !_obscureConfirmar,
-                    ),
+                        () => _obscureConfirmar = !_obscureConfirmar),
                   ),
                 ),
                 validator: (v) {
@@ -609,13 +862,9 @@ class _FormularioCriarUtilizadorState
                 ),
                 items: const [
                   DropdownMenuItem(
-                    value: 'utilizador',
-                    child: Text('Utilizador'),
-                  ),
+                      value: 'utilizador', child: Text('Utilizador')),
                   DropdownMenuItem(
-                    value: 'admin',
-                    child: Text('Administrador'),
-                  ),
+                      value: 'admin', child: Text('Administrador')),
                 ],
                 onChanged: (v) =>
                     setState(() => _roleSeleccionado = v ?? 'utilizador'),
@@ -635,8 +884,8 @@ class _FormularioCriarUtilizadorState
                           ),
                         )
                       : const Icon(Icons.check),
-                  label:
-                      Text(_carregando ? 'A criar...' : 'Criar utilizador'),
+                  label: Text(
+                      _carregando ? 'A criar...' : 'Criar utilizador'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,

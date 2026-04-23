@@ -138,16 +138,7 @@ class ApiService {
   static Future<Map<String, dynamic>> getGraficosTodasObras() async =>
       await get('/relatorios/todas-obras');
 
-  // ── EXPORTAÇÕES (download autenticado) ────────────────────────────────────
-  //
-  // Estes métodos fazem o pedido HTTP com o header Authorization: Bearer <token>
-  // e devolvem os bytes crus do ficheiro. O chamador é responsável por guardar
-  // os bytes no disco (ver config_screen.dart).
-  //
-  // Substituem os antigos urlExcel / urlPdf que abriam o browser sem auth.
-
-  /// Descarrega o Excel da obra [obraId] com autenticação JWT.
-  /// Devolve os bytes do ficheiro .xlsx.
+  // ── EXPORTAÇÕES ───────────────────────────────────────────────────────────
   static Future<List<int>> downloadExcel(int obraId) async {
     final headers = await _headers();
     final res = await http.get(
@@ -157,7 +148,6 @@ class ApiService {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       return res.bodyBytes;
     }
-    // Tenta extrair mensagem de erro do JSON; caso contrário usa texto cru.
     String mensagem;
     try {
       final data = jsonDecode(res.body);
@@ -168,8 +158,6 @@ class ApiService {
     throw ApiException(mensagem, res.statusCode);
   }
 
-  /// Descarrega o PDF do intervalo [[dataInicio], [dataFim]] com autenticação JWT.
-  /// Devolve os bytes do ficheiro .pdf.
   static Future<List<int>> downloadPdf(String dataInicio, String dataFim) async {
     final headers = await _headers();
     final res = await http.get(
@@ -204,6 +192,22 @@ class ApiService {
   static Future<List<dynamic>> listarLogs() async {
     final response = await get('/admin/logs');
     return response as List<dynamic>;
+  }
+
+  // ── SYNC fo_panel ──────────────────────────────────────────────────────────
+
+  /// Devolve o estado da última sincronização:
+  /// { ultimoSync, proximoSync, emExecucao, totalInseridas, totalActualizadas, ... }
+  static Future<Map<String, dynamic>> getSyncStatus() async {
+    final data = await get('/sync/status');
+    return data as Map<String, dynamic>;
+  }
+
+  /// Força uma sincronização manual imediata.
+  /// Devolve { ok, syncedAt, inseridas, actualizadas, ignoradas }
+  static Future<Map<String, dynamic>> sincronizarAgora() async {
+    final data = await post('/sync/agora', {});
+    return data as Map<String, dynamic>;
   }
 }
 
