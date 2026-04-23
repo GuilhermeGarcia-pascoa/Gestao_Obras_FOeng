@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../models/pessoa_tipo_vinculo.dart';
 import '../../services/api_service.dart';
 import '../../widgets/search_bar_widget.dart';
 
@@ -26,6 +27,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
   String _searchViaturas = '';
 
   String _filtroEstadoPessoas = 'ativas';
+  String _filtroTipoPessoas = 'todas';
   String _filtroEstadoMaquinas = 'ativas';
   String _filtroEstadoViaturas = 'ativas';
 
@@ -48,7 +50,25 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
 
   String _normalizar(dynamic value) => (value ?? '').toString().trim().toLowerCase();
 
+  PessoaTipoVinculo _tipoPessoa(dynamic item) =>
+      PessoaTipoVinculo.fromApi(item['tipo_vinculo']);
+
+  String _descricaoPessoa(dynamic item) {
+    final partes = <String>[
+      if (_normalizar(item['cargo']).isNotEmpty) item['cargo'].toString().trim(),
+      _tipoPessoa(item).label,
+      if (_normalizar(item['pais']).isNotEmpty) item['pais'].toString().trim(),
+      '€${item['custo_hora'] ?? 0}/h',
+    ];
+    return partes.join(' · ');
+  }
+
   bool _matchEstado(dynamic item, String filtro) => filtro == 'ativas' ? _ativo(item) : !_ativo(item);
+
+  bool _matchTipoPessoa(dynamic item, String filtro) {
+    if (filtro == 'todas') return true;
+    return _tipoPessoa(item).apiValue == filtro;
+  }
 
   void _filtrarPessoas() {
     final termo = _searchPessoas.toLowerCase();
@@ -57,8 +77,15 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
         final nome = _normalizar(p['nome']);
         final cargo = _normalizar(p['cargo']);
         final pais = _normalizar(p['pais']);
+        final tipo = _tipoPessoa(p).apiValue;
+        final tipoLabel = _tipoPessoa(p).label.toLowerCase();
         return _matchEstado(p, _filtroEstadoPessoas) &&
-            (nome.contains(termo) || cargo.contains(termo) || pais.contains(termo));
+            _matchTipoPessoa(p, _filtroTipoPessoas) &&
+            (nome.contains(termo) ||
+                cargo.contains(termo) ||
+                pais.contains(termo) ||
+                tipo.contains(termo) ||
+                tipoLabel.contains(termo));
       }).toList();
     });
   }
@@ -222,6 +249,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
             'custo_hora': item['custo_hora'],
             'categoria_sindical': item['categoria_sindical'] ?? '',
             'pais': item['pais'] ?? '',
+            'tipo_vinculo': _tipoPessoa(item).apiValue,
             'ativo': ativo,
           },
         );
@@ -286,8 +314,9 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
   }
 
   Widget _abaPessoas() => _abaAdmin(
-        hint: 'Pesquisar pessoas por nome, cargo ou pais...',
+        hint: 'Pesquisar pessoas por nome, cargo, pais ou tipo...',
         filtroEstado: _filtroEstadoPessoas,
+        filtroExtra: _segmentedTipoPessoas(),
         onFiltroChanged: (value) {
           _filtroEstadoPessoas = value;
           _filtrarPessoas();
@@ -299,7 +328,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
         listaOriginal: _pessoas,
         listaFiltrada: _pessoasFiltradas,
         emptyMessage: 'Nenhuma pessoa encontrada.',
-        child: _listaPessoas(_pessoasFiltradas),
+        child: _listaPessoasAtualizada(_pessoasFiltradas),
       );
 
   Widget _abaMaquinas() => _abaAdmin(
@@ -355,6 +384,7 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
     required List<dynamic> listaFiltrada,
     required String emptyMessage,
     required Widget child,
+    Widget? filtroExtra,
   }) {
     if (listaOriginal.isEmpty) return const Center(child: Text('Sem registos.'));
 
@@ -365,6 +395,11 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
           padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
           child: _segmentedEstado(filtroEstado, onFiltroChanged),
         ),
+        if (filtroExtra != null)
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: filtroExtra,
+          ),
         Expanded(
           child: listaFiltrada.isEmpty
               ? Center(child: Text(emptyMessage))
@@ -455,6 +490,162 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
           subtitulo: '${item['cargo'] ?? ''}$local · €${item['custo_hora'] ?? 0}/h',
         );
       },
+    );
+  }
+
+  Widget _segmentedTipoPessoas() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF20252B) : const Color(0xFFF1F4F8);
+    final selected = isDark ? const Color(0xFF2C7A7B) : const Color(0xFF185FA5);
+
+    Widget item(String key, String label, IconData icon) {
+      final ativo = _filtroTipoPessoas == key;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () {
+            _filtroTipoPessoas = key;
+            _filtrarPessoas();
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: ativo ? selected : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: ativo
+                  ? [
+                      BoxShadow(
+                        color: selected.withOpacity(0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Row(
+        children: [
+          item('todas', 'Todos', Icons.groups_2_outlined),
+          const SizedBox(width: 6),
+          item('interno', 'Internos', Icons.badge_outlined),
+          const SizedBox(width: 6),
+          item('externo', 'Externos', Icons.handshake_outlined),
+        ],
+      ),
+    );
+  }
+
+  Widget _listaPessoasAtualizada(List<dynamic> lista) {
+    return ListView.separated(
+      padding: const EdgeInsets.all(16),
+      itemCount: lista.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (context, i) => _cardPessoa(lista[i]),
+    );
+  }
+
+  Widget _cardPessoa(dynamic item) {
+    final nome = item['nome'] ?? '';
+    final ativo = _ativo(item);
+    final tipo = _tipoPessoa(item);
+    final badgeColor = ativo ? const Color(0xFF12836D) : const Color(0xFF7B8794);
+    final tipoColor = tipo == PessoaTipoVinculo.interno
+        ? const Color(0xFF185FA5)
+        : const Color(0xFFB26A00);
+
+    return Card(
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(18),
+        side: BorderSide(color: Theme.of(context).dividerColor.withOpacity(0.08)),
+      ),
+      child: ListTile(
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        onTap: () => _editar(item),
+        leading: CircleAvatar(
+          backgroundColor: const Color(0xFFE6F1FB),
+          child: Text(
+            nome.toString().isNotEmpty ? nome.toString()[0].toUpperCase() : '?',
+            style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.bold),
+          ),
+        ),
+        title: Row(
+          children: [
+            Expanded(child: Text(nome, style: const TextStyle(fontWeight: FontWeight.w700))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: tipoColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                tipo.label,
+                style: TextStyle(
+                  color: tipoColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: badgeColor.withOpacity(0.12),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                ativo ? 'Ativo' : 'Inativo',
+                style: TextStyle(
+                  color: badgeColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text(_descricaoPessoa(item)),
+        ),
+        trailing: PopupMenuButton<String>(
+          onSelected: (value) {
+            if (value == 'editar') _editar(item);
+            if (value == 'estado') _alterarEstado(item, 'pessoa', !ativo);
+          },
+          itemBuilder: (_) => [
+            const PopupMenuItem(value: 'editar', child: Text('Editar')),
+            PopupMenuItem(value: 'estado', child: Text(ativo ? 'Marcar inativo' : 'Marcar ativo')),
+          ],
+        ),
+      ),
     );
   }
 
@@ -565,6 +756,7 @@ class _FormSheetState extends State<_FormSheet> {
   final _custoCtrl = TextEditingController();
   final _extraCtrl = TextEditingController();
   final _paisCtrl = TextEditingController();
+  PessoaTipoVinculo _tipoVinculo = PessoaTipoVinculo.interno;
 
   bool _ativo = true;
   bool _saving = false;
@@ -579,6 +771,7 @@ class _FormSheetState extends State<_FormSheet> {
         _cargoCtrl.text = item['cargo']?.toString() ?? '';
         _custoCtrl.text = item['custo_hora']?.toString() ?? '';
         _paisCtrl.text = item['pais']?.toString() ?? '';
+        _tipoVinculo = PessoaTipoVinculo.fromApi(item['tipo_vinculo']);
       } else if (widget.tipo == 'maquina') {
         _nomeCtrl.text = item['nome']?.toString() ?? '';
         _cargoCtrl.text = item['tipo']?.toString() ?? '';
@@ -626,6 +819,79 @@ class _FormSheetState extends State<_FormSheet> {
     return null;
   }
 
+  Widget _segmentedTipoVinculo() {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
+    final bg = isDark ? const Color(0xFF20252B) : const Color(0xFFF1F4F8);
+    final selected = isDark ? const Color(0xFF2C7A7B) : const Color(0xFF185FA5);
+
+    Widget item(PessoaTipoVinculo tipo, IconData icon) {
+      final ativo = _tipoVinculo == tipo;
+      return Expanded(
+        child: GestureDetector(
+          onTap: () => setState(() => _tipoVinculo = tipo),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 180),
+            curve: Curves.easeOut,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+            decoration: BoxDecoration(
+              color: ativo ? selected : Colors.transparent,
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: ativo
+                  ? [
+                      BoxShadow(
+                        color: selected.withOpacity(0.22),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(icon, size: 16, color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant),
+                const SizedBox(width: 8),
+                Text(
+                  tipo.label,
+                  style: TextStyle(
+                    color: ativo ? Colors.white : theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Vinculo',
+          style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(6),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Row(
+            children: [
+              item(PessoaTipoVinculo.interno, Icons.badge_outlined),
+              const SizedBox(width: 6),
+              item(PessoaTipoVinculo.externo, Icons.handshake_outlined),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _guardar() async {
     final erro = _validar();
     if (erro != null) {
@@ -647,6 +913,7 @@ class _FormSheetState extends State<_FormSheet> {
           'custo_hora': custo,
           'categoria_sindical': widget.item?['categoria_sindical'] ?? '',
           'pais': _paisCtrl.text.trim(),
+          'tipo_vinculo': _tipoVinculo.apiValue,
           'ativo': _ativo,
         };
         if (widget.item == null) {
@@ -735,6 +1002,8 @@ class _FormSheetState extends State<_FormSheet> {
               ),
               const SizedBox(height: 12),
               if (isPessoa) ...[
+                _segmentedTipoVinculo(),
+                const SizedBox(height: 12),
                 TextField(
                   controller: _paisCtrl,
                   decoration: const InputDecoration(

@@ -22,7 +22,7 @@ class _ObraFormScreenState extends State<ObraFormScreen> {
   String _estado = 'planeada';
   bool _saving = false;
 
-  static const _tipos = ['AC', 'DC', 'AC/DC', 'Mecânica', 'Inst. Elétrica'];
+  static const _tipos = ['AC', 'DC', 'AC/DC', 'Mecânica', 'Inst. Elétrica','Remodelação', 'Construção Nova'];
   static const _estados = ['planeada', 'em_curso', 'concluida'];
 
   @override

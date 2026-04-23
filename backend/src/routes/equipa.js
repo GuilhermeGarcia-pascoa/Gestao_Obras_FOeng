@@ -1,67 +1,86 @@
 const router = require('express').Router();
-const { z }  = require('zod');
-const pool   = require('../db/pool');
+const { z } = require('zod');
+const pool = require('../db/pool');
 const { auth, soGestor } = require('../middleware/auth');
 const { logAction, reqMeta } = require('../utils/logger');
 
 router.use(auth);
 
-// ── Helpers ────────────────────────────────────────────────────────────────
 function toDbAtivo(value) {
   return value === false || value === 0 || value === '0' ? 0 : 1;
 }
 
-// ── Schemas Zod ────────────────────────────────────────────────────────────
-const schemaPessoa = z.object({
-  nome:               z.string().min(1, 'Nome obrigatório'),
-  cargo:              z.string().optional().nullable(),
-  categoria_sindical: z.string().optional().nullable(),
-  custo_hora:         z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
-  pais:               z.string().optional().nullable(),
-  ativo:              z.any().optional(),
-});
+function toNullableText(value) {
+  if (value === null || value === undefined) return null;
+  const text = String(value).trim();
+  return text.length === 0 ? null : text;
+}
 
-const schemaMaquina = z.object({
-  nome:             z.string().min(1, 'Nome obrigatório'),
-  tipo:             z.string().optional().nullable(),
-  matricula:        z.string().optional().nullable(),
-  custo_hora:       z.preprocess(Number, z.number().min(0, 'Custo por hora inválido')),
-  combustivel_hora: z.preprocess(
-    (v) => (v === null || v === undefined ? 0 : Number(v)),
-    z.number().min(0, 'Combustível por hora inválido')
-  ),
-  ativo: z.any().optional(),
-});
-
-const schemaViatura = z.object({
-  modelo:         z.string().min(1, 'Modelo obrigatório'),
-  matricula:      z.string().optional().nullable(),
-  custo_km:       z.preprocess(Number, z.number().min(0, 'Custo por km inválido')),
-  consumo_l100km: z.preprocess(
-    (v) => (v === null || v === undefined ? 0 : Number(v)),
-    z.number().min(0, 'Consumo inválido')
-  ),
-  motorista_id: z.number().int().positive().optional().nullable(),
-  ativo: z.any().optional(),
-});
-
-// ── SQL helper ─────────────────────────────────────────────────────────────
 function sqlEstado(tabela, campoNome, estado) {
   let sql = `SELECT * FROM ${tabela}`;
-  if (estado === 'ativas')   sql += ' WHERE COALESCE(ativo, 1) = 1';
+  if (estado === 'ativas') sql += ' WHERE COALESCE(ativo, 1) = 1';
   if (estado === 'inativas') sql += ' WHERE COALESCE(ativo, 1) = 0';
   sql += ` ORDER BY ${campoNome}`;
   return sql;
 }
 
-// ═══════════════════════════════════════════════════════════════════════════
-// PESSOAS
-// ═══════════════════════════════════════════════════════════════════════════
+function sqlEstadoPessoas(estado) {
+  let sql = `
+    SELECT
+      o.*,
+      COALESCE(o.tipo_vinculo, 'interno') AS tipo_vinculo
+    FROM operadores o
+  `;
+  if (estado === 'ativas') sql += ' WHERE COALESCE(o.ativo, 1) = 1';
+  if (estado === 'inativas') sql += ' WHERE COALESCE(o.ativo, 1) = 0';
+  sql += ' ORDER BY o.nome';
+  return sql;
+}
+
+const schemaPessoa = z.object({
+  nome: z.string().trim().min(1, 'Nome obrigatorio'),
+  cargo: z.string().optional().nullable(),
+  categoria_sindical: z.string().optional().nullable(),
+  custo_hora: z.preprocess(Number, z.number().min(0, 'Custo por hora invalido')),
+  pais: z.string().optional().nullable(),
+  tipo_vinculo: z.preprocess(
+    (value) => {
+      if (value === null || value === undefined || String(value).trim() === '') return 'interno';
+      return String(value).trim().toLowerCase();
+    },
+    z.enum(['interno', 'externo'])
+  ),
+  ativo: z.any().optional(),
+});
+
+const schemaMaquina = z.object({
+  nome: z.string().min(1, 'Nome obrigatorio'),
+  tipo: z.string().optional().nullable(),
+  matricula: z.string().optional().nullable(),
+  custo_hora: z.preprocess(Number, z.number().min(0, 'Custo por hora invalido')),
+  combustivel_hora: z.preprocess(
+    (value) => (value === null || value === undefined ? 0 : Number(value)),
+    z.number().min(0, 'Combustivel por hora invalido')
+  ),
+  ativo: z.any().optional(),
+});
+
+const schemaViatura = z.object({
+  modelo: z.string().min(1, 'Modelo obrigatorio'),
+  matricula: z.string().optional().nullable(),
+  custo_km: z.preprocess(Number, z.number().min(0, 'Custo por km invalido')),
+  consumo_l100km: z.preprocess(
+    (value) => (value === null || value === undefined ? 0 : Number(value)),
+    z.number().min(0, 'Consumo invalido')
+  ),
+  motorista_id: z.number().int().positive().optional().nullable(),
+  ativo: z.any().optional(),
+});
 
 router.get('/pessoas', async (req, res) => {
   try {
     const { estado = 'ativas' } = req.query;
-    const [rows] = await pool.query(sqlEstado('operadores', 'nome', estado));
+    const [rows] = await pool.query(sqlEstadoPessoas(estado));
     res.json(rows);
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -70,8 +89,15 @@ router.get('/pessoas', async (req, res) => {
 
 router.get('/pessoas/:id', async (req, res) => {
   try {
-    const [[row]] = await pool.query('SELECT * FROM operadores WHERE id = ?', [req.params.id]);
-    if (!row) return res.status(404).json({ erro: 'Não encontrado' });
+    const [[row]] = await pool.query(
+      `SELECT
+         o.*,
+         COALESCE(o.tipo_vinculo, 'interno') AS tipo_vinculo
+       FROM operadores o
+       WHERE o.id = ?`,
+      [req.params.id]
+    );
+    if (!row) return res.status(404).json({ erro: 'Nao encontrado' });
     res.json(row);
   } catch (err) {
     res.status(500).json({ erro: 'Erro interno no servidor' });
@@ -82,20 +108,43 @@ router.post('/pessoas', soGestor, async (req, res) => {
   const parsed = schemaPessoa.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
-  const { nome, cargo, categoria_sindical, custo_hora, pais, ativo } = parsed.data;
+  const {
+    nome,
+    cargo,
+    categoria_sindical,
+    custo_hora,
+    pais,
+    tipo_vinculo,
+    ativo,
+  } = parsed.data;
 
   try {
     const [result] = await pool.query(
-      'INSERT INTO operadores (nome, cargo, categoria_sindical, custo_hora, pais, ativo) VALUES (?, ?, ?, ?, ?, ?)',
-      [nome.trim(), cargo, categoria_sindical, Number(custo_hora), pais || null, toDbAtivo(ativo)]
+      `INSERT INTO operadores
+         (nome, cargo, categoria_sindical, custo_hora, pais, tipo_vinculo, ativo)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [
+        nome.trim(),
+        toNullableText(cargo),
+        toNullableText(categoria_sindical),
+        Number(custo_hora),
+        toNullableText(pais),
+        tipo_vinculo,
+        toDbAtivo(ativo),
+      ]
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'CREATE',
-      entity:   'operadores',
+      userId: req.user.id,
+      action: 'CREATE',
+      entity: 'operadores',
       entityId: result.insertId,
-      details:  { nome: nome.trim(), cargo, custo_hora },
+      details: {
+        nome: nome.trim(),
+        cargo: toNullableText(cargo),
+        custo_hora,
+        tipo_vinculo,
+      },
       ...reqMeta(req),
     });
 
@@ -109,20 +158,45 @@ router.put('/pessoas/:id', soGestor, async (req, res) => {
   const parsed = schemaPessoa.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ erro: parsed.error.errors[0].message });
 
-  const { nome, cargo, categoria_sindical, custo_hora, pais, ativo } = parsed.data;
+  const {
+    nome,
+    cargo,
+    categoria_sindical,
+    custo_hora,
+    pais,
+    tipo_vinculo,
+    ativo,
+  } = parsed.data;
 
   try {
     await pool.query(
-      'UPDATE operadores SET nome=?, cargo=?, categoria_sindical=?, custo_hora=?, pais=?, ativo=? WHERE id=?',
-      [nome.trim(), cargo, categoria_sindical, Number(custo_hora), pais || null, toDbAtivo(ativo), req.params.id]
+      `UPDATE operadores
+       SET nome=?, cargo=?, categoria_sindical=?, custo_hora=?, pais=?, tipo_vinculo=?, ativo=?
+       WHERE id=?`,
+      [
+        nome.trim(),
+        toNullableText(cargo),
+        toNullableText(categoria_sindical),
+        Number(custo_hora),
+        toNullableText(pais),
+        tipo_vinculo,
+        toDbAtivo(ativo),
+        req.params.id,
+      ]
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'UPDATE',
-      entity:   'operadores',
-      entityId: parseInt(req.params.id),
-      details:  { nome: nome.trim(), cargo, custo_hora, ativo },
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'operadores',
+      entityId: parseInt(req.params.id, 10),
+      details: {
+        nome: nome.trim(),
+        cargo: toNullableText(cargo),
+        custo_hora,
+        tipo_vinculo,
+        ativo,
+      },
       ...reqMeta(req),
     });
 
@@ -134,13 +208,9 @@ router.put('/pessoas/:id', soGestor, async (req, res) => {
 
 router.delete('/pessoas/:id', soGestor, async (req, res) => {
   return res.status(403).json({
-    erro: 'Não é permitido apagar trabalhadores. Marque o trabalhador como inativo para preservar os gráficos e histórico.',
+    erro: 'Nao e permitido apagar trabalhadores. Marque o trabalhador como inativo para preservar os graficos e historico.',
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// MÁQUINAS
-// ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/maquinas', async (req, res) => {
   try {
@@ -165,11 +235,11 @@ router.post('/maquinas', soGestor, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'CREATE',
-      entity:   'maquinas',
+      userId: req.user.id,
+      action: 'CREATE',
+      entity: 'maquinas',
       entityId: result.insertId,
-      details:  { nome: nome.trim(), tipo, matricula, custo_hora },
+      details: { nome: nome.trim(), tipo, matricula, custo_hora },
       ...reqMeta(req),
     });
 
@@ -192,11 +262,11 @@ router.put('/maquinas/:id', soGestor, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'UPDATE',
-      entity:   'maquinas',
-      entityId: parseInt(req.params.id),
-      details:  { nome: nome.trim(), tipo, matricula, custo_hora, ativo },
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'maquinas',
+      entityId: parseInt(req.params.id, 10),
+      details: { nome: nome.trim(), tipo, matricula, custo_hora, ativo },
       ...reqMeta(req),
     });
 
@@ -208,13 +278,9 @@ router.put('/maquinas/:id', soGestor, async (req, res) => {
 
 router.delete('/maquinas/:id', soGestor, async (req, res) => {
   return res.status(403).json({
-    erro: 'Não é permitido apagar máquinas. Marque a máquina como inativa para preservar os gráficos e histórico.',
+    erro: 'Nao e permitido apagar maquinas. Marque a maquina como inativa para preservar os graficos e historico.',
   });
 });
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VIATURAS
-// ═══════════════════════════════════════════════════════════════════════════
 
 router.get('/viaturas', async (req, res) => {
   try {
@@ -239,11 +305,11 @@ router.post('/viaturas', soGestor, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'CREATE',
-      entity:   'viaturas',
+      userId: req.user.id,
+      action: 'CREATE',
+      entity: 'viaturas',
       entityId: result.insertId,
-      details:  { modelo: modelo.trim(), matricula, custo_km },
+      details: { modelo: modelo.trim(), matricula, custo_km },
       ...reqMeta(req),
     });
 
@@ -266,11 +332,11 @@ router.put('/viaturas/:id', soGestor, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'UPDATE',
-      entity:   'viaturas',
-      entityId: parseInt(req.params.id),
-      details:  { modelo: modelo.trim(), matricula, custo_km, ativo },
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'viaturas',
+      entityId: parseInt(req.params.id, 10),
+      details: { modelo: modelo.trim(), matricula, custo_km, ativo },
       ...reqMeta(req),
     });
 
@@ -282,7 +348,7 @@ router.put('/viaturas/:id', soGestor, async (req, res) => {
 
 router.delete('/viaturas/:id', soGestor, async (req, res) => {
   return res.status(403).json({
-    erro: 'Não é permitido apagar viaturas. Marque a viatura como inativa para preservar os gráficos e histórico.',
+    erro: 'Nao e permitido apagar viaturas. Marque a viatura como inativa para preservar os graficos e historico.',
   });
 });
 

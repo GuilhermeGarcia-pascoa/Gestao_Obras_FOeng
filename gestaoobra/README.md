@@ -48,6 +48,7 @@ CREATE TABLE semanas (
 CREATE TABLE operadores (
   id                  INT AUTO_INCREMENT PRIMARY KEY,
   nome                VARCHAR(100) NOT NULL,
+  tipo_vinculo        ENUM('interno','externo') NOT NULL DEFAULT 'interno',
   cargo               VARCHAR(100),
   categoria_sindical  VARCHAR(100),
   custo_hora          DECIMAL(8,2),
@@ -125,6 +126,13 @@ Para guardar o custo usado em cada dia, sem alterar obras antigas quando mudares
 
 ```sql
 SOURCE backend/sql/migracao_historico_custos.sql;
+```
+
+### Migracao do vinculo das pessoas
+Para distinguir trabalhadores internos e externos sem tocar em maquinas ou viaturas:
+
+```sql
+SOURCE backend/sql/migracao_tipo_vinculo_operadores.sql;
 ```
 
 ### Criar o primeiro utilizador admin
