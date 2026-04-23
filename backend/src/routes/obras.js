@@ -49,10 +49,6 @@ router.get('/', async (req, res) => {
       dataFim,
       orcamentoMin,
       orcamentoMax,
-      subempreiteiro,
-      zona,
-      responsavel,
-      cliente,
     } = req.query;
     const tipos = asArray(req.query.tipo)
       .map((tipo) => String(tipo).trim())
@@ -91,32 +87,6 @@ router.get('/', async (req, res) => {
     if (max !== null) {
       sql += ' AND COALESCE(orcamento, 0) <= ?';
       params.push(max);
-    }
-
-    if (columns.has('subempreiteiro') && subempreiteiro) {
-      sql += ' AND LOWER(COALESCE(subempreiteiro, \'\')) LIKE ?';
-      params.push(`%${String(subempreiteiro).trim().toLowerCase()}%`);
-    }
-
-    if (columns.has('zona') && zona) {
-      sql += ' AND LOWER(COALESCE(zona, \'\')) LIKE ?';
-      params.push(`%${String(zona).trim().toLowerCase()}%`);
-    }
-
-    if (columns.has('responsavel') && responsavel) {
-      sql += ' AND LOWER(COALESCE(responsavel, \'\')) LIKE ?';
-      params.push(`%${String(responsavel).trim().toLowerCase()}%`);
-    }
-
-    if (cliente) {
-      const clienteFiltro = `%${String(cliente).trim().toLowerCase()}%`;
-      if (columns.has('cliente')) {
-        sql += ' AND LOWER(COALESCE(cliente, \'\')) LIKE ?';
-        params.push(clienteFiltro);
-      } else if (columns.has('fo_panel_cliente')) {
-        sql += ' AND LOWER(COALESCE(fo_panel_cliente, \'\')) LIKE ?';
-        params.push(clienteFiltro);
-      }
     }
 
     sql += ' ORDER BY criado_em DESC';

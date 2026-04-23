@@ -31,10 +31,6 @@ class _FiltrosObras {
   final DateTime? dataFim;
   final String orcamentoMin;
   final String orcamentoMax;
-  final String subempreiteiro;
-  final String zona;
-  final String responsavel;
-  final String cliente;
 
   const _FiltrosObras({
     this.tipos = const [],
@@ -42,10 +38,6 @@ class _FiltrosObras {
     this.dataFim,
     this.orcamentoMin = '',
     this.orcamentoMax = '',
-    this.subempreiteiro = '',
-    this.zona = '',
-    this.responsavel = '',
-    this.cliente = '',
   });
 
   bool get hasActiveFilters =>
@@ -53,21 +45,13 @@ class _FiltrosObras {
       dataInicio != null ||
       dataFim != null ||
       orcamentoMin.trim().isNotEmpty ||
-      orcamentoMax.trim().isNotEmpty ||
-      subempreiteiro.trim().isNotEmpty ||
-      zona.trim().isNotEmpty ||
-      responsavel.trim().isNotEmpty ||
-      cliente.trim().isNotEmpty;
+      orcamentoMax.trim().isNotEmpty;
 
   int get activeCount {
     var count = 0;
     if (tipos.isNotEmpty) count++;
     if (dataInicio != null || dataFim != null) count++;
     if (orcamentoMin.trim().isNotEmpty || orcamentoMax.trim().isNotEmpty) count++;
-    if (subempreiteiro.trim().isNotEmpty) count++;
-    if (zona.trim().isNotEmpty) count++;
-    if (responsavel.trim().isNotEmpty) count++;
-    if (cliente.trim().isNotEmpty) count++;
     return count;
   }
 }
@@ -93,10 +77,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   DateTime? _dataFimSelecionada;
   final TextEditingController _orcamentoMinCtrl = TextEditingController();
   final TextEditingController _orcamentoMaxCtrl = TextEditingController();
-  final TextEditingController _subempreiteiroCtrl = TextEditingController();
-  final TextEditingController _zonaCtrl = TextEditingController();
-  final TextEditingController _responsavelCtrl = TextEditingController();
-  final TextEditingController _clienteCtrl = TextEditingController();
 
   static const int _obrasPorPagina = 20;
   int _paginaAtual = 0;
@@ -109,10 +89,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     _scrollController.dispose();
     _orcamentoMinCtrl.dispose();
     _orcamentoMaxCtrl.dispose();
-    _subempreiteiroCtrl.dispose();
-    _zonaCtrl.dispose();
-    _responsavelCtrl.dispose();
-    _clienteCtrl.dispose();
     super.dispose();
   }
 
@@ -134,10 +110,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     _dataFimSelecionada = _filtrosAplicados.dataFim;
     _orcamentoMinCtrl.text = _filtrosAplicados.orcamentoMin;
     _orcamentoMaxCtrl.text = _filtrosAplicados.orcamentoMax;
-    _subempreiteiroCtrl.text = _filtrosAplicados.subempreiteiro;
-    _zonaCtrl.text = _filtrosAplicados.zona;
-    _responsavelCtrl.text = _filtrosAplicados.responsavel;
-    _clienteCtrl.text = _filtrosAplicados.cliente;
   }
 
   String? _normalizarNumero(String value) {
@@ -164,10 +136,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
         dataFim: _fmtApiDate(_filtrosAplicados.dataFim),
         orcamentoMin: _filtrosAplicados.orcamentoMin,
         orcamentoMax: _filtrosAplicados.orcamentoMax,
-        subempreiteiro: _filtrosAplicados.subempreiteiro,
-        zona: _filtrosAplicados.zona,
-        responsavel: _filtrosAplicados.responsavel,
-        cliente: _filtrosAplicados.cliente,
       );
       _obras = data;
       _loading = false;
@@ -254,10 +222,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
       dataFim: _dataFimSelecionada,
       orcamentoMin: min ?? '',
       orcamentoMax: max ?? '',
-      subempreiteiro: _subempreiteiroCtrl.text.trim(),
-      zona: _zonaCtrl.text.trim(),
-      responsavel: _responsavelCtrl.text.trim(),
-      cliente: _clienteCtrl.text.trim(),
     );
 
     setState(() => _mostrarFiltros = false);
@@ -271,10 +235,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     _dataFimSelecionada = null;
     _orcamentoMinCtrl.clear();
     _orcamentoMaxCtrl.clear();
-    _subempreiteiroCtrl.clear();
-    _zonaCtrl.clear();
-    _responsavelCtrl.clear();
-    _clienteCtrl.clear();
 
     setState(() => _mostrarFiltros = false);
     await _carregar();
@@ -740,47 +700,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                   label: 'Máximo',
                   hint: '€ 50000',
                   numeric: true,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          _secaoTitulo('Detalhes'),
-          Row(
-            children: [
-              Expanded(
-                child: _campoTexto(
-                  controller: _subempreiteiroCtrl,
-                  label: 'Subempreiteiro',
-                  hint: 'Pesquisar subempreiteiro',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _campoTexto(
-                  controller: _zonaCtrl,
-                  label: 'Zona',
-                  hint: 'Ex: Lisboa',
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Row(
-            children: [
-              Expanded(
-                child: _campoTexto(
-                  controller: _responsavelCtrl,
-                  label: 'Responsável / Técnico',
-                  hint: 'Nome do responsável',
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: _campoTexto(
-                  controller: _clienteCtrl,
-                  label: 'Cliente / Dono de Obra',
-                  hint: 'Nome do cliente',
                 ),
               ),
             ],

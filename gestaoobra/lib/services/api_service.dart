@@ -84,10 +84,6 @@ class ApiService {
     String? dataFim,
     String? orcamentoMin,
     String? orcamentoMax,
-    String? subempreiteiro,
-    String? zona,
-    String? responsavel,
-    String? cliente,
   }) async {
     final queryParts = <String>[];
 
@@ -116,10 +112,6 @@ class ApiService {
     addSingle('dataFim', dataFim);
     addSingle('orcamentoMin', orcamentoMin);
     addSingle('orcamentoMax', orcamentoMax);
-    addSingle('subempreiteiro', subempreiteiro);
-    addSingle('zona', zona);
-    addSingle('responsavel', responsavel);
-    addSingle('cliente', cliente);
 
     final query = queryParts.isEmpty ? '' : '?${queryParts.join('&')}';
     final uri = Uri.parse('${ApiConfig.baseUrl}/obras$query');
