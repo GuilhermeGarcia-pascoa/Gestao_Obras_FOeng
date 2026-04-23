@@ -77,9 +77,55 @@ class ApiService {
   }
 
   // ── OBRAS ──────────────────────────────────────────────────────────────────
-  static Future<List<dynamic>> listarObras({String? estado}) async {
-    final query = estado != null ? '?estado=$estado' : '';
-    return await get('/obras$query');
+  static Future<List<dynamic>> listarObras({
+    String? estado,
+    List<String>? tipos,
+    String? dataInicio,
+    String? dataFim,
+    String? orcamentoMin,
+    String? orcamentoMax,
+    String? subempreiteiro,
+    String? zona,
+    String? responsavel,
+    String? cliente,
+  }) async {
+    final queryParts = <String>[];
+
+    void addSingle(String key, String? value) {
+      final clean = value?.trim();
+      if (clean == null || clean.isEmpty) return;
+      queryParts.add(
+        '${Uri.encodeQueryComponent(key)}=${Uri.encodeQueryComponent(clean)}',
+      );
+    }
+
+    if (estado != null && estado.trim().isNotEmpty) {
+      addSingle('estado', estado);
+    }
+    if (tipos != null && tipos.isNotEmpty) {
+      for (final tipo in tipos) {
+        final clean = tipo.trim();
+        if (clean.isEmpty) continue;
+        queryParts.add(
+          '${Uri.encodeQueryComponent('tipo')}=${Uri.encodeQueryComponent(clean)}',
+        );
+      }
+    }
+
+    addSingle('dataInicio', dataInicio);
+    addSingle('dataFim', dataFim);
+    addSingle('orcamentoMin', orcamentoMin);
+    addSingle('orcamentoMax', orcamentoMax);
+    addSingle('subempreiteiro', subempreiteiro);
+    addSingle('zona', zona);
+    addSingle('responsavel', responsavel);
+    addSingle('cliente', cliente);
+
+    final query = queryParts.isEmpty ? '' : '?${queryParts.join('&')}';
+    final uri = Uri.parse('${ApiConfig.baseUrl}/obras$query');
+
+    final res = await http.get(uri, headers: await _headers());
+    return _parse(res);
   }
 
   static Future<Map<String, dynamic>> getObra(int id) async => await get('/obras/$id');

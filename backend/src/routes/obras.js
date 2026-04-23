@@ -24,17 +24,103 @@ function parseNumeroNaoNegativo(value) {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
+async function getObrasColumns() {
+  const [rows] = await pool.query(
+    `SELECT COLUMN_NAME
+     FROM INFORMATION_SCHEMA.COLUMNS
+     WHERE TABLE_SCHEMA = DATABASE()
+       AND TABLE_NAME = 'obras'`
+  );
+  return new Set(rows.map((row) => row.COLUMN_NAME));
+}
+
+function asArray(value) {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined || value === '') return [];
+  return [value];
+}
+
 // ── GET /api/obras ─────────────────────────────────────────────────────────
 router.get('/', async (req, res) => {
-  const { estado, tipo } = req.query;
-  let sql = 'SELECT * FROM obras WHERE 1=1';
-  const params = [];
-
-  if (estado) { sql += ' AND estado = ?'; params.push(estado); }
-  if (tipo)   { sql += ' AND tipo = ?';   params.push(tipo); }
-  sql += ' ORDER BY criado_em DESC';
-
   try {
+    const {
+      estado,
+      dataInicio,
+      dataFim,
+      orcamentoMin,
+      orcamentoMax,
+      subempreiteiro,
+      zona,
+      responsavel,
+      cliente,
+    } = req.query;
+    const tipos = asArray(req.query.tipo)
+      .map((tipo) => String(tipo).trim())
+      .filter(Boolean);
+    const columns = await getObrasColumns();
+    let sql = 'SELECT * FROM obras WHERE 1=1';
+    const params = [];
+
+    if (estado) {
+      sql += ' AND estado = ?';
+      params.push(estado);
+    }
+
+    if (tipos.length) {
+      sql += ` AND tipo IN (${tipos.map(() => '?').join(', ')})`;
+      params.push(...tipos);
+    }
+
+    if (columns.has('data_inicio') && dataInicio) {
+      sql += ' AND data_inicio >= ?';
+      params.push(dataInicio);
+    }
+
+    if (columns.has('data_fim') && dataFim) {
+      sql += ' AND data_fim <= ?';
+      params.push(dataFim);
+    }
+
+    const min = parseNumeroNaoNegativo(orcamentoMin);
+    if (min !== null) {
+      sql += ' AND COALESCE(orcamento, 0) >= ?';
+      params.push(min);
+    }
+
+    const max = parseNumeroNaoNegativo(orcamentoMax);
+    if (max !== null) {
+      sql += ' AND COALESCE(orcamento, 0) <= ?';
+      params.push(max);
+    }
+
+    if (columns.has('subempreiteiro') && subempreiteiro) {
+      sql += ' AND LOWER(COALESCE(subempreiteiro, \'\')) LIKE ?';
+      params.push(`%${String(subempreiteiro).trim().toLowerCase()}%`);
+    }
+
+    if (columns.has('zona') && zona) {
+      sql += ' AND LOWER(COALESCE(zona, \'\')) LIKE ?';
+      params.push(`%${String(zona).trim().toLowerCase()}%`);
+    }
+
+    if (columns.has('responsavel') && responsavel) {
+      sql += ' AND LOWER(COALESCE(responsavel, \'\')) LIKE ?';
+      params.push(`%${String(responsavel).trim().toLowerCase()}%`);
+    }
+
+    if (cliente) {
+      const clienteFiltro = `%${String(cliente).trim().toLowerCase()}%`;
+      if (columns.has('cliente')) {
+        sql += ' AND LOWER(COALESCE(cliente, \'\')) LIKE ?';
+        params.push(clienteFiltro);
+      } else if (columns.has('fo_panel_cliente')) {
+        sql += ' AND LOWER(COALESCE(fo_panel_cliente, \'\')) LIKE ?';
+        params.push(clienteFiltro);
+      }
+    }
+
+    sql += ' ORDER BY criado_em DESC';
+
     const [rows] = await pool.query(sql, params);
     res.json(rows);
   } catch (err) {

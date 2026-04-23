@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../../services/api_service.dart';
@@ -14,6 +15,63 @@ num _parseOrcamento(dynamic value) {
   return 0;
 }
 
+const List<String> _tiposObra = [
+  'AC',
+  'DC',
+  'AC/DC',
+  'Mecânica',
+  'Inst. Elétrica',
+  'Remodelação',
+  'Construção Nova',
+];
+
+class _FiltrosObras {
+  final List<String> tipos;
+  final DateTime? dataInicio;
+  final DateTime? dataFim;
+  final String orcamentoMin;
+  final String orcamentoMax;
+  final String subempreiteiro;
+  final String zona;
+  final String responsavel;
+  final String cliente;
+
+  const _FiltrosObras({
+    this.tipos = const [],
+    this.dataInicio,
+    this.dataFim,
+    this.orcamentoMin = '',
+    this.orcamentoMax = '',
+    this.subempreiteiro = '',
+    this.zona = '',
+    this.responsavel = '',
+    this.cliente = '',
+  });
+
+  bool get hasActiveFilters =>
+      tipos.isNotEmpty ||
+      dataInicio != null ||
+      dataFim != null ||
+      orcamentoMin.trim().isNotEmpty ||
+      orcamentoMax.trim().isNotEmpty ||
+      subempreiteiro.trim().isNotEmpty ||
+      zona.trim().isNotEmpty ||
+      responsavel.trim().isNotEmpty ||
+      cliente.trim().isNotEmpty;
+
+  int get activeCount {
+    var count = 0;
+    if (tipos.isNotEmpty) count++;
+    if (dataInicio != null || dataFim != null) count++;
+    if (orcamentoMin.trim().isNotEmpty || orcamentoMax.trim().isNotEmpty) count++;
+    if (subempreiteiro.trim().isNotEmpty) count++;
+    if (zona.trim().isNotEmpty) count++;
+    if (responsavel.trim().isNotEmpty) count++;
+    if (cliente.trim().isNotEmpty) count++;
+    return count;
+  }
+}
+
 class ObrasListScreen extends StatefulWidget {
   const ObrasListScreen({super.key});
 
@@ -27,8 +85,20 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   bool _loading = true;
   String _filtroEstado = '';
   String _searchText = '';
+  bool _mostrarFiltros = false;
+  _FiltrosObras _filtrosAplicados = const _FiltrosObras();
 
-  static const int _obrasPorPagina = 50;
+  final Set<String> _tiposSelecionados = <String>{};
+  DateTime? _dataInicioSelecionada;
+  DateTime? _dataFimSelecionada;
+  final TextEditingController _orcamentoMinCtrl = TextEditingController();
+  final TextEditingController _orcamentoMaxCtrl = TextEditingController();
+  final TextEditingController _subempreiteiroCtrl = TextEditingController();
+  final TextEditingController _zonaCtrl = TextEditingController();
+  final TextEditingController _responsavelCtrl = TextEditingController();
+  final TextEditingController _clienteCtrl = TextEditingController();
+
+  static const int _obrasPorPagina = 20;
   int _paginaAtual = 0;
 
   // Scroll controller para voltar ao topo ao mudar de página
@@ -37,24 +107,71 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _orcamentoMinCtrl.dispose();
+    _orcamentoMaxCtrl.dispose();
+    _subempreiteiroCtrl.dispose();
+    _zonaCtrl.dispose();
+    _responsavelCtrl.dispose();
+    _clienteCtrl.dispose();
     super.dispose();
   }
 
   @override
   void initState() {
     super.initState();
+    _sincronizarDraftComAplicados();
     _carregar();
   }
+
+  bool get _temFiltrosServidorAtivos =>
+      _filtroEstado.isNotEmpty || _filtrosAplicados.hasActiveFilters;
+
+  void _sincronizarDraftComAplicados() {
+    _tiposSelecionados
+      ..clear()
+      ..addAll(_filtrosAplicados.tipos);
+    _dataInicioSelecionada = _filtrosAplicados.dataInicio;
+    _dataFimSelecionada = _filtrosAplicados.dataFim;
+    _orcamentoMinCtrl.text = _filtrosAplicados.orcamentoMin;
+    _orcamentoMaxCtrl.text = _filtrosAplicados.orcamentoMax;
+    _subempreiteiroCtrl.text = _filtrosAplicados.subempreiteiro;
+    _zonaCtrl.text = _filtrosAplicados.zona;
+    _responsavelCtrl.text = _filtrosAplicados.responsavel;
+    _clienteCtrl.text = _filtrosAplicados.cliente;
+  }
+
+  String? _normalizarNumero(String value) {
+    final trimmed = value.trim().replaceAll(',', '.');
+    if (trimmed.isEmpty) return null;
+    final parsed = double.tryParse(trimmed);
+    if (parsed == null || parsed < 0) return null;
+    return parsed.toString();
+  }
+
+  String? _fmtApiDate(DateTime? value) =>
+      value == null ? null : DateFormat('yyyy-MM-dd').format(value);
+
+  String _fmtUiDate(DateTime? value) =>
+      value == null ? 'Selecionar' : DateFormat('dd/MM/yyyy').format(value);
 
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
-      final data = await ApiService.listarObras();
-      setState(() {
-        _obras = data;
-        _loading = false;
-        _filtrarObras();
-      });
+      final data = await ApiService.listarObras(
+        estado: _filtroEstado.isEmpty ? null : _filtroEstado,
+        tipos: _filtrosAplicados.tipos,
+        dataInicio: _fmtApiDate(_filtrosAplicados.dataInicio),
+        dataFim: _fmtApiDate(_filtrosAplicados.dataFim),
+        orcamentoMin: _filtrosAplicados.orcamentoMin,
+        orcamentoMax: _filtrosAplicados.orcamentoMax,
+        subempreiteiro: _filtrosAplicados.subempreiteiro,
+        zona: _filtrosAplicados.zona,
+        responsavel: _filtrosAplicados.responsavel,
+        cliente: _filtrosAplicados.cliente,
+      );
+      _obras = data;
+      _loading = false;
+      _filtrarObras();
     } on ApiException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
@@ -71,10 +188,96 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
         final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
         final nome = (obra['nome'] ?? '').toString().toLowerCase();
         final matchSearch = codigo.contains(search) || nome.contains(search);
-        final matchEstado = _filtroEstado.isEmpty || obra['estado'] == _filtroEstado;
-        return matchSearch && matchEstado;
+        return matchSearch;
       }).toList();
     });
+  }
+
+  void _toggleFiltros() {
+    setState(() {
+      _mostrarFiltros = !_mostrarFiltros;
+      if (_mostrarFiltros) _sincronizarDraftComAplicados();
+    });
+  }
+
+  Future<void> _selecionarData({required bool isInicio}) async {
+    final atual = isInicio ? _dataInicioSelecionada : _dataFimSelecionada;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: atual ?? DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime(2100),
+    );
+    if (picked == null) return;
+
+    setState(() {
+      if (isInicio) {
+        _dataInicioSelecionada = picked;
+        if (_dataFimSelecionada != null && picked.isAfter(_dataFimSelecionada!)) {
+          _dataFimSelecionada = picked;
+        }
+      } else {
+        _dataFimSelecionada = picked;
+        if (_dataInicioSelecionada != null && picked.isBefore(_dataInicioSelecionada!)) {
+          _dataInicioSelecionada = picked;
+        }
+      }
+    });
+  }
+
+  Future<void> _aplicarFiltrosAvancados() async {
+    final min = _normalizarNumero(_orcamentoMinCtrl.text);
+    final max = _normalizarNumero(_orcamentoMaxCtrl.text);
+
+    if (_orcamentoMinCtrl.text.trim().isNotEmpty && min == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Orçamento mínimo inválido')),
+      );
+      return;
+    }
+    if (_orcamentoMaxCtrl.text.trim().isNotEmpty && max == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Orçamento máximo inválido')),
+      );
+      return;
+    }
+    if (min != null && max != null && double.parse(min) > double.parse(max)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('O orçamento mínimo não pode ser superior ao máximo')),
+      );
+      return;
+    }
+
+    _filtrosAplicados = _FiltrosObras(
+      tipos: _tiposSelecionados.toList()..sort(),
+      dataInicio: _dataInicioSelecionada,
+      dataFim: _dataFimSelecionada,
+      orcamentoMin: min ?? '',
+      orcamentoMax: max ?? '',
+      subempreiteiro: _subempreiteiroCtrl.text.trim(),
+      zona: _zonaCtrl.text.trim(),
+      responsavel: _responsavelCtrl.text.trim(),
+      cliente: _clienteCtrl.text.trim(),
+    );
+
+    setState(() => _mostrarFiltros = false);
+    await _carregar();
+  }
+
+  Future<void> _limparFiltrosAvancados() async {
+    _filtrosAplicados = const _FiltrosObras();
+    _tiposSelecionados.clear();
+    _dataInicioSelecionada = null;
+    _dataFimSelecionada = null;
+    _orcamentoMinCtrl.clear();
+    _orcamentoMaxCtrl.clear();
+    _subempreiteiroCtrl.clear();
+    _zonaCtrl.clear();
+    _responsavelCtrl.clear();
+    _clienteCtrl.clear();
+
+    setState(() => _mostrarFiltros = false);
+    await _carregar();
   }
 
   // Obras apenas da página atual
@@ -181,19 +384,25 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                           ),
                           const SizedBox(height: 8),
                           _filtrosEstado(isDark),
+                          const SizedBox(height: 8),
+                          _filtrosToolbar(isDark),
+                          if (_mostrarFiltros) ...[
+                            const SizedBox(height: 10),
+                            _painelFiltrosAvancados(isDark),
+                          ],
                           const SizedBox(height: 12),
-                          if (_obras.isEmpty)
+                          if (_obras.isEmpty && !_temFiltrosServidorAtivos)
                             _emptyMessage(
                               icon: Icons.domain_disabled_outlined,
                               title: 'Sem obras registadas',
                               subtitle: 'Cria a primeira obra para comecar.',
                               isDark: isDark,
                             )
-                          else if (_obrasFiltradas.isEmpty)
+                          else if (_obras.isEmpty || _obrasFiltradas.isEmpty)
                             _emptyMessage(
                               icon: Icons.search_off_rounded,
                               title: 'Nenhuma obra encontrada',
-                              subtitle: 'Ajusta a pesquisa ou o filtro.',
+                              subtitle: 'Ajusta a pesquisa ou os filtros aplicados.',
                               isDark: isDark,
                             )
                           else ...[
@@ -376,6 +585,282 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     return paginas;
   }
 
+  Widget _filtrosToolbar(bool isDark) {
+    final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final textColor = isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233);
+    final count = _filtrosAplicados.activeCount;
+    final destaque = _filtrosAplicados.hasActiveFilters ? const Color(0xFF185FA5) : textColor;
+
+    return Row(
+      children: [
+        Expanded(
+          child: GestureDetector(
+            onTap: _toggleFiltros,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: _filtrosAplicados.hasActiveFilters ? const Color(0xFF185FA5) : border,
+                ),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.tune_rounded, size: 18, color: destaque),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Filtros',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        color: destaque,
+                      ),
+                    ),
+                  ),
+                  if (count > 0) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF185FA5),
+                        borderRadius: BorderRadius.circular(999),
+                      ),
+                      child: Text(
+                        '$count',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
+                  Icon(
+                    _mostrarFiltros ? Icons.expand_less_rounded : Icons.expand_more_rounded,
+                    color: destaque,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Text(
+          '${_obrasFiltradas.length} resultado(s)',
+          style: TextStyle(
+            fontSize: 12,
+            color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _painelFiltrosAvancados(bool isDark) {
+    final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _secaoTitulo('Tipo de Obra'),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _tiposObra.map((tipo) {
+              final ativo = _tiposSelecionados.contains(tipo);
+              return FilterChip(
+                label: Text(tipo),
+                selected: ativo,
+                onSelected: (_) {
+                  setState(() {
+                    if (ativo) {
+                      _tiposSelecionados.remove(tipo);
+                    } else {
+                      _tiposSelecionados.add(tipo);
+                    }
+                  });
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+          _secaoTitulo('Intervalo de Datas'),
+          Row(
+            children: [
+              Expanded(
+                child: _campoData(
+                  label: 'Data de início',
+                  value: _fmtUiDate(_dataInicioSelecionada),
+                  onTap: () => _selecionarData(isInicio: true),
+                  onClear: _dataInicioSelecionada == null
+                      ? null
+                      : () => setState(() => _dataInicioSelecionada = null),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _campoData(
+                  label: 'Data de fim',
+                  value: _fmtUiDate(_dataFimSelecionada),
+                  onTap: () => _selecionarData(isInicio: false),
+                  onClear: _dataFimSelecionada == null
+                      ? null
+                      : () => setState(() => _dataFimSelecionada = null),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _secaoTitulo('Valor do Orçamento'),
+          Row(
+            children: [
+              Expanded(
+                child: _campoTexto(
+                  controller: _orcamentoMinCtrl,
+                  label: 'Mínimo',
+                  hint: '€ 0',
+                  numeric: true,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _campoTexto(
+                  controller: _orcamentoMaxCtrl,
+                  label: 'Máximo',
+                  hint: '€ 50000',
+                  numeric: true,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _secaoTitulo('Detalhes'),
+          Row(
+            children: [
+              Expanded(
+                child: _campoTexto(
+                  controller: _subempreiteiroCtrl,
+                  label: 'Subempreiteiro',
+                  hint: 'Pesquisar subempreiteiro',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _campoTexto(
+                  controller: _zonaCtrl,
+                  label: 'Zona',
+                  hint: 'Ex: Lisboa',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(
+                child: _campoTexto(
+                  controller: _responsavelCtrl,
+                  label: 'Responsável / Técnico',
+                  hint: 'Nome do responsável',
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: _campoTexto(
+                  controller: _clienteCtrl,
+                  label: 'Cliente / Dono de Obra',
+                  hint: 'Nome do cliente',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _limparFiltrosAvancados,
+                  child: const Text('Limpar Filtros'),
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: _aplicarFiltrosAvancados,
+                  child: const Text('Aplicar Filtros'),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _secaoTitulo(String text) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w800),
+      ),
+    );
+  }
+
+  Widget _campoTexto({
+    required TextEditingController controller,
+    required String label,
+    required String hint,
+    bool numeric = false,
+  }) {
+    return TextField(
+      controller: controller,
+      keyboardType: numeric ? const TextInputType.numberWithOptions(decimal: true) : TextInputType.text,
+      inputFormatters: numeric
+          ? [FilteringTextInputFormatter.allow(RegExp(r'[0-9.,]'))]
+          : null,
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+      ),
+    );
+  }
+
+  Widget _campoData({
+    required String label,
+    required String value,
+    required VoidCallback onTap,
+    VoidCallback? onClear,
+  }) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(12),
+      onTap: onTap,
+      child: InputDecorator(
+        decoration: InputDecoration(
+          labelText: label,
+          suffixIcon: onClear == null
+              ? const Icon(Icons.calendar_today_rounded, size: 18)
+              : IconButton(
+                  icon: const Icon(Icons.close_rounded, size: 18),
+                  onPressed: onClear,
+                ),
+        ),
+        child: Text(value),
+      ),
+    );
+  }
+
   Widget _resumoChips(int total, int emCurso, int planeadas, int concluidas, bool isDark) {
     final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
     final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
@@ -427,9 +912,9 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
 
       return Expanded(
         child: GestureDetector(
-          onTap: () {
+          onTap: () async {
             _filtroEstado = key;
-            _filtrarObras();
+            await _carregar();
           },
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 160),
