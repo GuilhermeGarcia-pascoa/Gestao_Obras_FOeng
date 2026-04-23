@@ -149,17 +149,26 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   }
 
   void _filtrarObras() {
-    final search = _searchText.toLowerCase();
-    setState(() {
-      _paginaAtual = 0; // Volta sempre à primeira página ao filtrar
-      _obrasFiltradas = _obras.where((obra) {
-        final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
-        final nome = (obra['nome'] ?? '').toString().toLowerCase();
-        final matchSearch = codigo.contains(search) || nome.contains(search);
-        return matchSearch;
-      }).toList();
-    });
-  }
+  final search = _searchText.toLowerCase();
+  final minVal = double.tryParse(_filtrosAplicados.orcamentoMin);
+  final maxVal = double.tryParse(_filtrosAplicados.orcamentoMax);
+
+  setState(() {
+    _paginaAtual = 0;
+    _obrasFiltradas = _obras.where((obra) {
+      final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
+      final nome = (obra['nome'] ?? '').toString().toLowerCase();
+      final matchSearch = codigo.contains(search) || nome.contains(search);
+
+      // Filtro de orçamento
+      final orc = _parseOrcamento(obra['orcamento']).toDouble();
+      final matchMin = minVal == null || orc >= minVal;
+      final matchMax = maxVal == null || orc <= maxVal;
+
+      return matchSearch && matchMin && matchMax;
+    }).toList();
+  });
+}
 
   void _toggleFiltros() {
     setState(() {
