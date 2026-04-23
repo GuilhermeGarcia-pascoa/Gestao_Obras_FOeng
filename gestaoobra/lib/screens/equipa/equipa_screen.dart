@@ -472,26 +472,6 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
     );
   }
 
-  Widget _listaPessoas(List<dynamic> lista) {
-    return ListView.separated(
-      padding: const EdgeInsets.all(16),
-      itemCount: lista.length,
-      separatorBuilder: (_, __) => const SizedBox(height: 8),
-      itemBuilder: (context, i) {
-        final item = lista[i];
-        final nome = item['nome'] ?? '';
-        final pais = (item['pais'] ?? '').toString().trim();
-        final local = pais.isEmpty ? '' : ' · $pais';
-
-        return _cardRecurso(
-          item: item,
-          tipo: 'pessoa',
-          nome: nome,
-          subtitulo: '${item['cargo'] ?? ''}$local · €${item['custo_hora'] ?? 0}/h',
-        );
-      },
-    );
-  }
 
   Widget _segmentedTipoPessoas() {
     final theme = Theme.of(context);
