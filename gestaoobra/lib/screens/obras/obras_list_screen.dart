@@ -5,7 +5,6 @@ import 'package:intl/intl.dart';
 import '../../services/api_service.dart';
 import '../../widgets/search_bar_widget.dart';
 import 'obra_detail_screen.dart';
-import 'obra_form_screen.dart';
 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
 
@@ -316,14 +315,6 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => Navigator.push(
-          context,
-          MaterialPageRoute(builder: (_) => const ObraFormScreen()),
-        ).then((_) => _carregar()),
-        icon: const Icon(Icons.add_rounded),
-        label: const Text('Nova obra'),
-      ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : RefreshIndicator(
@@ -340,7 +331,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                       constraints: BoxConstraints(maxWidth: maxContentWidth),
                       child: ListView(
                         controller: _scrollController,
-                        padding: EdgeInsets.fromLTRB(16, 12, 16, isDesktop ? 32 : 96),
+                        padding: EdgeInsets.fromLTRB(16, 12, 16, isDesktop ? 32 : 24),
                         children: [
                           _resumoChips(total, emCurso, planeadas, concluidas, isDark),
                           const SizedBox(height: 12),

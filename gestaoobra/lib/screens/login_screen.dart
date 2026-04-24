@@ -176,7 +176,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
                     const SizedBox(height: 28),
                     Text(
-                      'v1.6.7',
+                      'v2.6.7',
                       textAlign: TextAlign.center,
                       style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35), fontSize: 12),
                     ),

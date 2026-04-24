@@ -168,7 +168,16 @@ class _SeletorObraModalState extends State<_SeletorObraModal> {
 // ── Ecrã principal ────────────────────────────────────────────────────────────
 
 class GraficosScreen extends StatefulWidget {
-  const GraficosScreen({super.key});
+  final int? obraId;
+  final String? obraCodigo;
+  final String? obraNome;
+
+  const GraficosScreen({
+    super.key,
+    this.obraId,
+    this.obraCodigo,
+    this.obraNome,
+  });
 
   @override
   State<GraficosScreen> createState() => _GraficosScreenState();
@@ -187,17 +196,28 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   DateTimeRange? _intervalo;
   late TabController _tabController;
 
+  bool get _modoObraFixa => widget.obraId != null;
+
   @override
   void initState() {
     super.initState();
+    _obraId = widget.obraId;
+    _loadingObras = !_modoObraFixa;
     _tabController = TabController(length: 4, vsync: this);
     _tabController.addListener(() {
       if (mounted) setState(() {});
-      if (_tabController.index == 3 && _dadosGlobal == null && !_loadingGlobal) {
+      if (!_modoObraFixa &&
+          _tabController.index == 3 &&
+          _dadosGlobal == null &&
+          !_loadingGlobal) {
         _carregarGlobal();
       }
     });
-    _carregarObras();
+    if (_modoObraFixa) {
+      _selecionarObra(widget.obraId!);
+    } else {
+      _carregarObras();
+    }
   }
 
   @override
@@ -301,6 +321,10 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
             icon: const Icon(Icons.refresh),
             tooltip: 'Atualizar gráficos',
             onPressed: () async {
+              if (_modoObraFixa) {
+                if (_obraId != null) await _selecionarObra(_obraId!);
+                return;
+              }
               await _carregarObras();
               if (_tabController.index == 3) {
                 setState(() => _dadosGlobal = null);
@@ -330,11 +354,11 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
           unselectedLabelColor: Colors.white60,
           indicatorColor: Colors.white,
           isScrollable: true,
-          tabs: const [
+          tabs: [
             Tab(text: 'Evolução'),
             Tab(text: 'Distribuição'),
             Tab(text: 'Comparação'),
-            Tab(text: 'Todas as obras'),
+            Tab(text: _modoObraFixa ? 'Resumo da obra' : 'Todas as obras'),
           ],
         ),
       ),
@@ -344,8 +368,10 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
               children: [
                 AnimatedSize(
                   duration: const Duration(milliseconds: 200),
-                  child: _tabController.index == 3
-                      ? const SizedBox.shrink()
+                  child: _modoObraFixa
+                      ? _cabecalhoObraSelecionada()
+                      : _tabController.index == 3
+                          ? const SizedBox.shrink()
                       : Padding(
                           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
                           child: Column(
@@ -390,29 +416,35 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
                       _loadingDados
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
-                              ? const Center(child: Text('Seleciona uma obra'))
+                              ? const Center(child: Text('Sem dados para a obra selecionada'))
                               : _tabEvolucaoNova(),
                       _loadingDados
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
-                              ? const Center(child: Text('Seleciona uma obra'))
+                              ? const Center(child: Text('Sem dados para a obra selecionada'))
                               : _tabDistribuicao(),
                       _loadingDados
                           ? const Center(child: CircularProgressIndicator())
                           : _dados == null
-                              ? const Center(child: Text('Seleciona uma obra'))
+                              ? const Center(child: Text('Sem dados para a obra selecionada'))
                               : _tabComparacao(),
-                      _loadingGlobal
-                          ? const Center(child: CircularProgressIndicator())
-                          : _dadosGlobal == null
-                              ? Center(
-                                  child: ElevatedButton.icon(
-                                    onPressed: _carregarGlobal,
-                                    icon: const Icon(Icons.bar_chart),
-                                    label: const Text('Carregar resumo global'),
-                                  ),
-                                )
-                              : _tabTodasObras(),
+                      _modoObraFixa
+                          ? (_loadingDados
+                              ? const Center(child: CircularProgressIndicator())
+                              : _dados == null
+                                  ? const Center(child: Text('Sem dados para a obra selecionada'))
+                                  : _tabComparacao())
+                          : _loadingGlobal
+                              ? const Center(child: CircularProgressIndicator())
+                              : _dadosGlobal == null
+                                  ? Center(
+                                      child: ElevatedButton.icon(
+                                        onPressed: _carregarGlobal,
+                                        icon: const Icon(Icons.bar_chart),
+                                        label: const Text('Carregar resumo global'),
+                                      ),
+                                    )
+                                  : _tabTodasObras(),
                     ],
                   ),
                 ),
@@ -1091,6 +1123,92 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
   }
 
   // ── Seletor de obra ───────────────────────────────────────────────────────
+  Widget _cabecalhoObraSelecionada() {
+    final codigo = widget.obraCodigo ?? 'Obra #${widget.obraId}';
+    final nome = widget.obraNome ?? 'Graficos da obra selecionada';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: Theme.of(context).cardColor,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: _primaryColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(Icons.bar_chart_rounded, color: _primaryColor, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        codigo,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        nome,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontSize: 12, color: Colors.grey),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (_intervalo != null) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.filter_alt, size: 14, color: Color(0xFF185FA5)),
+                const SizedBox(width: 4),
+                Text(
+                  '${DateFormat('dd/MM/yy').format(_intervalo!.start)} â€” ${DateFormat('dd/MM/yy').format(_intervalo!.end)}',
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF185FA5),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                GestureDetector(
+                  onTap: _limparFiltro,
+                  child: const Text(
+                    'limpar',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey,
+                      decoration: TextDecoration.underline,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _seletorObra() {
     final selecionada = _obras.cast<dynamic>().firstWhere(
       (o) => o?['id'] == _obraId,
