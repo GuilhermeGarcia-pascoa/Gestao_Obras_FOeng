@@ -100,7 +100,7 @@ class ConfigScreen extends StatelessWidget {
           _sectionLabel('Informação', txtSub),
           const SizedBox(height: 8),
           _group(isDark, cardBg, border, [
-            _tile(context, Icons.info_outline_rounded, 'Versão 1.6.7', iconBg, seed, txtMain, null),
+            _tile(context, Icons.info_outline_rounded, 'Versão 2.6.7', iconBg, seed, txtMain, null),
             Divider(height: 1, color: border),
             _tile(context, Icons.code_rounded, 'Flutter + Node.js + MySQL', iconBg, seed, txtMain, null),
           ]),
@@ -250,30 +250,84 @@ class ConfigScreen extends StatelessWidget {
 
       final obra = await showDialog<Map<String, dynamic>>(
         context: context,
-        builder: (_) => AlertDialog(
-          title: const Text('Escolher obra'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: obras.length,
-              itemBuilder: (_, i) {
-                final o = obras[i];
-                return ListTile(
-                  leading: CircleAvatar(
-                    backgroundColor: const Color(0xFFEEF4FB),
-                    child: Text((o['codigo'] ?? '?').toString().substring(0, 1),
-                        style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.w700)),
+        builder: (_) {
+          String query = '';
+          List<Map<String, dynamic>> filtradas = List.from(obras);
+          return StatefulBuilder(
+            builder: (ctx, setState) {
+              return AlertDialog(
+                title: const Text('Escolher obra'),
+                content: SizedBox(
+                  width: double.maxFinite,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      TextField(
+                        autofocus: true,
+                        decoration: InputDecoration(
+                          hintText: 'Pesquisar por código ou nome…',
+                          prefixIcon: const Icon(Icons.search_rounded, size: 20),
+                          suffixIcon: query.isNotEmpty
+                              ? IconButton(
+                                  icon: const Icon(Icons.clear_rounded, size: 18),
+                                  onPressed: () => setState(() {
+                                    query = '';
+                                    filtradas = List.from(obras);
+                                  }),
+                                )
+                              : null,
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                          isDense: true,
+                        ),
+                        onChanged: (v) => setState(() {
+                          query = v.trim().toLowerCase();
+                          filtradas = obras.where((o) {
+                            final codigo = (o['codigo'] ?? '').toString().toLowerCase();
+                            final nome   = (o['nome']   ?? '').toString().toLowerCase();
+                            return codigo.contains(query) || nome.contains(query);
+                          }).toList().cast<Map<String, dynamic>>();
+                        }),
+                      ),
+                      const SizedBox(height: 8),
+                      if (filtradas.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Text('Nenhuma obra encontrada.',
+                              style: TextStyle(color: Color(0xFF8B9BB4))),
+                        )
+                      else
+                        Flexible(
+                          child: ListView.builder(
+                            shrinkWrap: true,
+                            itemCount: filtradas.length,
+                            itemBuilder: (_, i) {
+                              final o = filtradas[i];
+                              return ListTile(
+                                leading: CircleAvatar(
+                                  backgroundColor: const Color(0xFFEEF4FB),
+                                  child: Text(
+                                    (o['codigo'] ?? '?').toString().isNotEmpty
+                                        ? (o['codigo'] ?? '?').toString().substring(0, 1)
+                                        : '?',
+                                    style: const TextStyle(color: Color(0xFF185FA5), fontWeight: FontWeight.w700),
+                                  ),
+                                ),
+                                title: Text(o['codigo'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
+                                subtitle: Text(o['nome'] ?? ''),
+                                onTap: () => Navigator.pop(ctx, o),
+                              );
+                            },
+                          ),
+                        ),
+                    ],
                   ),
-                  title: Text(o['codigo'] ?? '', style: const TextStyle(fontWeight: FontWeight.w700)),
-                  subtitle: Text(o['nome'] ?? ''),
-                  onTap: () => Navigator.pop(_, o),
-                );
-              },
-            ),
-          ),
-          actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar'))],
-        ),
+                ),
+                actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancelar'))],
+              );
+            },
+          );
+        },
       );
       if (obra == null || !context.mounted) return;
 
