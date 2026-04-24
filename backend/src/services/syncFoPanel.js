@@ -25,8 +25,6 @@ const estado = {
 };
 
 // ─── Mapeamento de status fo_panel → appdb ───────────────────────────────────
-// Podes ajustar conforme os valores reais da tua tabela projects_status:
-//   SELECT id, name FROM fo_panel.projects_status;
 
 function mapEstado(statusId) {
   const MAP = {
@@ -36,6 +34,26 @@ function mapEstado(statusId) {
     4: 'concluida',
   };
   return MAP[statusId] ?? 'planeada';
+}
+
+// ─── Sanitização do orçamento ────────────────────────────────────────────────
+// valor_estimado vem como TEXT na fo_panel e pode conter "?", "", NULL, etc.
+
+function sanitizarOrcamento(valor) {
+  const raw = (valor ?? '').toString().trim();
+  const parsed = parseFloat(raw);
+  if (raw === '' || raw === '?' || isNaN(parsed)) return null;
+  return parsed;
+}
+
+// ─── Comparação de orçamento (normaliza Decimal do MySQL vs float JS) ────────
+
+function orcamentosIguais(bdValor, novoValor) {
+  const a = parseFloat(bdValor ?? 'NaN');
+  const b = parseFloat(novoValor ?? 'NaN');
+  if (isNaN(a) && isNaN(b)) return true;
+  if (isNaN(a) || isNaN(b)) return false;
+  return Math.abs(a - b) < 0.001; // tolerância para arredondamentos float
 }
 
 // ─── Garantir colunas de sync na tabela obras ────────────────────────────────
@@ -96,7 +114,7 @@ async function correrSync() {
       try {
         const codigo    = (proj.ccusto || '').trim() || `FO-${proj.id}`;
         const nome      = (proj.name   || '').trim();
-        const orcamento = proj.valor_estimado ? parseFloat(proj.valor_estimado) : null;
+        const orcamento = sanitizarOrcamento(proj.valor_estimado);
         const estadoVal = mapEstado(proj.projects_status_id);
         const cliente   = (proj.cliente || '').trim() || null;
         const syncedAt  = new Date().toISOString().slice(0, 19).replace('T', ' ');
@@ -104,11 +122,20 @@ async function correrSync() {
         const existente = mapaExistentes.get(proj.id);
 
         if (existente) {
-          // Verificar se há alterações
-          const mudou =
-            existente.nome   !== nome     ||
-            existente.estado !== estadoVal ||
-            String(existente.orcamento ?? '') !== String(orcamento ?? '');
+          const nomeIgual      = existente.nome   === nome;
+          const estadoIgual    = existente.estado === estadoVal;
+          const orcamentoIgual = orcamentosIguais(existente.orcamento, orcamento);
+          const mudou = !nomeIgual || !estadoIgual || !orcamentoIgual;
+
+          // DEBUG — remove quando as actualizações falsas desaparecerem
+          if (mudou) {
+            if (!nomeIgual)
+              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} nome: "${existente.nome}" → "${nome}"`);
+            if (!estadoIgual)
+              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} estado: "${existente.estado}" → "${estadoVal}"`);
+            if (!orcamentoIgual)
+              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} orcamento: "${existente.orcamento}" → "${orcamento}"`);
+          }
 
           if (mudou) {
             await pool.query(`
@@ -123,22 +150,28 @@ async function correrSync() {
           }
 
         } else {
-          // Ver se já existe obra com o mesmo código (criada manualmente)
+          // Ver se já existe obra com o mesmo código (criada manualmente OU já ligada)
           const [[porCodigo]] = await pool.query(
-            'SELECT id FROM obras WHERE codigo = ? AND fo_panel_id IS NULL LIMIT 1',
+            'SELECT id, fo_panel_id FROM obras WHERE codigo = ? LIMIT 1',
             [codigo]
           );
 
           if (porCodigo) {
-            // Ligar registo manual existente ao fo_panel
-            await pool.query(`
-              UPDATE obras
-              SET fo_panel_id = ?, nome = ?, estado = ?, orcamento = ?,
-                  fo_panel_cliente = ?, fo_panel_synced_at = ?
-              WHERE id = ?
-            `, [proj.id, nome, estadoVal, orcamento, cliente, syncedAt, porCodigo.id]);
-            stats.actualizadas++;
-            console.log(`[SYNC] Ligada obra existente: [${codigo}] ${nome}`);
+            if (porCodigo.fo_panel_id && porCodigo.fo_panel_id !== proj.id) {
+              // Código já está ligado a outro projeto fo_panel — ignorar com aviso
+              stats.ignoradas++;
+              console.warn(`[SYNC] Conflito de código [${codigo}] fo_panel_id=${proj.id} vs fo_panel_id=${porCodigo.fo_panel_id} — ignorado`);
+            } else {
+              // Ligar registo existente (manual ou re-sync)
+              await pool.query(`
+                UPDATE obras
+                SET fo_panel_id = ?, nome = ?, estado = ?, orcamento = ?,
+                    fo_panel_cliente = ?, fo_panel_synced_at = ?
+                WHERE id = ?
+              `, [proj.id, nome, estadoVal, orcamento, cliente, syncedAt, porCodigo.id]);
+              stats.actualizadas++;
+              console.log(`[SYNC] Ligada obra existente: [${codigo}] ${nome}`);
+            }
           } else {
             // Inserir nova
             await pool.query(`
