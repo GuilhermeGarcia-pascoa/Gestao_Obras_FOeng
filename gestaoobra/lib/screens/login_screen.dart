@@ -52,22 +52,8 @@ class _LoginScreenState extends State<LoginScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     const seed = Color(0xFF185FA5);
 
-    const bgTop = Color(0xFF0D2B4E);
-    const bgBottom = Color(0xFF185FA5);
-
     return Scaffold(
-      body: Container(
-        // Ocupa todo o ecrã com o gradiente
-        width: double.infinity,
-        height: double.infinity,
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [bgTop, bgBottom],
-          ),
-        ),
-        child: SafeArea(
+      body: SafeArea(
           child: Center( // Centraliza horizontalmente o conteúdo
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 32),
@@ -83,19 +69,19 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Container(
                         padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.12),
+                          color: seed.withOpacity(0.1),
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white.withOpacity(0.2), width: 1.5),
+                          border: Border.all(color: seed.withOpacity(0.25), width: 1.5),
                         ),
-                        child: const Icon(Icons.construction_rounded, color: Colors.white, size: 48),
+                        child: Icon(Icons.construction_rounded, color: seed, size: 48),
                       ),
                     ),
                     const SizedBox(height: 20),
-                    const Text(
+                    Text(
                       'Gestão de Obra',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white,
+                        color: isDark ? const Color(0xFFE8EDF5) : const Color(0xFF1A2233),
                         fontSize: 28,
                         fontWeight: FontWeight.w800,
                         letterSpacing: -0.5,
@@ -105,7 +91,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'Inicia sessão para continuar',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 14),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5), fontSize: 14),
                     ),
                     const SizedBox(height: 36),
 
@@ -192,7 +178,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     Text(
                       'v1.6.7',
                       textAlign: TextAlign.center,
-                      style: TextStyle(color: Colors.white.withOpacity(0.3), fontSize: 12),
+                      style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withOpacity(0.35), fontSize: 12),
                     ),
                   ],
                 ),
@@ -200,7 +186,7 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ),
         ),
-      ),
-    );
+      );
+    
   }
 }
