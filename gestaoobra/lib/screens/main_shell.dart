@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'config_screen.dart';
 import 'dashboard_screen.dart';
 import 'equipa/equipa_screen.dart';
-import 'graficos/graficos_screen.dart';
 import 'obras/obras_list_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -20,23 +19,21 @@ class _MainShellState extends State<MainShell> {
     DashboardScreen(),
     ObrasListScreen(),
     EquipaScreen(),
-    GraficosScreen(),
     ConfigScreen(),
   ];
 
   static const _items = [
-    _ShellItem('Início',   Icons.space_dashboard_outlined, Icons.space_dashboard),
-    _ShellItem('Obras',    Icons.domain_add_outlined,      Icons.domain_add),
-    _ShellItem('Equipa',   Icons.groups_2_outlined,        Icons.groups_2),
-    _ShellItem('Gráficos', Icons.insights_outlined,        Icons.insights),
-    _ShellItem('Config',   Icons.tune_outlined,            Icons.tune),
+    _ShellItem('Inicio', Icons.space_dashboard_outlined, Icons.space_dashboard),
+    _ShellItem('Obras', Icons.domain_add_outlined, Icons.domain_add),
+    _ShellItem('Equipa', Icons.groups_2_outlined, Icons.groups_2),
+    _ShellItem('Config', Icons.tune_outlined, Icons.tune),
   ];
 
   @override
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final useRail     = constraints.maxWidth >= 900;
+        final useRail = constraints.maxWidth >= 900;
         final extendedRail = constraints.maxWidth >= 1220;
 
         return Scaffold(
@@ -66,9 +63,9 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildRail(BuildContext context, bool extended) {
-    final theme  = Theme.of(context);
+    final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    const seed   = Color(0xFF185FA5);
+    const seed = Color(0xFF185FA5);
 
     return Container(
       width: extended ? 220 : 80,
@@ -80,10 +77,12 @@ class _MainShellState extends State<MainShell> {
       ),
       child: Column(
         children: [
-          // Logo
           Padding(
             padding: EdgeInsets.fromLTRB(
-              extended ? 20 : 12, 20, extended ? 20 : 12, 16,
+              extended ? 20 : 12,
+              20,
+              extended ? 20 : 12,
+              16,
             ),
             child: Row(
               children: [
@@ -103,7 +102,7 @@ class _MainShellState extends State<MainShell> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Gestão Obra',
+                          'Gestao Obra',
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -111,7 +110,7 @@ class _MainShellState extends State<MainShell> {
                           ),
                         ),
                         Text(
-                          'Operação diária',
+                          'Operacao diaria',
                           style: TextStyle(
                             fontSize: 11,
                             color: isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478),
@@ -124,17 +123,14 @@ class _MainShellState extends State<MainShell> {
               ],
             ),
           ),
-
           Divider(color: theme.dividerColor, height: 1),
           const SizedBox(height: 8),
-
-          // Itens
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: extended ? 12 : 8, vertical: 4),
               itemCount: _items.length,
               itemBuilder: (context, i) {
-                final item   = _items[i];
+                final item = _items[i];
                 final active = _tab == i;
 
                 return Padding(
@@ -149,15 +145,11 @@ class _MainShellState extends State<MainShell> {
                         vertical: 12,
                       ),
                       decoration: BoxDecoration(
-                        color: active
-                            ? seed.withOpacity(isDark ? 0.2 : 0.10)
-                            : Colors.transparent,
+                        color: active ? seed.withOpacity(isDark ? 0.2 : 0.1) : Colors.transparent,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
-                        mainAxisAlignment: extended
-                            ? MainAxisAlignment.start
-                            : MainAxisAlignment.center,
+                        mainAxisAlignment: extended ? MainAxisAlignment.start : MainAxisAlignment.center,
                         children: [
                           Icon(
                             active ? item.selectedIcon : item.icon,
@@ -171,9 +163,7 @@ class _MainShellState extends State<MainShell> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: active ? FontWeight.w700 : FontWeight.w500,
-                                color: active
-                                    ? seed
-                                    : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
+                                color: active ? seed : (isDark ? const Color(0xFF8B9BB4) : const Color(0xFF5A6478)),
                               ),
                             ),
                           ],
@@ -191,7 +181,7 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
-    final theme  = Theme.of(context);
+    final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
 
     return Container(
@@ -205,22 +195,20 @@ class _MainShellState extends State<MainShell> {
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        destinations: _items
-            .map(
-              (item) => NavigationDestination(
-                icon: Icon(item.icon),
-                selectedIcon: Icon(item.selectedIcon),
-                label: item.label,
-              ),
-            )
-            .toList(),
+        destinations: _items.map((item) {
+          return NavigationDestination(
+            icon: Icon(item.icon),
+            selectedIcon: Icon(item.selectedIcon),
+            label: item.label,
+          );
+        }).toList(),
       ),
     );
   }
 }
 
 class _ShellItem {
-  final String   label;
+  final String label;
   final IconData icon;
   final IconData selectedIcon;
 
