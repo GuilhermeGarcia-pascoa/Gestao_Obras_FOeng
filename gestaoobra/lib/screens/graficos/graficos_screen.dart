@@ -1,171 +1,16 @@
-import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+
 import '../../services/api_service.dart';
 
-final _eur  = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 0);
-final _eur2 = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 2);
+final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€', decimalDigits: 0);
 
-num _parseValor(dynamic v) {
-  if (v is num) return v;
-  if (v is String) return double.tryParse(v) ?? 0;
+double _toDouble(dynamic value) {
+  if (value is num) return value.toDouble();
+  if (value is String) return double.tryParse(value) ?? 0;
   return 0;
 }
-
-const _coresPizza = [
-  Color(0xFF185FA5), Color(0xFF2E86AB), Color(0xFF4CAF82),
-  Color(0xFFF4A261), Color(0xFFE76F51), Color(0xFF9C6ADE),
-  Color(0xFF8E44AD),
-];
-
-// ── Modal de seleção de obra (widget próprio para ciclo de vida correto) ──────
-
-class _SeletorObraModal extends StatefulWidget {
-  final List<dynamic> obras;
-  final int? obraIdAtual;
-  final Color primaryColor;
-
-  const _SeletorObraModal({
-    required this.obras,
-    required this.obraIdAtual,
-    required this.primaryColor,
-  });
-
-  @override
-  State<_SeletorObraModal> createState() => _SeletorObraModalState();
-}
-
-class _SeletorObraModalState extends State<_SeletorObraModal> {
-  late List<dynamic> _filtradas;
-  final _pesquisaCtrl = TextEditingController();
-
-  @override
-  void initState() {
-    super.initState();
-    _filtradas = List<dynamic>.from(widget.obras);
-  }
-
-  @override
-  void dispose() {
-    _pesquisaCtrl.dispose();
-    super.dispose();
-  }
-
-  void _filtrar(String valor) {
-    final termo = valor.trim().toLowerCase();
-    setState(() {
-      _filtradas = widget.obras.where((obra) {
-        final codigo = (obra['codigo'] ?? '').toString().toLowerCase();
-        final nome   = (obra['nome']   ?? '').toString().toLowerCase();
-        return codigo.contains(termo) || nome.contains(termo);
-      }).toList();
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final primaryColor = widget.primaryColor;
-
-    return SafeArea(
-      child: Padding(
-        padding: EdgeInsets.only(
-          left:   16,
-          right:  16,
-          top:    8,
-          bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        ),
-        child: SizedBox(
-          height: MediaQuery.of(context).size.height * 0.72,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Escolher obra',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 6),
-              const Text(
-                'Pesquisa por código ou nome para encontrar a obra mais depressa.',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
-              const SizedBox(height: 12),
-              TextField(
-                controller: _pesquisaCtrl,
-                // SEM autofocus — evita o conflito: Esc fecha teclado + modal em simultâneo
-                onChanged: _filtrar,
-                decoration: const InputDecoration(
-                  hintText: 'Pesquisar obra...',
-                  prefixIcon: Icon(Icons.search_rounded),
-                ),
-              ),
-              const SizedBox(height: 12),
-              Expanded(
-                child: _filtradas.isEmpty
-                    ? const Center(
-                        child: Text('Nenhuma obra encontrada.',
-                            style: TextStyle(color: Colors.grey)),
-                      )
-                    : ListView.separated(
-                        itemCount: _filtradas.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 6),
-                        itemBuilder: (context, index) {
-                          final obra  = _filtradas[index];
-                          final ativo = obra['id'] == widget.obraIdAtual;
-                          return Material(
-                            color: ativo
-                                ? primaryColor.withOpacity(0.08)
-                                : Theme.of(context).cardColor,
-                            borderRadius: BorderRadius.circular(14),
-                            child: InkWell(
-                              borderRadius: BorderRadius.circular(14),
-                              onTap: () => Navigator.pop(context, obra),
-                              child: Container(
-                                padding: const EdgeInsets.all(14),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(14),
-                                  border: Border.all(
-                                    color: ativo
-                                        ? primaryColor.withOpacity(0.45)
-                                        : Theme.of(context).dividerColor,
-                                  ),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Expanded(
-                                      child: Column(
-                                        crossAxisAlignment: CrossAxisAlignment.start,
-                                        children: [
-                                          Text(obra['codigo'] ?? '',
-                                              style: const TextStyle(
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w700)),
-                                          const SizedBox(height: 2),
-                                          Text(obra['nome'] ?? '',
-                                              maxLines: 1,
-                                              overflow: TextOverflow.ellipsis,
-                                              style: const TextStyle(
-                                                  fontSize: 12, color: Colors.grey)),
-                                        ],
-                                      ),
-                                    ),
-                                    if (ativo)
-                                      Icon(Icons.check_circle_rounded,
-                                          color: primaryColor, size: 20),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Ecrã principal ────────────────────────────────────────────────────────────
 
 class GraficosScreen extends StatefulWidget {
   final int? obraId;
@@ -184,40 +29,18 @@ class GraficosScreen extends StatefulWidget {
 }
 
 class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProviderStateMixin {
-  List<dynamic> _obras       = [];
-  int?          _obraId;
   Map<String, dynamic>? _dados;
-  Map<String, dynamic>? _dadosGlobal;
-
-  bool _loadingObras  = true;
-  bool _loadingDados  = false;
-  bool _loadingGlobal = false;
-
+  bool _loading = true;
   DateTimeRange? _intervalo;
-  late TabController _tabController;
+  late final TabController _tabController;
 
-  bool get _modoObraFixa => widget.obraId != null;
+  int get _obraId => widget.obraId ?? 0;
 
   @override
   void initState() {
     super.initState();
-    _obraId = widget.obraId;
-    _loadingObras = !_modoObraFixa;
-    _tabController = TabController(length: 4, vsync: this);
-    _tabController.addListener(() {
-      if (mounted) setState(() {});
-      if (!_modoObraFixa &&
-          _tabController.index == 3 &&
-          _dadosGlobal == null &&
-          !_loadingGlobal) {
-        _carregarGlobal();
-      }
-    });
-    if (_modoObraFixa) {
-      _selecionarObra(widget.obraId!);
-    } else {
-      _carregarObras();
-    }
+    _tabController = TabController(length: 2, vsync: this);
+    _carregar();
   }
 
   @override
@@ -226,113 +49,70 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
     super.dispose();
   }
 
-  Future<void> _carregarObras() async {
-    try {
-      final obras = await ApiService.listarObras();
-      setState(() { _obras = obras; _loadingObras = false; });
-      if (obras.isNotEmpty) {
-        final seletorValido = _obraId != null && obras.any((o) => o['id'] == _obraId);
-        final id = seletorValido ? _obraId! : obras.first['id'] as int;
-        _selecionarObra(id);
-      }
-    } on ApiException catch (e) {
-      setState(() => _loadingObras = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+  Future<void> _carregar() async {
+    if (_obraId == 0) {
+      setState(() => _loading = false);
+      return;
     }
-  }
 
-  Future<void> _selecionarObra(int id) async {
-    setState(() { _obraId = id; _loadingDados = true; });
+    setState(() => _loading = true);
     try {
       final extra = _intervalo != null
           ? '?dataInicio=${_fmtApi(_intervalo!.start)}&dataFim=${_fmtApi(_intervalo!.end)}'
           : '';
-      final dados = await ApiService.get('/relatorios/graficos/$id$extra');
-      setState(() { _dados = dados; _loadingDados = false; });
+      final dados = await ApiService.get('/relatorios/graficos/$_obraId$extra');
+      setState(() {
+        _dados = dados as Map<String, dynamic>;
+        _loading = false;
+      });
     } on ApiException catch (e) {
-      setState(() => _loadingDados = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
-    }
-  }
-
-  Future<void> _carregarGlobal() async {
-    setState(() => _loadingGlobal = true);
-    try {
-      final dados = await ApiService.getGraficosTodasObras();
-      setState(() { _dadosGlobal = dados; _loadingGlobal = false; });
-    } on ApiException catch (e) {
-      setState(() => _loadingGlobal = false);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      setState(() => _loading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.mensagem)));
+      }
     }
   }
 
   Future<void> _escolherIntervalo() async {
     final hoje = DateTime.now();
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     final resultado = await showDateRangePicker(
       context: context,
       firstDate: DateTime(2020),
       lastDate: DateTime(hoje.year + 1),
-      initialDateRange: _intervalo ?? DateTimeRange(
-        start: DateTime(hoje.year, hoje.month, 1), end: hoje),
+      initialDateRange: _intervalo ??
+          DateTimeRange(
+            start: DateTime(hoje.year, hoje.month, 1),
+            end: hoje,
+          ),
       locale: const Locale('pt', 'PT'),
       helpText: 'Filtrar por intervalo',
       cancelText: 'Cancelar',
       confirmText: 'Aplicar',
-      builder: (ctx, child) {
-        final baseTheme = Theme.of(ctx);
-        return Theme(
-          data: baseTheme.copyWith(
-            colorScheme: (isDark
-                ? baseTheme.colorScheme
-                : const ColorScheme.light(
-                    primary: Color(0xFF185FA5), onPrimary: Colors.white)),
-          ),
-          child: child!,
-        );
-      },
     );
-    if (resultado != null) {
-      setState(() => _intervalo = resultado);
-      if (_obraId != null) _selecionarObra(_obraId!);
-    }
+
+    if (resultado == null) return;
+    setState(() => _intervalo = resultado);
+    await _carregar();
   }
 
   void _limparFiltro() {
     setState(() => _intervalo = null);
-    if (_obraId != null) _selecionarObra(_obraId!);
+    _carregar();
   }
 
   String _fmtApi(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
-  Color get _primaryColor => Theme.of(context).colorScheme.primary;
-  Color get _accentColor  => const Color(0xFFE76F51);
-  Color get _progressBackground =>
-      Theme.of(context).colorScheme.onSurface.withOpacity(0.08);
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Gráficos'),
+        title: Text(widget.obraCodigo ?? 'Graficos da obra'),
         actions: [
           IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: 'Atualizar gráficos',
-            onPressed: () async {
-              if (_modoObraFixa) {
-                if (_obraId != null) await _selecionarObra(_obraId!);
-                return;
-              }
-              await _carregarObras();
-              if (_tabController.index == 3) {
-                setState(() => _dadosGlobal = null);
-                _carregarGlobal();
-              } else if (_obraId != null) {
-                _selecionarObra(_obraId!);
-              }
-            },
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Atualizar',
+            onPressed: _carregar,
           ),
           if (_intervalo != null)
             IconButton(
@@ -341,1050 +121,286 @@ class _GraficosScreenState extends State<GraficosScreen> with SingleTickerProvid
               onPressed: _limparFiltro,
             ),
           IconButton(
-            icon: Icon(_intervalo != null
-                ? Icons.date_range
-                : Icons.date_range_outlined),
+            icon: Icon(_intervalo == null ? Icons.date_range_outlined : Icons.date_range),
             tooltip: 'Filtrar por datas',
             onPressed: _escolherIntervalo,
           ),
         ],
         bottom: TabBar(
           controller: _tabController,
-          labelColor: Colors.white,
-          unselectedLabelColor: Colors.white60,
-          indicatorColor: Colors.white,
-          isScrollable: true,
-          tabs: [
-            Tab(text: 'Evolução'),
-            Tab(text: 'Distribuição'),
-            Tab(text: 'Comparação'),
-            Tab(text: _modoObraFixa ? 'Resumo da obra' : 'Todas as obras'),
+          tabs: const [
+            Tab(text: 'Progresso'),
+            Tab(text: 'Custos e metricas'),
           ],
         ),
       ),
-      body: _loadingObras
+      body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                AnimatedSize(
-                  duration: const Duration(milliseconds: 200),
-                  child: _modoObraFixa
-                      ? _cabecalhoObraSelecionada()
-                      : _tabController.index == 3
-                          ? const SizedBox.shrink()
-                      : Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _seletorObra(),
-                              if (_intervalo != null) ...[
-                                const SizedBox(height: 6),
-                                Row(
-                                  children: [
-                                    const Icon(Icons.filter_alt,
-                                        size: 14, color: Color(0xFF185FA5)),
-                                    const SizedBox(width: 4),
-                                    Text(
-                                      '${DateFormat('dd/MM/yy').format(_intervalo!.start)} — ${DateFormat('dd/MM/yy').format(_intervalo!.end)}',
-                                      style: const TextStyle(
-                                          fontSize: 12,
-                                          color: Color(0xFF185FA5),
-                                          fontWeight: FontWeight.w600),
-                                    ),
-                                    const SizedBox(width: 8),
-                                    GestureDetector(
-                                      onTap: _limparFiltro,
-                                      child: const Text('limpar',
-                                          style: TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                              decoration: TextDecoration.underline)),
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
-                        ),
+          : _dados == null
+              ? const Center(child: Text('Sem dados para a obra selecionada'))
+              : Column(
+                  children: [
+                    _cabecalhoObra(),
+                    Expanded(
+                      child: TabBarView(
+                        controller: _tabController,
+                        children: [
+                          _tabProgresso(),
+                          _tabCustosMetricas(),
+                        ],
+                      ),
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 8),
-                Expanded(
-                  child: TabBarView(
-                    controller: _tabController,
-                    children: [
-                      _loadingDados
-                          ? const Center(child: CircularProgressIndicator())
-                          : _dados == null
-                              ? const Center(child: Text('Sem dados para a obra selecionada'))
-                              : _tabEvolucaoNova(),
-                      _loadingDados
-                          ? const Center(child: CircularProgressIndicator())
-                          : _dados == null
-                              ? const Center(child: Text('Sem dados para a obra selecionada'))
-                              : _tabDistribuicao(),
-                      _loadingDados
-                          ? const Center(child: CircularProgressIndicator())
-                          : _dados == null
-                              ? const Center(child: Text('Sem dados para a obra selecionada'))
-                              : _tabComparacao(),
-                      _modoObraFixa
-                          ? (_loadingDados
-                              ? const Center(child: CircularProgressIndicator())
-                              : _dados == null
-                                  ? const Center(child: Text('Sem dados para a obra selecionada'))
-                                  : _tabComparacao())
-                          : _loadingGlobal
-                              ? const Center(child: CircularProgressIndicator())
-                              : _dadosGlobal == null
-                                  ? Center(
-                                      child: ElevatedButton.icon(
-                                        onPressed: _carregarGlobal,
-                                        icon: const Icon(Icons.bar_chart),
-                                        label: const Text('Carregar resumo global'),
-                                      ),
-                                    )
-                                  : _tabTodasObras(),
-                    ],
-                  ),
-                ),
-              ],
-            ),
     );
   }
 
-  // ── Tab 1: Evolução ───────────────────────────────────────────────────────
-  Widget _tabEvolucaoNova() {
-    final evolucao      = List<Map<String, dynamic>>.from(_dados!['evolucao'] ?? []);
-    final totalGasto    = _parseValor(_dados!['totalGasto']).toDouble();
-    final totalFaturado = _parseValor(_dados!['totalFaturado']).toDouble();
+  Widget _cabecalhoObra() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              widget.obraCodigo ?? 'Obra',
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              widget.obraNome ?? 'Visualizacao especifica da obra selecionada',
+              style: const TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            if (_intervalo != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                '${DateFormat('dd/MM/yy').format(_intervalo!.start)} - ${DateFormat('dd/MM/yy').format(_intervalo!.end)}',
+                style: const TextStyle(
+                  fontSize: 12,
+                  color: Color(0xFF185FA5),
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _tabProgresso() {
+    final evolucao = List<Map<String, dynamic>>.from(_dados!['evolucao'] ?? []);
+    final totalFaturado = _toDouble(_dados!['totalFaturado']);
+    final totalGasto = _toDouble(_dados!['totalGasto']);
+    final margem = totalFaturado - totalGasto;
 
     if (evolucao.isEmpty) {
-      return const Center(
-          child: Text('Sem dados.\nRegista dias primeiro.', textAlign: TextAlign.center));
+      return const Center(child: Text('Sem registos suficientes para mostrar progresso.'));
     }
 
-    final labels = evolucao.map((e) {
-      final data = e['data']?.toString() ?? '';
-      return data.length >= 10 ? data.substring(5) : data;
-    }).toList();
-
-    final faturadoDia       = evolucao.map((e) => _parseValor(e['faturado']).toDouble()).toList();
-    final gastoDia          = evolucao.map((e) => _parseValor(e['gasto']).toDouble()).toList();
-    final faturadoAcumulado = evolucao.map((e) => _parseValor(e['acumulado_faturado']).toDouble()).toList();
-    final gastoAcumulado    = evolucao.map((e) => _parseValor(e['acumulado_gasto']).toDouble()).toList();
-
-    final maxDiario    = [...faturadoDia, ...gastoDia].fold<double>(0, (a, b) => a > b ? a : b);
-    final maxAcumulado = [...faturadoAcumulado, ...gastoAcumulado].fold<double>(0, (a, b) => a > b ? a : b);
-
-    final saldo     = totalFaturado - totalGasto;
-    final margemPct = totalFaturado > 0 ? (saldo / totalFaturado) * 100 : 0.0;
-    final saldoColor = saldo >= 0 ? const Color(0xFF4CAF82) : const Color(0xFFE76F51);
-
-    Widget chartCard({
-      required String title,
-      required String subtitle,
-      required Widget child,
-      required List<Widget> legend,
-    }) =>
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Theme.of(context).cardColor,
-            borderRadius: BorderRadius.circular(18),
-            border: Border.all(color: Theme.of(context).dividerColor),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(title,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-              const SizedBox(height: 4),
-              Text(subtitle,
-                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 12),
-              Wrap(spacing: 16, runSpacing: 8, children: legend),
-              const SizedBox(height: 12),
-              child,
-            ],
-          ),
-        );
+    final faturadoAcumulado =
+        evolucao.map((e) => _toDouble(e['acumulado_faturado'])).toList();
+    final gastoAcumulado =
+        evolucao.map((e) => _toDouble(e['acumulado_gasto'])).toList();
+    final maxY = [...faturadoAcumulado, ...gastoAcumulado].fold<double>(0, (a, b) => a > b ? a : b) * 1.15;
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // ── Cartão de saldo ──
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [_primaryColor, _primaryColor.withOpacity(0.82)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text('Saldo atual',
-                        style: TextStyle(color: Colors.white70, fontSize: 11)),
-                    const SizedBox(height: 2),
-                    Text(
-                      _eur2.format(saldo),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 20),
+        _metricasResumo(totalFaturado, totalGasto, margem),
+        const SizedBox(height: 14),
+        _card(
+          title: 'Evolucao acumulada',
+          subtitle: 'Comparacao da progressao de faturacao e gastos da obra.',
+          child: SizedBox(
+            height: 260,
+            child: LineChart(
+              LineChartData(
+                minY: 0,
+                maxY: maxY == 0 ? 10 : maxY,
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                titlesData: const FlTitlesData(
+                  topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                  leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                ),
+                lineBarsData: [
+                  LineChartBarData(
+                    spots: List.generate(
+                      faturadoAcumulado.length,
+                      (i) => FlSpot(i.toDouble(), faturadoAcumulado[i]),
                     ),
-                  ],
-                ),
+                    isCurved: true,
+                    color: const Color(0xFF185FA5),
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false),
+                  ),
+                  LineChartBarData(
+                    spots: List.generate(
+                      gastoAcumulado.length,
+                      (i) => FlSpot(i.toDouble(), gastoAcumulado[i]),
+                    ),
+                    isCurved: true,
+                    color: const Color(0xFFE6824D),
+                    barWidth: 3,
+                    dotData: const FlDotData(show: false),
+                  ),
+                ],
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  '${margemPct.toStringAsFixed(1)}%',
-                  style: TextStyle(
-                      color: saldoColor,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14),
-                ),
-              ),
-            ],
+            ),
           ),
         ),
-        const SizedBox(height: 24),
+      ],
+    );
+  }
 
-        // ── Gráfico de barras diário ──
-        chartCard(
-          title: 'Movimento por dia',
-          subtitle: 'Comparação entre faturado e gasto diário.',
-          legend: [
-            _legendaDot(_primaryColor, 'Faturado'),
-            _legendaDot(_accentColor, 'Gasto'),
-          ],
+  Widget _tabCustosMetricas() {
+    final totalFaturado = _toDouble(_dados!['totalFaturado']);
+    final totalGasto = _toDouble(_dados!['totalGasto']);
+    final saldo = totalFaturado - totalGasto;
+    final margemPct = totalFaturado > 0 ? (saldo / totalFaturado) * 100 : 0.0;
+    final distribuicao = [
+      _GraficoItem('Faturado', totalFaturado, const Color(0xFF185FA5)),
+      _GraficoItem('Gasto', totalGasto, const Color(0xFFE6824D)),
+      _GraficoItem('Margem', saldo.abs(), saldo >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51)),
+    ].where((item) => item.value > 0).toList();
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        _card(
+          title: 'Distribuicao financeira',
+          subtitle: 'Leitura dos principais valores financeiros da obra.',
           child: SizedBox(
-            height: 220,
-            child: BarChart(
-              BarChartData(
-                alignment: BarChartAlignment.spaceAround,
-                maxY: maxDiario <= 0 ? 100 : maxDiario * 1.25,
-                barTouchData: BarTouchData(
-                  touchTooltipData: BarTouchTooltipData(
-                    getTooltipItem: (group, groupIndex, rod, rodIndex) {
-                      final label = rodIndex == 0 ? 'Faturado' : 'Gasto';
-                      return BarTooltipItem(
-                        '${labels[group.x.toInt()]}\n$label: ${_eur2.format(rod.toY)}',
-                        const TextStyle(color: Colors.white, fontSize: 12),
-                      );
-                    },
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      getTitlesWidget: (value, _) {
-                        final idx = value.toInt();
-                        if (idx < 0 || idx >= labels.length) return const SizedBox();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(labels[idx],
-                              style: const TextStyle(fontSize: 9)),
-                        );
-                      },
+            height: 240,
+            child: PieChart(
+              PieChartData(
+                sectionsSpace: 2,
+                centerSpaceRadius: 44,
+                sections: distribuicao.map((item) {
+                  return PieChartSectionData(
+                    value: item.value,
+                    color: item.color,
+                    radius: 56,
+                    title: item.label,
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
-                  ),
-                  leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval:
-                      maxDiario <= 0 ? 25 : (maxDiario * 1.25) / 4,
-                  getDrawingHorizontalLine: (_) => FlLine(
-                    color: Theme.of(context).dividerColor.withOpacity(0.35),
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                barGroups: evolucao.asMap().entries.map((entry) {
-                  final faturado = _parseValor(entry.value['faturado']).toDouble();
-                  final gasto    = _parseValor(entry.value['gasto']).toDouble();
-                  return BarChartGroupData(
-                    x: entry.key,
-                    barsSpace: 5,
-                    barRods: [
-                      BarChartRodData(
-                        toY: faturado,
-                        color: _primaryColor,
-                        width: 12,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                      BarChartRodData(
-                        toY: gasto,
-                        color: _accentColor,
-                        width: 12,
-                        borderRadius: BorderRadius.circular(5),
-                      ),
-                    ],
                   );
                 }).toList(),
               ),
             ),
           ),
         ),
-        const SizedBox(height: 24),
-
-        // ── Gráfico de linha acumulado ──
-        chartCard(
-          title: 'Evolução acumulada',
-          subtitle: 'Acompanha o desfasamento entre faturado e gasto.',
-          legend: [
-            _legendaDot(_primaryColor, 'Faturado acumulado'),
-            _legendaDot(_accentColor, 'Gasto acumulado'),
-          ],
-          child: SizedBox(
-            height: 220,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
-                maxY: maxAcumulado <= 0 ? 100 : maxAcumulado * 1.2,
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval:
-                      maxAcumulado <= 0 ? 25 : (maxAcumulado * 1.2) / 4,
-                  getDrawingHorizontalLine: (_) => FlLine(
-                    color: Theme.of(context).dividerColor.withOpacity(0.35),
-                    strokeWidth: 1,
-                  ),
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 28,
-                      getTitlesWidget: (value, _) {
-                        final idx = value.toInt();
-                        if (idx < 0 || idx >= labels.length) return const SizedBox();
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(labels[idx],
-                              style: const TextStyle(fontSize: 9)),
-                        );
-                      },
-                    ),
-                  ),
-                  leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                ),
-                lineTouchData: LineTouchData(
-                  touchTooltipData: LineTouchTooltipData(
-                    getTooltipItems: (spots) => spots.map((spot) {
-                      final label =
-                          spot.barIndex == 0 ? 'Fat. acum.' : 'Gasto acum.';
-                      return LineTooltipItem(
-                        '$label\n${_eur2.format(spot.y)}',
-                        const TextStyle(color: Colors.white, fontSize: 11),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: faturadoAcumulado
-                        .asMap()
-                        .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value))
-                        .toList(),
-                    isCurved: true,
-                    color: _primaryColor,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: false),
-                    belowBarData: BarAreaData(
-                        show: true,
-                        color: _primaryColor.withOpacity(0.08)),
-                  ),
-                  LineChartBarData(
-                    spots: gastoAcumulado
-                        .asMap()
-                        .entries
-                        .map((e) => FlSpot(e.key.toDouble(), e.value))
-                        .toList(),
-                    isCurved: true,
-                    color: _accentColor,
-                    barWidth: 3,
-                    dotData: const FlDotData(show: false),
-                  ),
-                ],
-              ),
-            ),
+        const SizedBox(height: 14),
+        _card(
+          title: 'Metricas especificas',
+          subtitle: 'Resumo rapido da performance da obra atual.',
+          child: Column(
+            children: [
+              _metricRow('Faturado total', _eur.format(totalFaturado), const Color(0xFF185FA5)),
+              _metricRow('Gasto total', _eur.format(totalGasto), const Color(0xFFE6824D)),
+              _metricRow('Margem', _eur.format(saldo), saldo >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51)),
+              _metricRow('Margem %', '${margemPct.toStringAsFixed(1)}%', saldo >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51)),
+            ],
           ),
         ),
       ],
     );
   }
 
-  // ── Tab 2: Distribuição ───────────────────────────────────────────────────
-  Widget _tabDistribuicao() {
-    final distribuicao =
-        List<Map<String, dynamic>>.from(_dados!['distribuicao'] ?? []);
-    if (distribuicao.isEmpty) {
-      return const Center(
-          child: Text('Sem dados de custos.', textAlign: TextAlign.center));
-    }
-    final total = distribuicao.fold<double>(
-        0, (s, d) => s + _parseValor(d['valor']).toDouble());
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _metricasResumo(double totalFaturado, double totalGasto, double margem) {
+    return Row(
       children: [
-        const Text('Distribuição de custos',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 16),
-        SizedBox(
-          height: 240,
-          child: PieChart(PieChartData(
-            sectionsSpace: 2,
-            centerSpaceRadius: 50,
-            sections: distribuicao.asMap().entries.map((e) {
-              final pct = total > 0
-                  ? _parseValor(e.value['valor']).toDouble() / total * 100
-                  : 0.0;
-              return PieChartSectionData(
-                value: _parseValor(e.value['valor']).toDouble(),
-                color: _coresPizza[e.key % _coresPizza.length],
-                title: '${pct.toStringAsFixed(1)}%',
-                radius: 70,
-                titleStyle: const TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white),
-              );
-            }).toList(),
-          )),
-        ),
-        const SizedBox(height: 20),
-        ...distribuicao.asMap().entries.map((entry) {
-          final d   = entry.value;
-          final cor = _coresPizza[entry.key % _coresPizza.length];
-          final pct = total > 0
-              ? _parseValor(d['valor']).toDouble() / total
-              : 0.0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Container(
-                      width: 12,
-                      height: 12,
-                      decoration: BoxDecoration(
-                          color: cor, shape: BoxShape.circle)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                      child: Text(d['categoria'] ?? '',
-                          style: const TextStyle(fontSize: 13))),
-                  Text(_eur2.format(_parseValor(d['valor'])),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                ]),
-                const SizedBox(height: 4),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    minHeight: 6,
-                    backgroundColor: _progressBackground,
-                    valueColor: AlwaysStoppedAnimation(cor),
-                  ),
-                ),
-              ],
-            ),
-          );
-        }),
+        Expanded(child: _miniCard('Faturado', _eur.format(totalFaturado), const Color(0xFF185FA5))),
+        const SizedBox(width: 10),
+        Expanded(child: _miniCard('Gasto', _eur.format(totalGasto), const Color(0xFFE6824D))),
+        const SizedBox(width: 10),
+        Expanded(child: _miniCard('Margem', _eur.format(margem), margem >= 0 ? const Color(0xFF0F9D8A) : const Color(0xFFE76F51))),
       ],
     );
   }
 
-  // ── Tab 3: Comparação (top 5) ─────────────────────────────────────────────
-  Widget _tabComparacao() {
-    final comparacao =
-        List<Map<String, dynamic>>.from(_dados!['comparacao'] ?? []);
-    if (comparacao.isEmpty) {
-      return const Center(child: Text('Sem dados de comparação.'));
-    }
-
-    final maxFaturado = comparacao
-        .map((o) => _parseValor(o['total_faturado']).toDouble())
-        .fold(0.0, (a, b) => a > b ? a : b);
-
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        const Text('Top obras por faturado',
-            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-        const SizedBox(height: 16),
-        ...comparacao.asMap().entries.map((entry) {
-          final o   = entry.value;
-          final cor = _coresPizza[entry.key % _coresPizza.length];
-          final pct = maxFaturado > 0
-              ? _parseValor(o['total_faturado']).toDouble() / maxFaturado
-              : 0.0;
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(children: [
-                  Expanded(
-                      child: Text(o['codigo'] ?? '',
-                          style: const TextStyle(
-                              fontWeight: FontWeight.bold, fontSize: 13))),
-                  Text(_eur.format(_parseValor(o['total_faturado'])),
-                      style: const TextStyle(
-                          fontSize: 13, fontWeight: FontWeight.w600)),
-                ]),
-                const SizedBox(height: 2),
-                Text(o['nome'] ?? '',
-                    style: const TextStyle(fontSize: 11, color: Colors.grey)),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(4),
-                  child: LinearProgressIndicator(
-                    value: pct,
-                    minHeight: 10,
-                    backgroundColor: _progressBackground,
-                    valueColor: AlwaysStoppedAnimation(cor),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Row(children: [
-                  _miniTag('${o['total_dias']} dias', Icons.calendar_today),
-                  const SizedBox(width: 8),
-                  _miniTag(_eur.format(_parseValor(o['total_materiais'])),
-                      Icons.inventory_2_outlined),
-                ]),
-              ],
-            ),
-          );
-        }),
-      ],
-    );
-  }
-
-  // ── Tab 4: Todas as obras — resumo global ─────────────────────────────────
-  Widget _tabTodasObras() {
-    final obras  = List<Map<String, dynamic>>.from(_dadosGlobal!['obras']  ?? []);
-    final resumo = _dadosGlobal!['resumo'] as Map<String, dynamic>? ?? {};
-
-    final totalFaturado = _parseValor(resumo['total_faturado']).toDouble();
-    final totalGasto    = _parseValor(resumo['total_gasto']).toDouble();
-    final margem        = _parseValor(resumo['margem']).toDouble();
-    final totalObras    = _parseValor(resumo['total_obras']).toInt();
-    final margemPct     = totalFaturado > 0 ? (margem / totalFaturado * 100) : 0.0;
-
-    if (obras.isEmpty) return const Center(child: Text('Sem obras com dados.'));
-
-    final maxFaturado = obras
-        .map((o) => _parseValor(o['total_faturado']).toDouble())
-        .fold(0.0, (a, b) => a > b ? a : b);
-
-    return RefreshIndicator(
-      onRefresh: _carregarGlobal,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          _metricRow([
-            _metricCard('Faturado total', _eur.format(totalFaturado),
-                Icons.euro, const Color(0xFF185FA5)),
-            _metricCard('Total obras', '$totalObras',
-                Icons.business, const Color(0xFF2E86AB)),
-          ]),
-          const SizedBox(height: 10),
-          _metricRow([
-            _metricCard('Gasto total', _eur.format(totalGasto),
-                Icons.payments, const Color(0xFFE76F51)),
-            _metricCard(
-              'Margem',
-              '${_eur.format(margem)} (${margemPct.toStringAsFixed(1)}%)',
-              Icons.trending_up,
-              margem >= 0 ? const Color(0xFF4CAF82) : const Color(0xFFE76F51),
-            ),
-          ]),
-
-          const SizedBox(height: 24),
-          const Text('Faturado vs Gasto por obra',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 4),
-          Row(children: [
-            _legendaDot(_primaryColor, 'Faturado'),
-            const SizedBox(width: 16),
-            _legendaDot(_accentColor, 'Gasto'),
-          ]),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 220,
-            child: BarChart(BarChartData(
-              alignment: BarChartAlignment.spaceAround,
-              maxY: obras
-                      .map((o) => [
-                            _parseValor(o['total_faturado']).toDouble(),
-                            _parseValor(o['total_gastos']).toDouble(),
-                          ])
-                      .expand((x) => x)
-                      .fold(0.0, (a, b) => a > b ? a : b) *
-                  1.2,
-              barTouchData: BarTouchData(
-                touchTooltipData: BarTouchTooltipData(
-                  getTooltipItem: (group, groupIdx, rod, rodIdx) {
-                    final o     = obras[groupIdx];
-                    final label = rodIdx == 0 ? 'Faturado' : 'Gasto';
-                    return BarTooltipItem(
-                      '${o['codigo']}\n$label: ${_eur2.format(rod.toY)}',
-                      const TextStyle(color: Colors.white, fontSize: 11),
-                    );
-                  },
-                ),
-              ),
-              titlesData: FlTitlesData(
-                bottomTitles: AxisTitles(
-                  sideTitles: SideTitles(
-                    showTitles: true,
-                    getTitlesWidget: (value, _) {
-                      final idx = value.toInt();
-                      if (idx >= obras.length) return const SizedBox();
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 4),
-                        child: Text(
-                          obras[idx]['codigo']
-                                  ?.toString()
-                                  .split('/')
-                                  .first ??
-                              '',
-                          style: const TextStyle(fontSize: 9),
-                        ),
-                      );
-                    },
-                  ),
-                ),
-                leftTitles:  const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles:   const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-              ),
-              gridData:   const FlGridData(show: false),
-              borderData: FlBorderData(show: false),
-              barGroups: obras.asMap().entries.map((e) => BarChartGroupData(
-                x: e.key,
-                barsSpace: 4,
-                barRods: [
-                  BarChartRodData(
-                    toY: _parseValor(e.value['total_faturado']).toDouble(),
-                    color: _primaryColor,
-                    width: 12,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                  BarChartRodData(
-                    toY: _parseValor(e.value['total_gastos']).toDouble(),
-                    color: _accentColor,
-                    width: 12,
-                    borderRadius: BorderRadius.circular(3),
-                  ),
-                ],
-              )).toList(),
-            )),
-          ),
-
-          const SizedBox(height: 28),
-          const Text('Detalhe por obra',
-              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
-          const SizedBox(height: 12),
-
-          ...obras.map((o) {
-            final faturado = _parseValor(o['total_faturado']).toDouble();
-            final gasto    = _parseValor(o['total_gastos']).toDouble();
-            final saldo    = faturado - gasto;
-            final pct      = maxFaturado > 0 ? faturado / maxFaturado : 0.0;
-            final positivo = saldo >= 0;
-
-            return Card(
-              margin: const EdgeInsets.only(bottom: 10),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(o['codigo'] ?? '',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold, fontSize: 14)),
-                              Text(o['nome'] ?? '',
-                                  style: const TextStyle(
-                                      fontSize: 12, color: Colors.grey),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis),
-                            ],
-                          ),
-                        ),
-                        _badgeEstado(o['estado'] as String? ?? ''),
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: pct,
-                        minHeight: 6,
-                        backgroundColor: _progressBackground,
-                        valueColor: AlwaysStoppedAnimation(_primaryColor),
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        _infoCol('Faturado', _eur.format(faturado),
-                            const Color(0xFF185FA5)),
-                        _infoCol('Gasto', _eur.format(gasto),
-                            const Color(0xFFE76F51)),
-                        _infoCol(
-                            'Margem',
-                            _eur.format(saldo),
-                            positivo
-                                ? const Color(0xFF4CAF82)
-                                : const Color(0xFFE76F51)),
-                        _infoCol('Dias', '${o['total_dias']}', Colors.grey),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          }),
-
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: _primaryColor,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  const Text('Total faturado',
-                      style: TextStyle(color: Colors.white60, fontSize: 11)),
-                  Text(_eur.format(totalFaturado),
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16)),
-                ]),
-                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                  const Text('Margem global',
-                      style: TextStyle(color: Colors.white60, fontSize: 11)),
-                  Text(
-                    '${margemPct.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      color: margem >= 0
-                          ? const Color(0xFF4CAF82)
-                          : const Color(0xFFE76F51),
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                    ),
-                  ),
-                ]),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-        ],
+  Widget _miniCard(String label, String value, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
-    );
-  }
-
-  // ── Seletor de obra ───────────────────────────────────────────────────────
-  Widget _cabecalhoObraSelecionada() {
-    final codigo = widget.obraCodigo ?? 'Obra #${widget.obraId}';
-    final nome = widget.obraNome ?? 'Graficos da obra selecionada';
-
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: Theme.of(context).cardColor,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: Theme.of(context).dividerColor),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: _primaryColor.withOpacity(0.12),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(Icons.bar_chart_rounded, color: _primaryColor, size: 20),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        codigo,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        nome,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(fontSize: 12, color: Colors.grey),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: color),
+            overflow: TextOverflow.ellipsis,
           ),
-          if (_intervalo != null) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.filter_alt, size: 14, color: Color(0xFF185FA5)),
-                const SizedBox(width: 4),
-                Text(
-                  '${DateFormat('dd/MM/yy').format(_intervalo!.start)} â€” ${DateFormat('dd/MM/yy').format(_intervalo!.end)}',
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: Color(0xFF185FA5),
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                GestureDetector(
-                  onTap: _limparFiltro,
-                  child: const Text(
-                    'limpar',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey,
-                      decoration: TextDecoration.underline,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
         ],
       ),
     );
   }
 
-  Widget _seletorObra() {
-    final selecionada = _obras.cast<dynamic>().firstWhere(
-      (o) => o?['id'] == _obraId,
-      orElse: () => null,
-    );
-    final codigo = selecionada?['codigo']?.toString() ?? 'Selecionar obra';
-    final nome   = selecionada?['nome']?.toString()   ?? 'Pesquisar por código ou nome';
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: _loadingObras || _obras.isEmpty ? null : _abrirSeletorObra,
-      child: Ink(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        decoration: BoxDecoration(
-          color: Theme.of(context).inputDecorationTheme.fillColor,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: Theme.of(context).dividerColor),
-        ),
-        child: Row(
-          children: [
-            Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: _primaryColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(Icons.search_rounded, color: _primaryColor, size: 20),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(codigo,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
-                          fontSize: 14, fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 2),
-                  Text(nome,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey)),
-                ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            const Icon(Icons.keyboard_arrow_down_rounded),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _abrirSeletorObra() async {
-    final selecionada = await showModalBottomSheet<dynamic>(
-      context: context,
-      isScrollControlled: true,
-      showDragHandle: true,
-      backgroundColor: Theme.of(context).bottomSheetTheme.backgroundColor,
-      builder: (context) => _SeletorObraModal(
-        obras:        _obras,
-        obraIdAtual:  _obraId,
-        primaryColor: _primaryColor,
-      ),
-    );
-
-    if (selecionada != null && mounted) {
-      _selecionarObra(selecionada['id'] as int);
-    }
-  }
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  Widget _metricRow(List<Widget> cards) => LayoutBuilder(
-    builder: (context, constraints) {
-      if (constraints.maxWidth < 520) {
-        return Column(
-          children: [
-            for (var i = 0; i < cards.length; i++) ...[
-              SizedBox(width: double.infinity, child: cards[i]),
-              if (i != cards.length - 1) const SizedBox(height: 10),
-            ],
-          ],
-        );
-      }
-      return Row(children: [
-        Expanded(child: cards[0]),
-        const SizedBox(width: 10),
-        Expanded(child: cards[1]),
-      ]);
-    },
-  );
-
-  Widget _metricCard(String label, String value, IconData icon, Color cor) =>
-      Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: cor.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: cor.withOpacity(0.2)),
-        ),
-        child: Row(children: [
-          Container(
-            padding: const EdgeInsets.all(7),
-            decoration: BoxDecoration(
-                color: cor.withOpacity(0.15), shape: BoxShape.circle),
-            child: Icon(icon, size: 15, color: cor),
-          ),
-          const SizedBox(width: 8),
-          Expanded(
-              child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 15, fontWeight: FontWeight.bold),
-                  overflow: TextOverflow.ellipsis),
-              Text(label,
-                  style: const TextStyle(fontSize: 10, color: Colors.grey)),
-            ],
-          )),
-        ]),
-      );
-
-  Widget _miniTag(String texto, IconData icon) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Icon(icon, size: 11, color: Colors.grey),
-      const SizedBox(width: 3),
-      Text(texto, style: const TextStyle(fontSize: 11, color: Colors.grey)),
-    ],
-  );
-
-  Widget _legendaDot(Color cor, String label) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-          width: 10,
-          height: 10,
-          decoration: BoxDecoration(
-              color: cor, borderRadius: BorderRadius.circular(2))),
-      const SizedBox(width: 4),
-      Text(label, style: const TextStyle(fontSize: 12, color: Colors.grey)),
-    ],
-  );
-
-  Widget _infoCol(String label, String value, Color cor) => Expanded(
-    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Text(label, style: const TextStyle(fontSize: 10, color: Colors.grey)),
-      Text(value,
-          style: TextStyle(
-              fontSize: 12, fontWeight: FontWeight.bold, color: cor),
-          overflow: TextOverflow.ellipsis),
-    ]),
-  );
-
-  Widget _badgeEstado(String estado) {
-    Color  cor;
-    String texto;
-    switch (estado) {
-      case 'em_curso':  cor = Colors.green;  texto = 'Em curso';  break;
-      case 'planeada':  cor = Colors.blue;   texto = 'Planeada';  break;
-      case 'concluida': cor = Colors.grey;   texto = 'Concluída'; break;
-      default:          cor = Colors.orange; texto = estado;
-    }
+  Widget _card({
+    required String title,
+    required String subtitle,
+    required Widget child,
+  }) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: cor.withOpacity(0.1),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cor.withOpacity(0.4)),
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Theme.of(context).dividerColor),
       ),
-      child: Text(texto,
-          style: TextStyle(
-              fontSize: 10, color: cor, fontWeight: FontWeight.w600)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700)),
+          const SizedBox(height: 4),
+          Text(subtitle, style: const TextStyle(fontSize: 12, color: Colors.grey)),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
     );
   }
+
+  Widget _metricRow(String label, String value, Color color) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+          ),
+          Text(
+            value,
+            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _GraficoItem {
+  final String label;
+  final double value;
+  final Color color;
+
+  const _GraficoItem(this.label, this.value, this.color);
 }

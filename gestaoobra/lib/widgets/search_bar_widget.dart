@@ -29,6 +29,21 @@ class _SearchBarWidgetState extends State<SearchBarWidget> {
   }
 
   @override
+  void didUpdateWidget(covariant SearchBarWidget oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller == widget.controller) return;
+
+    oldWidget.controller?.removeListener(_updateState);
+    if (oldWidget.controller == null) {
+      _controller.dispose();
+    }
+
+    _controller = widget.controller ?? TextEditingController();
+    _hasText = _controller.text.isNotEmpty;
+    _controller.addListener(_updateState);
+  }
+
+  @override
   void dispose() {
     if (widget.controller == null) {
       _controller.dispose();

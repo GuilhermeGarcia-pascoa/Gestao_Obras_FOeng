@@ -74,6 +74,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   final Set<String> _tiposSelecionados = <String>{};
   DateTime? _dataInicioSelecionada;
   DateTime? _dataFimSelecionada;
+  final TextEditingController _searchCtrl = TextEditingController();
   final TextEditingController _orcamentoMinCtrl = TextEditingController();
   final TextEditingController _orcamentoMaxCtrl = TextEditingController();
 
@@ -86,6 +87,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
   @override
   void dispose() {
     _scrollController.dispose();
+    _searchCtrl.dispose();
     _orcamentoMinCtrl.dispose();
     _orcamentoMaxCtrl.dispose();
     super.dispose();
@@ -168,6 +170,11 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
     }).toList();
   });
 }
+
+  void _limparPesquisa() {
+    _searchCtrl.clear();
+    _searchText = '';
+  }
 
   void _toggleFiltros() {
     setState(() {
@@ -336,6 +343,7 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
                           _resumoChips(total, emCurso, planeadas, concluidas, isDark),
                           const SizedBox(height: 12),
                           SearchBarWidget(
+                            controller: _searchCtrl,
                             hintText: 'Pesquisar por codigo ou nome...',
                             onChanged: (v) {
                               _searchText = v;
@@ -914,10 +922,15 @@ class _ObrasListScreenState extends State<ObrasListScreen> {
 
     return InkWell(
       borderRadius: BorderRadius.circular(14),
-      onTap: () => Navigator.push(
-        context,
-        MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: obra)),
-      ).then((_) => _carregar()),
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(builder: (_) => ObraDetailScreen(obra: obra)),
+        );
+        if (!mounted) return;
+        _limparPesquisa();
+        await _carregar();
+      },
       child: Ink(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
