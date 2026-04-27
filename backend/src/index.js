@@ -21,6 +21,7 @@ const { exportarExcel, exportarPdf } = require('./routes/export');
 const { auth, soGestor } = require('./middleware/auth');
 const { rateLimitGlobal } = require('./middleware/rateLimit');
 const { iniciarSyncAutomatico } = require('./services/syncFoPanel');
+const pool = require('./db/pool');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -98,13 +99,31 @@ exportRouter.get('/pdf', soGestor, exportarPdf);
 app.use('/api/export', exportRouter);
 
 // Health check
-app.get('/api/health', (_, res) => {
-  res.json({
+app.get('/api/health', async (_, res) => {
+  const basePayload = {
     status: 'ok',
+    uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-    env: isProduction ? 'production' : 'development',
-  });
+    environment: process.env.NODE_ENV,
+    version: process.env.npm_package_version || null,
+  };
+
+  try {
+    await Promise.race([
+      pool.query('SELECT 1'),
+      new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('DB healthcheck timeout')), 100);
+      }),
+    ]);
+
+    return res.json(basePayload);
+  } catch (err) {
+    console.error('[HEALTH]', err.message);
+    return res.status(503).json({
+      ...basePayload,
+      status: 'error',
+    });
+  }
 });
 
 // 404 para rotas desconhecidas
