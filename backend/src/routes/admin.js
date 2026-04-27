@@ -1,16 +1,25 @@
-const router  = require('express').Router();
-const crypto  = require('crypto');          // módulo nativo do Node — sem instalação
-const pool    = require('../db/pool');
+const router = require('express').Router();
+const crypto = require('crypto');
+const pool = require('../db/pool');
 const { auth, soAdmin } = require('../middleware/auth');
 const { logAction, reqMeta } = require('../utils/logger');
 
 // Todas as rotas requerem login de admin
 router.use(auth, soAdmin);
 
-// ── Utilitário MD5 ─────────────────────────────────────────────────────────
+function responderErroAdmin(res, err) {
+  console.error('[ADMIN]', err.message);
+
+  if (err.code === 'ER_DUP_ENTRY') {
+    return res.status(409).json({ erro: 'Registo duplicado' });
+  }
+
+  return res.status(500).json({ erro: 'Erro interno no servidor' });
+}
+
 /**
  * Devolve o hash MD5 de uma string (32 chars hexadecimais).
- * NOTA: MD5 é inseguro para passwords — use só se for requisito obrigatório.
+ * NOTA: MD5 e inseguro para passwords. Mantido por compatibilidade.
  *
  * @param {string} password
  * @returns {string}
@@ -19,15 +28,13 @@ function md5Hash(password) {
   return crypto.createHash('md5').update(password).digest('hex');
 }
 
-// ── Validação de password ──────────────────────────────────────────────────
 function validarPassword(password) {
   if (!password || password.length < 8) return 'A password deve ter pelo menos 8 caracteres';
   if (!/[a-zA-Z]/.test(password)) return 'A password deve conter pelo menos uma letra';
-  if (!/[0-9]/.test(password))    return 'A password deve conter pelo menos um número';
+  if (!/[0-9]/.test(password)) return 'A password deve conter pelo menos um numero';
   return null;
 }
 
-// ── GET /api/admin/utilizadores ────────────────────────────────────────────
 router.get('/utilizadores', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -35,22 +42,20 @@ router.get('/utilizadores', async (req, res) => {
     );
     res.json(rows);
   } catch (err) {
-    console.error('[ADMIN GET UTILIZADORES]', err.message);
-    res.status(500).json({ erro: err.message });
+    return responderErroAdmin(res, err);
   }
 });
 
-// ── POST /api/admin/utilizadores ───────────────────────────────────────────
 router.post('/utilizadores', async (req, res) => {
   const { nome, email, password, role } = req.body;
 
   if (!nome || !email || !password) {
-    return res.status(400).json({ erro: 'Nome, email e password obrigatórios' });
+    return res.status(400).json({ erro: 'Nome, email e password obrigatorios' });
   }
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(email)) {
-    return res.status(400).json({ erro: 'Formato de email inválido' });
+    return res.status(400).json({ erro: 'Formato de email invalido' });
   }
 
   const erroPassword = validarPassword(password);
@@ -58,11 +63,10 @@ router.post('/utilizadores', async (req, res) => {
 
   const rolesPermitidos = ['utilizador', 'gestor', 'admin'];
   if (role && !rolesPermitidos.includes(role)) {
-    return res.status(400).json({ erro: 'Role inválido' });
+    return res.status(400).json({ erro: 'Role invalido' });
   }
 
   try {
-    // ── Hash MD5 da password ───────────────────────────────────────────────
     const hash = md5Hash(password);
 
     const [result] = await pool.query(
@@ -71,40 +75,39 @@ router.post('/utilizadores', async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'CREATE',
-      entity:   'utilizadores',
+      userId: req.user.id,
+      action: 'CREATE',
+      entity: 'utilizadores',
       entityId: result.insertId,
-      details:  { nome: nome.trim(), email: email.toLowerCase().trim(), role: role || 'utilizador', criado_por_admin: true },
+      details: {
+        nome: nome.trim(),
+        email: email.toLowerCase().trim(),
+        role: role || 'utilizador',
+        criado_por_admin: true,
+      },
       ...reqMeta(req),
     });
 
     res.status(201).json({
-      id:    result.insertId,
-      nome:  nome.trim(),
+      id: result.insertId,
+      nome: nome.trim(),
       email: email.toLowerCase().trim(),
-      role:  role || 'utilizador',
+      role: role || 'utilizador',
     });
   } catch (err) {
-    if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ erro: 'Email já registado' });
-    }
-    console.error('[ADMIN CRIAR UTILIZADOR]', err.message);
-    res.status(500).json({ erro: err.message });
+    return responderErroAdmin(res, err);
   }
 });
 
-// ── PUT /api/admin/utilizadores/:id/senha ──────────────────────────────────
 router.put('/utilizadores/:id/senha', async (req, res) => {
   const { password } = req.body;
 
-  if (!password) return res.status(400).json({ erro: 'Password obrigatória' });
+  if (!password) return res.status(400).json({ erro: 'Password obrigatoria' });
 
   const erroPassword = validarPassword(password);
   if (erroPassword) return res.status(400).json({ erro: erroPassword });
 
   try {
-    // ── Hash MD5 da nova password ──────────────────────────────────────────
     const hash = md5Hash(password);
 
     const [result] = await pool.query(
@@ -113,29 +116,27 @@ router.put('/utilizadores/:id/senha', async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ erro: 'Utilizador não encontrado' });
+      return res.status(404).json({ erro: 'Utilizador nao encontrado' });
     }
 
     await logAction({
-      userId:   req.user.id,
-      action:   'UPDATE',
-      entity:   'utilizadores',
-      entityId: parseInt(req.params.id),
-      details:  { campo: 'password', alterado_por_admin: true },
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'utilizadores',
+      entityId: parseInt(req.params.id, 10),
+      details: { campo: 'password', alterado_por_admin: true },
       ...reqMeta(req),
     });
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('[ADMIN SENHA]', err.message);
-    res.status(500).json({ erro: err.message });
+    return responderErroAdmin(res, err);
   }
 });
 
-// ── DELETE /api/admin/utilizadores/:id ─────────────────────────────────────
 router.delete('/utilizadores/:id', async (req, res) => {
-  if (parseInt(req.params.id) === req.user?.id) {
-    return res.status(403).json({ erro: 'Não podes apagar a tua própria conta' });
+  if (parseInt(req.params.id, 10) === req.user?.id) {
+    return res.status(403).json({ erro: 'Nao podes apagar a tua propria conta' });
   }
 
   try {
@@ -150,30 +151,28 @@ router.delete('/utilizadores/:id', async (req, res) => {
     );
 
     if (result.affectedRows === 0) {
-      return res.status(404).json({ erro: 'Utilizador não encontrado' });
+      return res.status(404).json({ erro: 'Utilizador nao encontrado' });
     }
 
     await logAction({
-      userId:   req.user.id,
-      action:   'DELETE',
-      entity:   'utilizadores',
-      entityId: parseInt(req.params.id),
-      details:  alvo ? { nome: alvo.nome, email: alvo.email, role: alvo.role } : {},
+      userId: req.user.id,
+      action: 'DELETE',
+      entity: 'utilizadores',
+      entityId: parseInt(req.params.id, 10),
+      details: alvo ? { nome: alvo.nome, email: alvo.email, role: alvo.role } : {},
       ...reqMeta(req),
     });
 
     res.json({ ok: true });
   } catch (err) {
-    console.error('[ADMIN DELETE UTILIZADOR]', err.message);
-    res.status(500).json({ erro: err.message });
+    return responderErroAdmin(res, err);
   }
 });
 
-// ── GET /api/admin/logs ────────────────────────────────────────────────────
 router.get('/logs', async (req, res) => {
   try {
-    const limit  = Math.min(parseInt(req.query.limit  ?? 200), 500);
-    const offset = parseInt(req.query.offset ?? 0);
+    const limit = Math.min(parseInt(req.query.limit ?? 200, 10), 500);
+    const offset = parseInt(req.query.offset ?? 0, 10);
 
     const [rows] = await pool.query(
       `SELECT
@@ -197,8 +196,7 @@ router.get('/logs', async (req, res) => {
 
     res.json(rows);
   } catch (err) {
-    console.error('[ADMIN GET LOGS]', err.message);
-    res.status(500).json({ erro: err.message });
+    return responderErroAdmin(res, err);
   }
 });
 
