@@ -1,47 +1,50 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:table_calendar/table_calendar.dart';
-
+ 
 import '../../services/api_service.dart';
 import '../dias/dia_registo_screen.dart';
 import '../graficos/graficos_screen.dart';
-
+import 'obra_form_screen.dart';
+ 
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
-
+ 
 num _parseOrcamento(dynamic value) {
   if (value is num) return value;
   if (value is String) return double.tryParse(value) ?? 0;
   return 0;
 }
-
+ 
 class ObraDetailScreen extends StatefulWidget {
   final Map<String, dynamic> obra;
-
+ 
   const ObraDetailScreen({super.key, required this.obra});
-
+ 
   @override
   State<ObraDetailScreen> createState() => _ObraDetailScreenState();
 }
-
+ 
 class _ObraDetailScreenState extends State<ObraDetailScreen> {
+  late Map<String, dynamic> _obra;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   Set<String> _diasComDados = {};
   bool _loading = true;
-
+ 
   @override
   void initState() {
     super.initState();
+    _obra = Map.from(widget.obra);
     _carregarMes(_focusedDay);
   }
-
+ 
   String _formatMes(DateTime d) => DateFormat('yyyy-MM').format(d);
   String _formatData(DateTime d) => DateFormat('yyyy-MM-dd').format(d);
-
+ 
   Future<void> _carregarMes(DateTime mes) async {
     setState(() => _loading = true);
     try {
-      final lista = await ApiService.getDiasMes(widget.obra['id'], _formatMes(mes));
+      final lista = await ApiService.getDiasMes(_obra['id'], _formatMes(mes));
       setState(() {
         _diasComDados = Set<String>.from(lista.map((d) => d['data'] as String));
         _loading = false;
@@ -50,26 +53,35 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       setState(() => _loading = false);
     }
   }
-
+ 
   Future<void> _abrirDia(DateTime dia) async {
     final dataStr = _formatData(dia);
     final resultado = await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => DiaRegistoScreen(
-          obraId: widget.obra['id'],
+          obraId: _obra['id'],
           data: dataStr,
-          obraCodigo: widget.obra['codigo'] ?? '',
+          obraCodigo: _obra['codigo'] ?? '',
         ),
       ),
     );
     if (resultado == true) _carregarMes(_focusedDay);
   }
+ 
+  Future<void> _recarregarObra() async {
+    try {
+      final obraAtualizada = await ApiService.getObra(_obra['id']);
+      setState(() {
+        _obra = obraAtualizada;
+      });
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
-    final obra = widget.obra;
-
+    final obra = _obra;
+ 
     return Scaffold(
       appBar: AppBar(
         title: Text(obra['codigo'] ?? ''),
@@ -85,7 +97,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
           final selectedLabel = selectedDateText == null
               ? 'Seleciona um dia para abrir ou preencher o registo.'
               : 'Dia selecionado: $selectedDateText';
-
+ 
           return Align(
             alignment: Alignment.topCenter,
             child: ConstrainedBox(
@@ -120,19 +132,40 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 14),
-                        FilledButton.icon(
-                          onPressed: () => Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => GraficosScreen(
-                                obraId: obra['id'] as int,
-                                obraCodigo: obra['codigo']?.toString(),
-                                obraNome: obra['nome']?.toString(),
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            FilledButton.icon(
+                              onPressed: () => Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => GraficosScreen(
+                                    obraId: obra['id'] as int,
+                                    obraCodigo: obra['codigo']?.toString(),
+                                    obraNome: obra['nome']?.toString(),
+                                  ),
+                                ),
                               ),
+                              icon: const Icon(Icons.insights_rounded),
+                              label: const Text('Ver Graficos'),
                             ),
-                          ),
-                          icon: const Icon(Icons.insights_rounded),
-                          label: const Text('Ver Graficos'),
+                            FilledButton.icon(
+                              onPressed: () async {
+                                final resultado = await Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                    builder: (_) => ObraFormScreen(obra: obra),
+                                  ),
+                                );
+                                if (resultado == true && mounted) {
+                                  _recarregarObra();
+                                }
+                              },
+                              icon: const Icon(Icons.edit_rounded),
+                              label: const Text('Editar Obra'),
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -308,7 +341,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ),
     );
   }
-
+ 
   Widget _legendDot(String text, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -323,7 +356,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ],
     );
   }
-
+ 
   Widget _legendOutline(String text) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -341,7 +374,7 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ],
     );
   }
-
+ 
   Widget _legendFill(String text, Color color) {
     return Row(
       mainAxisSize: MainAxisSize.min,
@@ -360,3 +393,5 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
     );
   }
 }
+ 
+ 
