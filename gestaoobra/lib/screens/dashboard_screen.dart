@@ -230,7 +230,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             runSpacing: 8,
             children: [
               _heroChip(Icons.apartment_rounded, '$totalObras obras ativas'),
-              _heroChip(Icons.euro_rounded, Fmt.moeda0(totalFaturado) + ' faturados'),
+              _heroChip(Icons.euro_rounded, '${Fmt.moeda0(totalFaturado)} faturados'),
               _heroChip(
                 margem >= 0 ? Icons.trending_up_rounded : Icons.trending_down_rounded,
                 margem >= 0 ? 'Margem positiva' : 'Margem negativa',

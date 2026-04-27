@@ -932,12 +932,15 @@ class _FormularioCriarUtilizadorState
   String? _validarSenha(String? value) {
     final senha = value ?? '';
     if (senha.isEmpty) return 'Campo obrigatório';
-    if (senha.length < 8)
+    if (senha.length < 8) {
       return 'A password deve ter pelo menos 8 caracteres';
-    if (!RegExp(r'[a-zA-Z]').hasMatch(senha))
+    }
+    if (!RegExp(r'[a-zA-Z]').hasMatch(senha)) {
       return 'A password deve conter pelo menos uma letra';
-    if (!RegExp(r'[0-9]').hasMatch(senha))
+    }
+    if (!RegExp(r'[0-9]').hasMatch(senha)) {
       return 'A password deve conter pelo menos um número';
+    }
     return null;
   }
 
