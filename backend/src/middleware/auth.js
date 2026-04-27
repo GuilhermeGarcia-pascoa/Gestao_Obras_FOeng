@@ -1,15 +1,17 @@
 const jwt = require('jsonwebtoken');
 
-// ── Rate limiting simples em memória para login ────────────────────────────
-const tentativas = new Map(); // ip -> { count, bloqueadoAte }
+const tentativas = new Map();
 
 const MAX_TENTATIVAS = 5;
-const JANELA_MS      = 15 * 60 * 1000; // 15 minutos
-const BLOQUEIO_MS    = 30 * 60 * 1000; // 30 minutos de bloqueio
+const JANELA_MS = 15 * 60 * 1000;
+const BLOQUEIO_MS = 30 * 60 * 1000;
 
-// JWT claims obrigatórios — devem coincidir em sign() e verify()
-const JWT_ISSUER   = 'foeng-api';
+const JWT_ISSUER = 'foeng-api';
 const JWT_AUDIENCE = 'foeng-users';
+
+function respostaNaoAutorizado(res) {
+  return res.status(401).json({ erro: 'Nao autorizado' });
+}
 
 function rateLimitLogin(req, res, next) {
   const ip = req.ip || req.connection.remoteAddress || 'unknown';
@@ -20,7 +22,7 @@ function rateLimitLogin(req, res, next) {
     if (registo.bloqueadoAte && agora < registo.bloqueadoAte) {
       const restam = Math.ceil((registo.bloqueadoAte - agora) / 60000);
       return res.status(429).json({
-        erro: `Demasiadas tentativas. Tente novamente em ${restam} minuto(s).`
+        erro: `Demasiadas tentativas. Tente novamente em ${restam} minuto(s).`,
       });
     }
 
@@ -55,45 +57,40 @@ function limparFalhasLogin(ip) {
   tentativas.delete(ip);
 }
 
-// ── Middleware JWT ─────────────────────────────────────────────────────────
 function auth(req, res, next) {
-  const header = req.headers['authorization'];
+  const header = req.headers.authorization;
   if (!header) {
-    return res.status(401).json({ erro: 'Token em falta' });
+    return respostaNaoAutorizado(res);
   }
 
   const partes = header.split(' ');
   if (partes.length !== 2 || partes[0] !== 'Bearer') {
-    return res.status(401).json({ erro: 'Formato de token inválido' });
+    return respostaNaoAutorizado(res);
   }
 
   const token = partes[1];
 
   try {
     req.user = jwt.verify(token, process.env.JWT_SECRET, {
-      issuer:   JWT_ISSUER,
+      issuer: JWT_ISSUER,
       audience: JWT_AUDIENCE,
     });
     next();
   } catch (err) {
-    if (err.name === 'TokenExpiredError') {
-      return res.status(401).json({ erro: 'Sessão expirada. Faça login novamente.' });
-    }
-    return res.status(401).json({ erro: 'Token inválido' });
+    return respostaNaoAutorizado(res);
   }
 }
 
-// ── Middleware de autorização por role ─────────────────────────────────────
 function soGestor(req, res, next) {
   if (!req.user || !['gestor', 'admin'].includes(req.user.role)) {
-    return res.status(403).json({ erro: 'Sem permissão. É necessário ser gestor ou administrador.' });
+    return res.status(403).json({ erro: 'Sem permissao' });
   }
   next();
 }
 
 function soAdmin(req, res, next) {
   if (!req.user || req.user.role !== 'admin') {
-    return res.status(403).json({ erro: 'Sem permissão. É necessário ser administrador.' });
+    return res.status(403).json({ erro: 'Sem permissao' });
   }
   next();
 }
