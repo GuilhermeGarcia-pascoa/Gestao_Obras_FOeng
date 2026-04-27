@@ -1,272 +1,105 @@
-const { validarEnv } = require('./config/env');
-
-const { isProduction } = validarEnv();
-
 const express = require('express');
 const cors = require('cors');
-const readline = require('readline');
-const os = require('os');
-const helmet = require('helmet');
 const compression = require('compression');
+const helmet = require('helmet');
 const morgan = require('morgan');
+const fs = require('fs');
+const path = require('path');
+require('dotenv').config();
 
-const authRouter = require('./routes/auth');
-const obrasRouter = require('./routes/obras');
-const diasRouter = require('./routes/dias');
-const equipaRouter = require('./routes/equipa');
-const relatoriosRouter = require('./routes/relatorios');
-const adminRouter = require('./routes/admin');
-const syncRouter = require('./routes/sync');
-const { exportarExcel, exportarPdf } = require('./routes/export');
-const { auth, soGestor } = require('./middleware/auth');
-const { rateLimitGlobal } = require('./middleware/rateLimit');
-const { iniciarSyncAutomatico } = require('./services/syncFoPanel');
-const pool = require('./db/pool');
+const logger = require('./utils/logger');
+const { errorHandler, authErrorHandler } = require('./middleware/errorHandler');
+const { handleUploadError } = require('./config/upload');
+
+// Rotas
+const authRoutes = require('./routes/auth');
+const utilizadoresRoutes = require('./routes/utilizadores');
+const projetosRoutes = require('./routes/projetos');
+const nosRoutes = require('./routes/nos');
+const camposRoutes = require('./routes/campos');
+const registosRoutes = require('./routes/registos');
+const utilizadorProjetoRoutes = require('./routes/utilizador_projeto');
+const utilizadorNoRoutes = require('./routes/utilizador_no');
+const databaseRoutes = require('./routes/database');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-const origensPermitidas = (process.env.CORS_ORIGINS || '')
-  .split(',')
-  .map((origem) => origem.trim())
-  .filter(Boolean);
+// ─── CRIAR PASTA UPLOADS SE NÃO EXISTIR ────────────────────
+const uploadsDir = path.join(__dirname, '../uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+  logger.info(`Pasta de uploads criada: ${uploadsDir}`);
+}
 
-const corsOptions = {
-  origin(origin, callback) {
-    if (!origin) {
-      return callback(null, true);
-    }
+// ─── MIDDLEWARES ───────────────────────────────────────────
 
-    if (origensPermitidas.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(null, false);
-  },
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-};
-
-app.set('trust proxy', 1);
-
-// Seguranca HTTP headers
+// HELMET - CSP configurado para permitir Google Fonts e Font Awesome
 app.use(helmet({
-  crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
-      styleSrc: ["'self'", "'unsafe-inline'"],
-      imgSrc: ["'self'", 'data:', 'blob:'],
+      scriptSrc: ["'self'", "'unsafe-inline'", "cdnjs.cloudflare.com"],
+      styleSrc: ["'self'", "'unsafe-inline'", "fonts.googleapis.com", "cdnjs.cloudflare.com"],
+      fontSrc: ["'self'", "fonts.gstatic.com", "cdnjs.cloudflare.com"],
+      imgSrc: ["'self'", "data:", "blob:"],
       connectSrc: ["'self'"],
     },
   },
+  crossOriginEmbedderPolicy: false, // Evita problemas com recursos externos
 }));
-console.log('[INFO] Helmet ativo (headers de seguranca HTTP)');
 
-// Compressao gzip
 app.use(compression());
-console.log('[INFO] Compressao gzip ativa');
 
-// Logging HTTP
-app.use(morgan(isProduction ? 'combined' : 'dev'));
+// CORS - permitir o frontend (definir FRONTEND_URL no .env em produção)
+app.use(cors({
+  origin: process.env.FRONTEND_URL || '*',
+  credentials: true,
+}));
 
-// CORS
-app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.use(morgan('combined'));
+app.use(express.json({ limit: '10mb' }));
 
-// Body parser
-app.use(express.json({ limit: '5mb' }));
-app.use(express.urlencoded({ extended: false }));
+// ─── SERVIR UPLOADS COM SEGURANÇA ──────────────────────────
+// Apenas servir ficheiros estáticos, sem permitir execução de scripts
+app.use('/uploads', express.static('uploads', {
+  dotfiles: 'deny', // Não servir ficheiros ocultos (.htaccess, .env, etc)
+  index: false      // Não servir listagem de diretório
+}));
 
-// Rate limit global
-app.use(rateLimitGlobal);
+// ─── ROTAS ─────────────────────────────────────────────────
+app.use('/api/login', authRoutes);
+app.use('/api/utilizadores', utilizadoresRoutes);
+app.use('/api/projetos', projetosRoutes);
+app.use('/api/nos', nosRoutes);
+app.use('/api/campos', camposRoutes);
+app.use('/api/registos', registosRoutes);
+app.use('/api/utilizador_projeto', utilizadorProjetoRoutes);
+app.use('/api/utilizador_no', utilizadorNoRoutes);
+app.use('/api/database', databaseRoutes);
 
-// Rotas
-app.use('/api/auth', authRouter);
-app.use('/api/obras', obrasRouter);
-app.use('/api/dias', diasRouter);
-app.use('/api/equipa', equipaRouter);
-app.use('/api/relatorios', relatoriosRouter);
-app.use('/api/admin', adminRouter);
-app.use('/api/sync', syncRouter);
-
-// Exportacoes protegidas
-const exportRouter = require('express').Router();
-exportRouter.use(auth);
-exportRouter.get('/excel/:obraId', soGestor, exportarExcel);
-exportRouter.get('/pdf', soGestor, exportarPdf);
-app.use('/api/export', exportRouter);
-
-// Health check
-app.get('/api/health', async (_, res) => {
-  const basePayload = {
-    status: 'ok',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
-    environment: process.env.NODE_ENV,
-    version: process.env.npm_package_version || null,
-  };
-
-  try {
-    await Promise.race([
-      pool.query('SELECT 1'),
-      new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('DB healthcheck timeout')), 100);
-      }),
-    ]);
-
-    return res.json(basePayload);
-  } catch (err) {
-    console.error('[HEALTH]', err.message);
-    return res.status(503).json({
-      ...basePayload,
-      status: 'error',
-    });
-  }
+// ─── ROTA DE HEALTH CHECK ──────────────────────────────────
+app.get('/api/health', (req, res) => {
+  res.json({ success: true, message: 'API is running', timestamp: new Date().toISOString() });
 });
 
-// 404 para rotas desconhecidas
+// ─── TRATAMENTO DE ERROS ───────────────────────────────────
+// Primeiro, capturar erros de upload (Multer)
+app.use(handleUploadError);
+
+// Depois, autenticação
+app.use(authErrorHandler);
+
+// Finalmente, tratamento de erros geral (SEMPRE POR ÚLTIMO)
+app.use(errorHandler);
+
+// ─── ROTA 404 ──────────────────────────────────────────────
 app.use((req, res) => {
-  res.status(404).json({ erro: `Rota nao encontrada: ${req.method} ${req.path}` });
+  res.status(404).json({ success: false, error: 'Rota não encontrada' });
 });
 
-// Tratamento global de erros
-app.use((err, req, res, _next) => {
-  console.error('[ERRO]', err.message);
-  if (!isProduction) {
-    console.error(err.stack);
-  }
-  res.status(500).json({ erro: 'Erro interno do servidor' });
+// ─── INICIAR SERVIDOR ──────────────────────────────────────
+app.listen(PORT, '0.0.0.0', () => {
+  logger.success(`🚀 API rodando em http://0.0.0.0:${PORT}`);
+  logger.info(`Health check: http://localhost:${PORT}/api/health`);
 });
-
-// Arranque
-let server;
-
-function iniciarServidor() {
-  server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n[INFO] Servidor iniciado na porta ${PORT}`);
-    console.log(`[INFO] Ambiente: ${isProduction ? 'production' : 'development'}`);
-    if (!isProduction) {
-      console.log(`[INFO] Endereco local: http://localhost:${PORT}`);
-      console.log("[INFO] Digite 'help' para listar os comandos disponiveis.\n");
-      iniciarCLI();
-    }
-    iniciarSyncAutomatico();
-  });
-
-  server.on('error', (err) => {
-    if (err.code === 'EADDRINUSE') {
-      console.error(`[ERRO] A porta ${PORT} ja esta em uso. Escolhe outra em .env (PORT=3001)`);
-    } else {
-      console.error('[ERRO] Falha ao iniciar servidor:', err.message);
-    }
-    process.exit(1);
-  });
-}
-
-// CLI interativo
-function iniciarCLI() {
-  if (isProduction) return;
-
-  // Nao iniciar CLI se nao houver terminal interativo (ex: PM2, Docker)
-  if (!process.stdin.isTTY) return;
-
-  const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-    prompt: 'server> ',
-  });
-
-  rl.prompt();
-
-  rl.on('line', (line) => {
-    const cmd = line.trim().toLowerCase();
-    switch (cmd) {
-      case 'help':
-        console.log(`
-  Comandos disponiveis:
-    help    - Esta lista
-    ip      - Enderecos IPv4 da maquina
-    status  - Uptime e memoria
-    env     - Variaveis de ambiente carregadas (sem valores sensiveis)
-    clear   - Limpar consola
-    restart - Reiniciar servidor
-    exit    - Encerrar
-        `);
-        break;
-
-      case 'ip': {
-        const interfaces = os.networkInterfaces();
-        console.log('\n[INFO] Enderecos IPv4:');
-        for (const nome in interfaces) {
-          for (const net of interfaces[nome]) {
-            if (net.family === 'IPv4' && !net.internal) {
-              console.log(`  - ${nome}: ${net.address}`);
-            }
-          }
-        }
-        console.log('');
-        break;
-      }
-
-      case 'status': {
-        const ramLivre = (os.freemem() / (1024 * 1024)).toFixed(2);
-        const ramTotal = (os.totalmem() / (1024 * 1024)).toFixed(2);
-        const uptime = process.uptime();
-        const horas = Math.floor(uptime / 3600);
-        const minutos = Math.floor((uptime % 3600) / 60);
-        const segundos = Math.floor(uptime % 60);
-        console.log(`\n[STATUS] Uptime: ${horas}h ${minutos}m ${segundos}s  |  RAM livre: ${ramLivre}MB / ${ramTotal}MB\n`);
-        break;
-      }
-
-      case 'env':
-        console.log('\n[ENV] Variaveis carregadas:');
-        console.log(`  DB_HOST      = ${process.env.DB_HOST || '(nao definido)'}`);
-        console.log(`  DB_NAME      = ${process.env.DB_NAME || '(nao definido)'}`);
-        console.log(`  DB_PORT      = ${process.env.DB_PORT || '3306'}`);
-        console.log(`  PORT         = ${process.env.PORT || '3000'}`);
-        console.log(`  NODE_ENV     = ${isProduction ? 'production' : 'development'}`);
-        console.log(`  CORS_ORIGINS = ${process.env.CORS_ORIGINS || '(nao definido)'}`);
-        console.log(`  FOPANEL_HOST = ${process.env.FOPANEL_HOST || '(nao definido)'}`);
-        console.log(`  JWT_SECRET   = ${'*'.repeat(Math.min((process.env.JWT_SECRET || '').length, 8))} (oculto)\n`);
-        break;
-
-      case 'clear':
-        console.clear();
-        break;
-
-      case 'restart':
-        console.log('\n[INFO] A reiniciar servidor...');
-        server.close(() => {
-          server = app.listen(PORT, '0.0.0.0', () => {
-            console.log(`[INFO] Servidor reiniciado na porta ${PORT}.\n`);
-            rl.prompt();
-          });
-        });
-        return;
-
-      case 'exit':
-      case 'quit':
-        console.log('\n[INFO] A encerrar servidor...');
-        server.close(() => {
-          console.log('[INFO] Servidor encerrado.');
-          process.exit(0);
-        });
-        return;
-
-      case '':
-        break;
-
-      default:
-        console.log(`[AVISO] Comando nao reconhecido: '${cmd}'. Digite 'help'.\n`);
-    }
-
-    rl.prompt();
-  });
-
-  rl.on('close', () => process.exit(0));
-}
-
-iniciarServidor();
