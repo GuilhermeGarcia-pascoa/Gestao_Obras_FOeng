@@ -3,25 +3,69 @@ require('dotenv').config({ path: path.join(__dirname, '../.env') });
 
 const isProduction = process.env.NODE_ENV === 'production';
 
-// Validar variaveis de ambiente obrigatorias antes de arrancar
-const varObrigatorias = ['DB_HOST', 'DB_USER', 'DB_PASSWORD', 'DB_NAME', 'JWT_SECRET'];
-for (const v of varObrigatorias) {
-  if (!process.env[v]) {
-    console.error(`[ERRO FATAL] Variavel de ambiente obrigatoria em falta: ${v}`);
+function validarConfiguracao() {
+  const variaveisObrigatorias = [
+    'NODE_ENV',
+    'PORT',
+    'DB_HOST',
+    'DB_PORT',
+    'DB_NAME',
+    'DB_USER',
+    'DB_PASSWORD',
+    'JWT_SECRET',
+    'JWT_EXPIRES_IN',
+    'CORS_ORIGINS',
+  ];
+
+  const emFalta = variaveisObrigatorias.filter((nome) => {
+    const valor = process.env[nome];
+    return !valor || !valor.trim();
+  });
+
+  if (emFalta.length > 0) {
+    console.error('[ERRO FATAL] Variaveis de ambiente obrigatorias em falta:');
+    for (const nome of emFalta) {
+      console.error(` - ${nome}`);
+    }
     console.error('Cria o ficheiro backend/.env com base no backend/.env.example');
+    process.exit(1);
+  }
+
+  if (!['production', 'development', 'test'].includes(process.env.NODE_ENV)) {
+    console.error('[ERRO FATAL] NODE_ENV invalido. Use production, development ou test.');
+    process.exit(1);
+  }
+
+  const port = Number(process.env.PORT);
+  const dbPort = Number(process.env.DB_PORT);
+
+  if (!Number.isInteger(port) || port <= 0) {
+    console.error('[ERRO FATAL] PORT invalido. Use um numero inteiro positivo.');
+    process.exit(1);
+  }
+
+  if (!Number.isInteger(dbPort) || dbPort <= 0) {
+    console.error('[ERRO FATAL] DB_PORT invalido. Use um numero inteiro positivo.');
+    process.exit(1);
+  }
+
+  if (process.env.JWT_SECRET.length < 64) {
+    console.error('[ERRO FATAL] JWT_SECRET demasiado curto. Use pelo menos 64 caracteres.');
+    process.exit(1);
+  }
+
+  const corsOrigins = process.env.CORS_ORIGINS
+    .split(',')
+    .map((origem) => origem.trim())
+    .filter(Boolean);
+
+  if (corsOrigins.length === 0) {
+    console.error('[ERRO FATAL] CORS_ORIGINS invalido. Define pelo menos uma origem permitida.');
     process.exit(1);
   }
 }
 
-// Em producao, JWT_SECRET fraco bloqueia o arranque
-if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
-  const mensagem = '[AVISO] JWT_SECRET e demasiado curto. Use pelo menos 32 caracteres em producao.';
-  if (isProduction) {
-    console.error(mensagem);
-    process.exit(1);
-  }
-  console.warn(mensagem);
-}
+validarConfiguracao();
 
 const express = require('express');
 const cors = require('cors');
