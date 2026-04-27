@@ -17,7 +17,7 @@ const poolFoPanel = require('../db/poolFoPanel'); // fo_panel
 
 const estado = {
   ultimoSync:    null,   // ISO string
-  ultimoErro:    null,   // mensagem de erro
+  ultimoErro:    null,   // mensagem genérica para UI
   emExecucao:    false,
   totalInseridas: 0,
   totalActualizadas: 0,
@@ -78,7 +78,7 @@ async function correrSync() {
   }
 
   estado.emExecucao = true;
-  const stats = { inseridas: 0, actualizadas: 0, ignoradas: 0, erros: [] };
+  const stats = { inseridas: 0, actualizadas: 0, ignoradas: 0, totalErros: 0 };
 
   try {
     await garantirColunas();
@@ -129,15 +129,6 @@ async function correrSync() {
 
           // DEBUG — remove quando as actualizações falsas desaparecerem
           if (mudou) {
-            if (!nomeIgual)
-              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} nome: "${existente.nome}" → "${nome}"`);
-            if (!estadoIgual)
-              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} estado: "${existente.estado}" → "${estadoVal}"`);
-            if (!orcamentoIgual)
-              console.log(`[SYNC DEBUG] fo_panel_id=${proj.id} orcamento: "${existente.orcamento}" → "${orcamento}"`);
-          }
-
-          if (mudou) {
             await pool.query(`
               UPDATE obras
               SET nome = ?, codigo = ?, estado = ?, orcamento = ?,
@@ -185,7 +176,7 @@ async function correrSync() {
         }
 
       } catch (erroLinha) {
-        stats.erros.push({ fo_panel_id: proj.id, erro: erroLinha.message });
+        stats.totalErros++;
         console.error(`[SYNC] Erro na obra fo_panel_id=${proj.id}:`, erroLinha.message);
       }
     }
@@ -198,12 +189,12 @@ async function correrSync() {
     estado.totalIgnoradas   += stats.ignoradas;
 
     console.log(`[SYNC] Concluído — ${stats.inseridas} inseridas, ${stats.actualizadas} actualizadas, ${stats.ignoradas} sem alterações`);
-    if (stats.erros.length) console.warn(`[SYNC] ${stats.erros.length} erros`);
+    if (stats.totalErros > 0) console.warn(`[SYNC] ${stats.totalErros} erros`);
 
     return stats;
 
   } catch (err) {
-    estado.ultimoErro = err.message;
+    estado.ultimoErro = 'Erro interno no servidor';
     console.error('[SYNC] Erro geral:', err.message);
     throw err;
   } finally {

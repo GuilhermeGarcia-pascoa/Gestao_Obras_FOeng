@@ -449,11 +449,10 @@ class ConfigScreen extends StatelessWidget {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
         _snackError(context, e.mensagem);
       }
-    } catch (e, stack) {
-      debugPrint('_descarregarFicheiro erro: $e\n$stack');
+    } catch (_) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).hideCurrentSnackBar();
-        _snackError(context, 'Erro: ${e.toString()}');
+        _snackError(context, 'Erro ao descarregar ficheiro');
       }
     }
   }

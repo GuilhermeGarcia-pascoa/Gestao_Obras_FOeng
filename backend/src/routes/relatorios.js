@@ -106,7 +106,8 @@ router.get('/excel/:obra_id', async (req, res) => {
     await workbook.xlsx.write(res);
     res.end();
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('[RELATORIOS EXCEL]', err.message);
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -158,7 +159,8 @@ router.get('/pdf/:dia_id', async (req, res) => {
     doc.fontSize(13).font('Helvetica-Bold').text(`Faturado:  € ${Number(dia.faturado || 0).toFixed(2)}`);
     doc.end();
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('[RELATORIOS PDF]', err.message);
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -270,8 +272,8 @@ router.get('/graficos/:obra_id', async (req, res) => {
       comparacao,
     });
   } catch (err) {
-    console.error('Erro graficos:', err);
-    res.status(500).json({ erro: err.message });
+    console.error('[RELATORIOS GRAFICOS]', err.message);
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
@@ -327,7 +329,8 @@ router.get('/todas-obras', async (req, res) => {
       }
     });
   } catch (err) {
-    res.status(500).json({ erro: err.message });
+    console.error('[RELATORIOS TODAS OBRAS]', err.message);
+    res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 

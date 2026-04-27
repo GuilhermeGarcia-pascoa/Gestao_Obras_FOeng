@@ -46,10 +46,11 @@ router.post('/agora', auth, soGestor, async (req, res) => {
       inseridas:  resultado.inseridas,
       actualizadas: resultado.actualizadas,
       ignoradas:  resultado.ignoradas,
-      erros:      resultado.erros,
+      totalErros: resultado.totalErros ?? 0,
     });
   } catch (err) {
-    res.status(500).json({ ok: false, erro: err.message });
+    console.error('[SYNC ROUTE]', err.message);
+    res.status(500).json({ ok: false, erro: 'Erro interno no servidor' });
   }
 });
 
