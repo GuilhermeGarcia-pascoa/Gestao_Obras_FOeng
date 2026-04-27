@@ -84,6 +84,7 @@ const adminRouter = require('./routes/admin');
 const syncRouter = require('./routes/sync');
 const { exportarExcel, exportarPdf } = require('./routes/export');
 const { auth, soGestor } = require('./middleware/auth');
+const { rateLimitGlobal } = require('./middleware/rateLimit');
 const { iniciarSyncAutomatico } = require('./services/syncFoPanel');
 
 const app = express();
@@ -141,6 +142,9 @@ app.options('*', cors(corsOptions));
 // Body parser
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: false }));
+
+// Rate limit global
+app.use(rateLimitGlobal);
 
 // Rotas
 app.use('/api/auth', authRouter);

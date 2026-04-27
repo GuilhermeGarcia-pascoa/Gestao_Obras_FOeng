@@ -1,66 +1,46 @@
-const router  = require('express').Router();
-const crypto  = require('crypto');          // módulo nativo do Node — sem instalação
-const jwt     = require('jsonwebtoken');
-const { z }   = require('zod');
-const pool    = require('../db/pool');
+const router = require('express').Router();
+const crypto = require('crypto');
+const jwt = require('jsonwebtoken');
+const { z } = require('zod');
+const pool = require('../db/pool');
 const {
   auth,
   soAdmin,
-  rateLimitLogin,
-  registarFalhaLogin,
-  limparFalhasLogin,
   JWT_ISSUER,
   JWT_AUDIENCE,
 } = require('../middleware/auth');
+const { rateLimitLogin } = require('../middleware/rateLimit');
 const { logAction, reqMeta } = require('../utils/logger');
 
-// ── Utilitário MD5 ─────────────────────────────────────────────────────────
-/**
- * Recebe uma password em texto e devolve o hash MD5 (string hexadecimal de 32 chars).
- * NOTA: MD5 é extremamente inseguro para passwords. Use apenas se for um
- *       requisito externo obrigatório. Prefira bcrypt, argon2 ou scrypt.
- *
- * @param {string} password - Password em texto limpo
- * @returns {string} Hash MD5 em hexadecimal
- */
 function md5Hash(password) {
   return crypto.createHash('md5').update(password).digest('hex');
 }
 
-/**
- * Compara uma password em texto com um hash MD5 guardado.
- *
- * @param {string} password   - Password em texto limpo (inserida pelo utilizador)
- * @param {string} hashGuardado - Hash MD5 guardado na base de dados
- * @returns {boolean}
- */
 function verificarPasswordMd5(password, hashGuardado) {
   return md5Hash(password) === hashGuardado;
 }
 
-// ── Schemas Zod ────────────────────────────────────────────────────────────
 const schemaLogin = z.object({
-  email:    z.string().email('Email inválido'), 
-  password: z.string().min(1, 'Password obrigatória'),
+  email: z.string().email('Email invalido'),
+  password: z.string().min(1, 'Password obrigatoria'),
 });
 
 const schemaRegistar = z.object({
-  nome:     z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email:    z.string().email('Email inválido'),
+  nome: z.string().min(2, 'Nome deve ter pelo menos 2 caracteres'),
+  email: z.string().email('Email invalido'),
   password: z.string()
     .min(8, 'A password deve ter pelo menos 8 caracteres')
     .regex(/[a-zA-Z]/, 'A password deve conter pelo menos uma letra')
-    .regex(/[0-9]/,    'A password deve conter pelo menos um número'),
+    .regex(/[0-9]/, 'A password deve conter pelo menos um numero'),
   role: z.enum(['utilizador', 'gestor', 'admin']).optional(),
 });
 
 const schemaTema = z.object({
   tema_preferido: z.enum(['light', 'dark', 'system'], {
-    errorMap: () => ({ message: 'Tema inválido. Use: light, dark ou system' }),
+    errorMap: () => ({ message: 'Tema invalido. Use: light, dark ou system' }),
   }),
 });
 
-// ── POST /api/auth/login ───────────────────────────────────────────────────
 router.post('/login', rateLimitLogin, async (req, res) => {
   const parsed = schemaLogin.safeParse(req.body);
   if (!parsed.success) {
@@ -68,7 +48,6 @@ router.post('/login', rateLimitLogin, async (req, res) => {
   }
 
   const { email, password } = parsed.data;
-  const ip   = req.ip || req.connection.remoteAddress || 'unknown';
   const meta = reqMeta(req);
 
   try {
@@ -78,43 +57,37 @@ router.post('/login', rateLimitLogin, async (req, res) => {
     );
 
     if (rows.length === 0) {
-      registarFalhaLogin(ip);
       await logAction({
         userId: null,
         action: 'LOGIN_FAILED',
         entity: 'auth',
-        details: { email: email.toLowerCase().trim(), motivo: 'utilizador não encontrado' },
+        details: { email: email.toLowerCase().trim(), motivo: 'credenciais invalidas' },
         ...meta,
       });
-      return res.status(401).json({ erro: 'Credenciais inválidas' });
+      return res.status(401).json({ erro: 'Credenciais invalidas' });
     }
 
     const user = rows[0];
-
-    // ── Validação da password com MD5 ──────────────────────────────────────
     const ok = verificarPasswordMd5(password, user.password_hash);
 
     if (!ok) {
-      registarFalhaLogin(ip);
       await logAction({
         userId: user.id,
         action: 'LOGIN_FAILED',
         entity: 'auth',
-        details: { email: email.toLowerCase().trim(), motivo: 'password incorreta' },
+        details: { email: email.toLowerCase().trim(), motivo: 'credenciais invalidas' },
         ...meta,
       });
-      return res.status(401).json({ erro: 'Credenciais inválidas' });
+      return res.status(401).json({ erro: 'Credenciais invalidas' });
     }
-
-    limparFalhasLogin(ip);
 
     const token = jwt.sign(
       { id: user.id, nome: user.nome, role: user.role },
       process.env.JWT_SECRET,
       {
         expiresIn: process.env.JWT_EXPIRES_IN || '1h',
-        issuer:    JWT_ISSUER,
-        audience:  JWT_AUDIENCE,
+        issuer: JWT_ISSUER,
+        audience: JWT_AUDIENCE,
       }
     );
 
@@ -129,10 +102,10 @@ router.post('/login', rateLimitLogin, async (req, res) => {
     res.json({
       token,
       utilizador: {
-        id:             user.id,
-        nome:           user.nome,
-        email:          user.email,
-        role:           user.role,
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
         tema_preferido: user.tema_preferido || 'system',
       },
     });
@@ -142,7 +115,6 @@ router.post('/login', rateLimitLogin, async (req, res) => {
   }
 });
 
-// ── GET /api/auth/me ───────────────────────────────────────────────────────
 router.get('/me', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -151,17 +123,17 @@ router.get('/me', auth, async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ erro: 'Utilizador não encontrado' });
+      return res.status(404).json({ erro: 'Utilizador nao encontrado' });
     }
 
     const user = rows[0];
     res.json({
       success: true,
       utilizador: {
-        id:             user.id,
-        nome:           user.nome,
-        email:          user.email,
-        role:           user.role,
+        id: user.id,
+        nome: user.nome,
+        email: user.email,
+        role: user.role,
         tema_preferido: user.tema_preferido || 'system',
       },
     });
@@ -171,7 +143,6 @@ router.get('/me', auth, async (req, res) => {
   }
 });
 
-// ── POST /api/auth/logout ──────────────────────────────────────────────────
 router.post('/logout', auth, async (req, res) => {
   await logAction({
     userId: req.user.id,
@@ -179,10 +150,9 @@ router.post('/logout', auth, async (req, res) => {
     entity: 'auth',
     ...reqMeta(req),
   });
-  res.json({ success: true, mensagem: 'Sessão terminada com sucesso' });
+  res.json({ success: true, mensagem: 'Sessao terminada com sucesso' });
 });
 
-// ── POST /api/auth/registar — SÓ ADMINS ────────────────────────────────────
 router.post('/registar', auth, soAdmin, async (req, res) => {
   const parsed = schemaRegistar.safeParse(req.body);
   if (!parsed.success) {
@@ -192,7 +162,6 @@ router.post('/registar', auth, soAdmin, async (req, res) => {
   const { nome, email, password, role } = parsed.data;
 
   try {
-    // ── Hash MD5 da password ───────────────────────────────────────────────
     const hash = md5Hash(password);
 
     const [result] = await pool.query(
@@ -201,30 +170,29 @@ router.post('/registar', auth, soAdmin, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'CREATE',
-      entity:   'utilizadores',
+      userId: req.user.id,
+      action: 'CREATE',
+      entity: 'utilizadores',
       entityId: result.insertId,
-      details:  { nome: nome.trim(), email: email.toLowerCase().trim(), role: role || 'utilizador' },
+      details: { nome: nome.trim(), email: email.toLowerCase().trim(), role: role || 'utilizador' },
       ...reqMeta(req),
     });
 
     res.status(201).json({
-      id:    result.insertId,
-      nome:  nome.trim(),
+      id: result.insertId,
+      nome: nome.trim(),
       email: email.toLowerCase().trim(),
-      role:  role || 'utilizador',
+      role: role || 'utilizador',
     });
   } catch (err) {
     if (err.code === 'ER_DUP_ENTRY') {
-      return res.status(409).json({ erro: 'Email já registado' });
+      return res.status(409).json({ erro: 'Email ja registado' });
     }
     console.error('[REGISTAR ERROR]', err.message);
     res.status(500).json({ erro: 'Erro interno no servidor' });
   }
 });
 
-// ── PUT /api/auth/prefs/tema ────────────────────────────────────────────────
 router.put('/prefs/tema', auth, async (req, res) => {
   const parsed = schemaTema.safeParse(req.body);
   if (!parsed.success) {
@@ -240,11 +208,11 @@ router.put('/prefs/tema', auth, async (req, res) => {
     );
 
     await logAction({
-      userId:   req.user.id,
-      action:   'UPDATE',
-      entity:   'utilizadores',
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'utilizadores',
       entityId: req.user.id,
-      details:  { tema_preferido },
+      details: { tema_preferido },
       ...reqMeta(req),
     });
 
