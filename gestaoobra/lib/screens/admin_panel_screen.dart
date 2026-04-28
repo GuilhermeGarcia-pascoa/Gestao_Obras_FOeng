@@ -189,18 +189,46 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     }
   }
 
-  Future<void> _promoverUtilizador(dynamic user) async {
+  String? _roleAnterior(String role) {
+    switch (role) {
+      case 'admin':
+        return 'gestor';
+      case 'gestor':
+        return 'utilizador';
+      default:
+        return null;
+    }
+  }
+
+  void _actualizarRoleLocal(int userId, String novaRole) {
+    setState(() {
+      _utilizadores = _utilizadores.map((u) {
+        if (u is Map<String, dynamic> && u['id'] == userId) {
+          return {
+            ...u,
+            'role': novaRole,
+          };
+        }
+        return u;
+      }).toList();
+    });
+  }
+
+  Future<void> _alterarRoleUtilizador(
+    dynamic user, {
+    required String novaRole,
+    required String titulo,
+    required String verboAcao,
+  }) async {
     final roleAtual = (user['role'] ?? 'utilizador').toString();
-    final novaRole = _proximaRole(roleAtual);
-    if (novaRole == null) return;
 
     final nome = user['nome'] ?? 'Utilizador';
     final ok = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
-        title: const Text('Confirmar promoção'),
+        title: Text(titulo),
         content: Text(
-          'Promover "$nome" de ${_labelRole(roleAtual)} para ${_labelRole(novaRole)}?',
+          '$verboAcao "$nome" de ${_labelRole(roleAtual)} para ${_labelRole(novaRole)}?',
         ),
         actions: [
           TextButton(
@@ -213,7 +241,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               backgroundColor: const Color(0xFF185FA5),
               foregroundColor: Colors.white,
             ),
-            child: const Text('Promover'),
+            child: Text(verboAcao),
           ),
         ],
       ),
@@ -222,13 +250,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     if (ok != true) return;
 
     try {
-      await ApiService.alterarRoleUtilizador(user['id'] as int, novaRole);
-      await _carregar();
+      final userId = user['id'] as int;
+      await ApiService.alterarRoleUtilizador(userId, novaRole);
+      _actualizarRoleLocal(userId, novaRole);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              '$nome promovido para ${_labelRole(novaRole)} com sucesso!',
+              '$nome agora e ${_labelRole(novaRole)}.',
             ),
           ),
         );
@@ -239,6 +268,32 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             .showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     }
+  }
+
+  Future<void> _promoverUtilizador(dynamic user) async {
+    final roleAtual = (user['role'] ?? 'utilizador').toString();
+    final novaRole = _proximaRole(roleAtual);
+    if (novaRole == null) return;
+
+    await _alterarRoleUtilizador(
+      user,
+      novaRole: novaRole,
+      titulo: 'Confirmar promoção',
+      verboAcao: 'Promover',
+    );
+  }
+
+  Future<void> _despromoverUtilizador(dynamic user) async {
+    final roleAtual = (user['role'] ?? 'utilizador').toString();
+    final novaRole = _roleAnterior(roleAtual);
+    if (novaRole == null) return;
+
+    await _alterarRoleUtilizador(
+      user,
+      novaRole: novaRole,
+      titulo: 'Confirmar despromoção',
+      verboAcao: 'Despromover',
+    );
   }
 
   Future<void> _apagarUtilizador(dynamic user) async {
@@ -569,6 +624,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                   iconeRole: _iconeRole,
                                   onPromover: () =>
                                       _promoverUtilizador(user),
+                                  onDespromover: () =>
+                                      _despromoverUtilizador(user),
                                   onAlterarSenha: () =>
                                       _alterarSenha(user),
                                   onApagar: () =>
@@ -608,6 +665,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
     required this.corRole,
     required this.iconeRole,
     required this.onPromover,
+    required this.onDespromover,
     required this.onAlterarSenha,
     required this.onApagar,
   });
@@ -618,6 +676,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
   final Color Function(String) corRole;
   final IconData Function(String) iconeRole;
   final VoidCallback onPromover;
+  final VoidCallback onDespromover;
   final VoidCallback onAlterarSenha;
   final VoidCallback onApagar;
 
@@ -627,6 +686,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
     final email = user['email'] ?? '';
     final role = (user['role'] ?? 'utilizador').toString();
     final podePromover = role != 'admin';
+    final podeDespromover = role != 'utilizador';
     final cor = corRole(role);
     final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -780,6 +840,20 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                           role == 'utilizador'
                               ? 'Promover a gestor'
                               : 'Promover a admin',
+                        ),
+                      ]),
+                    ),
+                  if (podeDespromover)
+                    PopupMenuItem(
+                      onTap: onDespromover,
+                      child: Row(children: [
+                        const Icon(Icons.arrow_downward,
+                            size: 18, color: Colors.orange),
+                        const SizedBox(width: 8),
+                        Text(
+                          role == 'admin'
+                              ? 'Despromover a gestor'
+                              : 'Despromover a utilizador',
                         ),
                       ]),
                     ),
