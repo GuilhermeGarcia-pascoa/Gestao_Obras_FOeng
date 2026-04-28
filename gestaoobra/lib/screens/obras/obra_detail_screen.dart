@@ -1,11 +1,20 @@
+import 'dart:io';
+
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
  
 import '../../services/api_service.dart';
 import '../dias/dia_registo_screen.dart';
 import '../graficos/graficos_screen.dart';
 import 'obra_form_screen.dart';
+
+// Import condicional — só compila dart:html na web
+import '../config_screen_download_stub.dart'
+    if (dart.library.html) '../config_screen_download_web.dart';
  
 final _eur = NumberFormat.currency(locale: 'pt_PT', symbol: '€');
  
@@ -164,6 +173,11 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                               },
                               icon: const Icon(Icons.edit_rounded),
                               label: const Text('Editar Obra'),
+                            ),
+                            FilledButton.icon(
+                              onPressed: () => _exportarExcel(context, obra),
+                              icon: const Icon(Icons.table_chart_outlined),
+                              label: const Text('Exportar Excel'),
                             ),
                           ],
                         ),
@@ -392,6 +406,110 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ],
     );
   }
+
+  // ── Export helpers ────────────────────────────────────────────────────────
+
+  Future<void> _exportarExcel(BuildContext context, Map<String, dynamic> obra) async {
+    try {
+      final obraId = int.parse(obra['id'].toString());
+      final codigo = obra['codigo'] ?? 'obra';
+
+      await _descarregarFicheiro(
+        context: context,
+        bytes: () => ApiService.downloadExcel(obraId),
+        nomeFicheiro: 'excel_${codigo}_${_fmtApi(DateTime.now())}.xlsx',
+        successMsg: 'Excel descarregado com sucesso!',
+      );
+    } on ApiException catch (e) {
+      if (context.mounted) _snackError(context, e.mensagem);
+    }
+  }
+
+  Future<void> _descarregarFicheiro({
+    required BuildContext context,
+    required Future<List<int>> Function() bytes,
+    required String nomeFicheiro,
+    required String successMsg,
+  }) async {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A descarregar ficheiro…'), duration: Duration(seconds: 60)),
+      );
+    }
+
+    try {
+      final data = await bytes();
+
+      if (kIsWeb) {
+        // ── WEB: força download via browser ─────────────────────────────
+        downloadBytesWeb(data, nomeFicheiro);
+      } else {
+        // ── NATIVO: guarda no sistema de ficheiros ───────────────────────
+        Directory dir;
+        try {
+          if (Platform.isAndroid) {
+            dir = (await getExternalStorageDirectory()) ?? await getApplicationDocumentsDirectory();
+          } else {
+            dir = await getApplicationDocumentsDirectory();
+          }
+        } catch (_) {
+          dir = await getTemporaryDirectory();
+        }
+        if (!await dir.exists()) await dir.create(recursive: true);
+        final file = File('${dir.path}/$nomeFicheiro');
+        await file.writeAsBytes(data, flush: true);
+
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            content: Text(successMsg),
+            backgroundColor: const Color(0xFF0F9D8A),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'Copiar caminho',
+              textColor: Colors.white,
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: file.path));
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Caminho copiado!')));
+                }
+              },
+            ),
+          ));
+          return;
+        }
+      }
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(successMsg),
+          backgroundColor: const Color(0xFF0F9D8A),
+          duration: const Duration(seconds: 4),
+        ));
+      }
+    } on ApiException catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _snackError(context, e.mensagem);
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        _snackError(context, 'Erro ao descarregar ficheiro');
+      }
+    }
+  }
+
+  void _snackError(BuildContext context, String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(msg), backgroundColor: const Color(0xFFE53935)));
+
+  void _snackInfo(BuildContext context, String msg) =>
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+
+  String _fmtApi(DateTime d) =>
+      '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 }
  
  
