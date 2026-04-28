@@ -141,43 +141,48 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                           ),
                         ],
                         const SizedBox(height: 14),
-                        Wrap(
+                        Row(
                           spacing: 10,
-                          runSpacing: 10,
                           children: [
-                            FilledButton.icon(
-                              onPressed: () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => GraficosScreen(
-                                    obraId: obra['id'] as int,
-                                    obraCodigo: obra['codigo']?.toString(),
-                                    obraNome: obra['nome']?.toString(),
-                                  ),
-                                ),
-                              ),
-                              icon: const Icon(Icons.insights_rounded),
-                              label: const Text('Ver Graficos'),
-                            ),
-                            FilledButton.icon(
-                              onPressed: () async {
-                                final resultado = await Navigator.push(
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () => Navigator.push(
                                   context,
                                   MaterialPageRoute(
-                                    builder: (_) => ObraFormScreen(obra: obra),
+                                    builder: (_) => GraficosScreen(
+                                      obraId: obra['id'] as int,
+                                      obraCodigo: obra['codigo']?.toString(),
+                                      obraNome: obra['nome']?.toString(),
+                                    ),
                                   ),
-                                );
-                                if (resultado == true && mounted) {
-                                  _recarregarObra();
-                                }
-                              },
-                              icon: const Icon(Icons.edit_rounded),
-                              label: const Text('Editar Obra'),
+                                ),
+                                icon: const Icon(Icons.insights_rounded),
+                                label: const Text('Ver Graficos'),
+                              ),
                             ),
-                            FilledButton.icon(
-                              onPressed: () => _exportarExcel(context, obra),
-                              icon: const Icon(Icons.table_chart_outlined),
-                              label: const Text('Exportar Excel'),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () async {
+                                  final resultado = await Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder: (_) => ObraFormScreen(obra: obra),
+                                    ),
+                                  );
+                                  if (resultado == true && mounted) {
+                                    _recarregarObra();
+                                  }
+                                },
+                                icon: const Icon(Icons.edit_rounded),
+                                label: const Text('Editar Obra'),
+                              ),
+                            ),
+                            Expanded(
+                              child: FilledButton.icon(
+                                onPressed: () => _exportarExcel(context, obra),
+                                icon: const Icon(Icons.table_chart_outlined),
+                                label: const Text('Exportar Excel'),
+                              ),
                             ),
                           ],
                         ),
@@ -505,8 +510,6 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: const Color(0xFFE53935)));
 
-  void _snackInfo(BuildContext context, String msg) =>
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
 
   String _fmtApi(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
