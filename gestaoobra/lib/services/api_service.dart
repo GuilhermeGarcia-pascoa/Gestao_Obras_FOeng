@@ -227,6 +227,9 @@ class ApiService {
   static Future<void> alterarSenhaUtilizador(int id, String novaSenha) async =>
       await put('/admin/utilizadores/$id/senha', {'password': novaSenha});
 
+  static Future<void> alterarRoleUtilizador(int id, String novaRole) async =>
+      await put('/admin/utilizadores/$id/role', {'role': novaRole});
+
   static Future<List<dynamic>> listarLogs() async {
     final response = await get('/admin/logs');
     return response as List<dynamic>;

@@ -134,6 +134,64 @@ router.put('/utilizadores/:id/senha', async (req, res) => {
   }
 });
 
+router.put('/utilizadores/:id/role', async (req, res) => {
+  const userId = parseInt(req.params.id, 10);
+  const { role } = req.body;
+  const rolesPermitidos = ['utilizador', 'gestor', 'admin'];
+
+  if (!rolesPermitidos.includes(role)) {
+    return res.status(400).json({ erro: 'Role invalido' });
+  }
+
+  if (userId === req.user?.id) {
+    return res.status(403).json({ erro: 'Nao podes alterar a tua propria funcao' });
+  }
+
+  try {
+    const [[alvo]] = await pool.query(
+      'SELECT id, nome, email, role FROM utilizadores WHERE id = ?',
+      [userId]
+    );
+
+    if (!alvo) {
+      return res.status(404).json({ erro: 'Utilizador nao encontrado' });
+    }
+
+    if (alvo.role === role) {
+      return res.json({ ok: true, utilizador: alvo });
+    }
+
+    await pool.query(
+      'UPDATE utilizadores SET role = ? WHERE id = ?',
+      [role, userId]
+    );
+
+    await logAction({
+      userId: req.user.id,
+      action: 'UPDATE',
+      entity: 'utilizadores',
+      entityId: userId,
+      details: {
+        campo: 'role',
+        valor_anterior: alvo.role,
+        valor_novo: role,
+        alterado_por_admin: true,
+      },
+      ...reqMeta(req),
+    });
+
+    res.json({
+      ok: true,
+      utilizador: {
+        ...alvo,
+        role,
+      },
+    });
+  } catch (err) {
+    return responderErroAdmin(res, err);
+  }
+});
+
 router.delete('/utilizadores/:id', async (req, res) => {
   if (parseInt(req.params.id, 10) === req.user?.id) {
     return res.status(403).json({ erro: 'Nao podes apagar a tua propria conta' });

@@ -178,6 +178,69 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     }
   }
 
+  String? _proximaRole(String role) {
+    switch (role) {
+      case 'utilizador':
+        return 'gestor';
+      case 'gestor':
+        return 'admin';
+      default:
+        return null;
+    }
+  }
+
+  Future<void> _promoverUtilizador(dynamic user) async {
+    final roleAtual = (user['role'] ?? 'utilizador').toString();
+    final novaRole = _proximaRole(roleAtual);
+    if (novaRole == null) return;
+
+    final nome = user['nome'] ?? 'Utilizador';
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Confirmar promoção'),
+        content: Text(
+          'Promover "$nome" de ${_labelRole(roleAtual)} para ${_labelRole(novaRole)}?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF185FA5),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Promover'),
+          ),
+        ],
+      ),
+    );
+
+    if (ok != true) return;
+
+    try {
+      await ApiService.alterarRoleUtilizador(user['id'] as int, novaRole);
+      await _carregar();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '$nome promovido para ${_labelRole(novaRole)} com sucesso!',
+            ),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.mensagem)));
+      }
+    }
+  }
+
   Future<void> _apagarUtilizador(dynamic user) async {
     final nome = user['nome'] ?? 'Utilizador';
     final ok = await showDialog<bool>(
@@ -504,6 +567,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                   labelRole: _labelRole,
                                   corRole: _corRole,
                                   iconeRole: _iconeRole,
+                                  onPromover: () =>
+                                      _promoverUtilizador(user),
                                   onAlterarSenha: () =>
                                       _alterarSenha(user),
                                   onApagar: () =>
@@ -542,6 +607,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
     required this.labelRole,
     required this.corRole,
     required this.iconeRole,
+    required this.onPromover,
     required this.onAlterarSenha,
     required this.onApagar,
   });
@@ -551,6 +617,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
   final String Function(String) labelRole;
   final Color Function(String) corRole;
   final IconData Function(String) iconeRole;
+  final VoidCallback onPromover;
   final VoidCallback onAlterarSenha;
   final VoidCallback onApagar;
 
@@ -559,6 +626,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
     final nome = user['nome'] ?? 'Sem nome';
     final email = user['email'] ?? '';
     final role = (user['role'] ?? 'utilizador').toString();
+    final podePromover = role != 'admin';
     final cor = corRole(role);
     final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -701,6 +769,20 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                   color: isDark ? Colors.grey.shade400 : Colors.grey,
                 ),
                 itemBuilder: (_) => [
+                  if (podePromover)
+                    PopupMenuItem(
+                      onTap: onPromover,
+                      child: Row(children: [
+                        const Icon(Icons.arrow_upward,
+                            size: 18, color: Color(0xFF185FA5)),
+                        const SizedBox(width: 8),
+                        Text(
+                          role == 'utilizador'
+                              ? 'Promover a gestor'
+                              : 'Promover a admin',
+                        ),
+                      ]),
+                    ),
                   PopupMenuItem(
                     onTap: onAlterarSenha,
                     child: const Row(children: [
