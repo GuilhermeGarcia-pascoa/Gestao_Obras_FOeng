@@ -1,5 +1,4 @@
 const { validarEnv } = require('./config/env');
-
 const { isProduction } = validarEnv();
 
 const express = require('express');
@@ -10,6 +9,7 @@ const helmet = require('helmet');
 const compression = require('compression');
 const morgan = require('morgan');
 
+// Routers
 const authRouter = require('./routes/auth');
 const obrasRouter = require('./routes/obras');
 const diasRouter = require('./routes/dias');
@@ -26,6 +26,7 @@ const pool = require('./db/pool');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// --- CONFIGURAÇÃO DO CORS ---
 const origensPermitidas = (process.env.CORS_ORIGINS || '')
   .split(',')
   .map((origem) => origem.trim())
@@ -33,50 +34,54 @@ const origensPermitidas = (process.env.CORS_ORIGINS || '')
 
 const corsOptions = {
   origin(origin, callback) {
-    if (!origin) {
+    // Permite requisições sem origin (como Apps Mobile ou Postman)
+    if (!origin) return callback(null, true);
+
+    // Verifica se o wildcard '*' está no .env OU se a origem está na lista
+    const permitirTudo = origensPermitidas.includes('*');
+    if (permitirTudo || origensPermitidas.includes(origin)) {
       return callback(null, true);
     }
 
-    if (origensPermitidas.includes(origin)) {
-      return callback(null, true);
-    }
-
-    return callback(null, false);
+    console.warn(`[CORS] Bloqueado: ${origin}`);
+    return callback(new Error('Não permitido pela política CORS'));
   },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 };
 
 app.set('trust proxy', 1);
 
-// Seguranca HTTP headers
+// --- MIDDLEWARES GLOBAIS ---
+
+// Segurança HTTP headers (CSP ajustado para Flutter Web)
 app.use(helmet({
   crossOriginEmbedderPolicy: false,
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
-      // 1. ADICIONA "'unsafe-eval'" (O Flutter precisa disso para renderizar a lógica do motor)
       scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], 
       styleSrc: ["'self'", "'unsafe-inline'"],
       imgSrc: ["'self'", 'data:', 'blob:'],
-      connectSrc: ["'self'"],
-      // 2. DESATIVA o upgrade automático para HTTPS
+      // connectSrc: permite chamadas de API para qualquer lugar em dev ou apenas para o self
+      connectSrc: ["'self'", "*"], 
       upgradeInsecureRequests: null, 
     },
   },
 }));
+
 console.log('[INFO] Helmet ativo (headers de seguranca HTTP)');
 
 // Compressao gzip
 app.use(compression());
-console.log('[INFO] Compressao gzip ativa');
 
 // Logging HTTP
 app.use(morgan(isProduction ? 'combined' : 'dev'));
 
-// CORS
+// Aplicar CORS (IMPORTANTE: Antes das rotas)
 app.use(cors(corsOptions));
-app.options('*', cors(corsOptions));
+app.options('*', cors(corsOptions)); // Trata o preflight de todas as rotas
 
 // Body parser
 app.use(express.json({ limit: '5mb' }));
@@ -85,7 +90,7 @@ app.use(express.urlencoded({ extended: false }));
 // Rate limit global
 app.use(rateLimitGlobal);
 
-// Rotas
+// --- ROTAS ---
 app.use('/api/auth', authRouter);
 app.use('/api/obras', obrasRouter);
 app.use('/api/dias', diasRouter);
@@ -94,7 +99,7 @@ app.use('/api/relatorios', relatoriosRouter);
 app.use('/api/admin', adminRouter);
 app.use('/api/sync', syncRouter);
 
-// Exportacoes protegidas
+// Exportações protegidas
 const exportRouter = require('express').Router();
 exportRouter.use(auth);
 exportRouter.get('/excel/:obraId', soGestor, exportarExcel);
@@ -115,17 +120,13 @@ app.get('/api/health', async (_, res) => {
     await Promise.race([
       pool.query('SELECT 1'),
       new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('DB healthcheck timeout')), 100);
+        setTimeout(() => reject(new Error('DB healthcheck timeout')), 2000);
       }),
     ]);
-
     return res.json(basePayload);
   } catch (err) {
     console.error('[HEALTH]', err.message);
-    return res.status(503).json({
-      ...basePayload,
-      status: 'error',
-    });
+    return res.status(503).json({ ...basePayload, status: 'error' });
   }
 });
 
@@ -137,22 +138,20 @@ app.use((req, res) => {
 // Tratamento global de erros
 app.use((err, req, res, _next) => {
   console.error('[ERRO]', err.message);
-  if (!isProduction) {
-    console.error(err.stack);
-  }
+  if (!isProduction) console.error(err.stack);
   res.status(500).json({ erro: 'Erro interno do servidor' });
 });
 
-// Arranque
+// --- ARRANQUE DO SERVIDOR ---
 let server;
 
 function iniciarServidor() {
   server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n[INFO] Servidor iniciado na porta ${PORT}`);
     console.log(`[INFO] Ambiente: ${isProduction ? 'production' : 'development'}`);
+    
     if (!isProduction) {
       console.log(`[INFO] Endereco local: http://localhost:${PORT}`);
-      console.log("[INFO] Digite 'help' para listar os comandos disponiveis.\n");
       iniciarCLI();
     }
     iniciarSyncAutomatico();
@@ -160,7 +159,7 @@ function iniciarServidor() {
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      console.error(`[ERRO] A porta ${PORT} ja esta em uso. Escolhe outra em .env (PORT=3001)`);
+      console.error(`[ERRO] A porta ${PORT} ja esta em uso.`);
     } else {
       console.error('[ERRO] Falha ao iniciar servidor:', err.message);
     }
@@ -168,12 +167,9 @@ function iniciarServidor() {
   });
 }
 
-// CLI interativo
+// CLI Interativo para Desenvolvimento
 function iniciarCLI() {
-  if (isProduction) return;
-
-  // Nao iniciar CLI se nao houver terminal interativo (ex: PM2, Docker)
-  if (!process.stdin.isTTY) return;
+  if (isProduction || !process.stdin.isTTY) return;
 
   const rl = readline.createInterface({
     input: process.stdin,
@@ -187,89 +183,34 @@ function iniciarCLI() {
     const cmd = line.trim().toLowerCase();
     switch (cmd) {
       case 'help':
-        console.log(`
-  Comandos disponiveis:
-    help    - Esta lista
-    ip      - Enderecos IPv4 da maquina
-    status  - Uptime e memoria
-    env     - Variaveis de ambiente carregadas (sem valores sensiveis)
-    clear   - Limpar consola
-    restart - Reiniciar servidor
-    exit    - Encerrar
-        `);
+        console.log('\nComandos: help, ip, status, env, clear, restart, exit\n');
         break;
-
-      case 'ip': {
+      case 'ip':
         const interfaces = os.networkInterfaces();
-        console.log('\n[INFO] Enderecos IPv4:');
         for (const nome in interfaces) {
           for (const net of interfaces[nome]) {
-            if (net.family === 'IPv4' && !net.internal) {
-              console.log(`  - ${nome}: ${net.address}`);
-            }
+            if (net.family === 'IPv4' && !net.internal) console.log(` - ${nome}: ${net.address}`);
           }
         }
-        console.log('');
         break;
-      }
-
-      case 'status': {
-        const ramLivre = (os.freemem() / (1024 * 1024)).toFixed(2);
-        const ramTotal = (os.totalmem() / (1024 * 1024)).toFixed(2);
-        const uptime = process.uptime();
-        const horas = Math.floor(uptime / 3600);
-        const minutos = Math.floor((uptime % 3600) / 60);
-        const segundos = Math.floor(uptime % 60);
-        console.log(`\n[STATUS] Uptime: ${horas}h ${minutos}m ${segundos}s  |  RAM livre: ${ramLivre}MB / ${ramTotal}MB\n`);
+      case 'status':
+        console.log(`Uptime: ${process.uptime().toFixed(0)}s | RAM: ${(process.memoryUsage().rss / 1024 / 1024).toFixed(2)}MB`);
         break;
-      }
-
       case 'env':
-        console.log('\n[ENV] Variaveis carregadas:');
-        console.log(`  DB_HOST      = ${process.env.DB_HOST || '(nao definido)'}`);
-        console.log(`  DB_NAME      = ${process.env.DB_NAME || '(nao definido)'}`);
-        console.log(`  DB_PORT      = ${process.env.DB_PORT || '3306'}`);
-        console.log(`  PORT         = ${process.env.PORT || '3000'}`);
-        console.log(`  NODE_ENV     = ${isProduction ? 'production' : 'development'}`);
-        console.log(`  CORS_ORIGINS = ${process.env.CORS_ORIGINS || '(nao definido)'}`);
-        console.log(`  FOPANEL_HOST = ${process.env.FOPANEL_HOST || '(nao definido)'}`);
-        console.log(`  JWT_SECRET   = ${'*'.repeat(Math.min((process.env.JWT_SECRET || '').length, 8))} (oculto)\n`);
+        console.log(`PORT: ${PORT} | NODE_ENV: ${process.env.NODE_ENV} | CORS: ${process.env.CORS_ORIGINS}`);
         break;
-
       case 'clear':
         console.clear();
         break;
-
       case 'restart':
-        console.log('\n[INFO] A reiniciar servidor...');
-        server.close(() => {
-          server = app.listen(PORT, '0.0.0.0', () => {
-            console.log(`[INFO] Servidor reiniciado na porta ${PORT}.\n`);
-            rl.prompt();
-          });
-        });
+        server.close(() => iniciarServidor());
         return;
-
       case 'exit':
-      case 'quit':
-        console.log('\n[INFO] A encerrar servidor...');
-        server.close(() => {
-          console.log('[INFO] Servidor encerrado.');
-          process.exit(0);
-        });
-        return;
-
-      case '':
+        process.exit(0);
         break;
-
-      default:
-        console.log(`[AVISO] Comando nao reconhecido: '${cmd}'. Digite 'help'.\n`);
     }
-
     rl.prompt();
   });
-
-  rl.on('close', () => process.exit(0));
 }
 
 iniciarServidor();

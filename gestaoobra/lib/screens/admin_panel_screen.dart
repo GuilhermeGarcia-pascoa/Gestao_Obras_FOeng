@@ -1161,7 +1161,6 @@ class _FormularioCriarUtilizadorState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
     
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
@@ -1365,17 +1364,6 @@ class _FormularioCriarUtilizadorState
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),
