@@ -311,12 +311,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     final auth = Provider.of<AuthProvider>(context);
     final currentUserId = auth.utilizador?['id'];
     final lista = _utilizadoresFiltrados;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    
-    // Contar roles
-    final totalAdmins = _utilizadores.where((u) => u['role'] == 'admin').length;
-    final totalGestores = _utilizadores.where((u) => u['role'] == 'gestor').length;
-    final totalUtilizadores = _utilizadores.where((u) => u['role'] == 'utilizador').length;
 
     return Scaffold(
       appBar: AppBar(
@@ -325,249 +319,168 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // ── Dashboard com estatísticas ────────────────────────────
-                Container(
-                  color: Theme.of(context).appBarTheme.backgroundColor,
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                  child: Column(
+          : RefreshIndicator(
+              onRefresh: () async {
+                await _carregar();
+                await _carregarSyncStatus();
+              },
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
+                children: [
+                  // Banner Logs
+                  _BannerLogs(onTap: _abrirLogs),
+                  const SizedBox(height: 14),
+
+                  // Secção Sincronização
+                  _SyncCard(
+                    syncStatus: _syncStatus,
+                    syncLoading: _syncLoading,
+                    formatarData: _formatarData,
+                    onSincronizar: _sincronizarAgora,
+                  ),
+                  const SizedBox(height: 24),
+
+                  // Cabeçalho da secção Utilizadores
+                  Row(
                     children: [
-                      // Cards de estatísticas
-                      SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _StatCard(
-                              icon: Icons.people,
-                              label: 'Total',
-                              valor: _utilizadores.length.toString(),
-                              cor: const Color(0xFF185FA5),
-                              isDark: isDark,
-                            ),
-                            const SizedBox(width: 10),
-                            _StatCard(
-                              icon: Icons.shield,
-                              label: 'Admins',
-                              valor: totalAdmins.toString(),
-                              cor: const Color(0xFF185FA5),
-                              isDark: isDark,
-                            ),
-                            const SizedBox(width: 10),
-                            _StatCard(
-                              icon: Icons.manage_accounts,
-                              label: 'Gestores',
-                              valor: totalGestores.toString(),
-                              cor: Colors.deepPurple,
-                              isDark: isDark,
-                            ),
-                            const SizedBox(width: 10),
-                            _StatCard(
-                              icon: Icons.person,
-                              label: 'Utilizadores',
-                              valor: totalUtilizadores.toString(),
-                              cor: Colors.teal,
-                              isDark: isDark,
-                            ),
-                          ],
+                      const Text(
+                        'Utilizadores',
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const Spacer(),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color:
+                              const Color(0xFF185FA5).withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          '${lista.length}',
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF185FA5),
+                          ),
                         ),
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 12),
 
-                // ── Conteúdo principal ────────────────────────────────────
-                Expanded(
-                  child: RefreshIndicator(
-                    onRefresh: () async {
-                      await _carregar();
-                      await _carregarSyncStatus();
-                    },
-                    child: ListView(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-                      children: [
-                        // Banner Logs
-                        _BannerLogs(onTap: _abrirLogs),
-                        const SizedBox(height: 14),
-
-                        // Secção Sincronização
-                        _SyncCard(
-                          syncStatus: _syncStatus,
-                          syncLoading: _syncLoading,
-                          formatarData: _formatarData,
-                          onSincronizar: _sincronizarAgora,
-                        ),
-                        const SizedBox(height: 20),
-
-                        // Secção Utilizadores
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Row(
-                            children: [
-                              const Text(
-                                'Utilizadores',
-                                style: TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              ),
-                              const Spacer(),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                    horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: const Color(0xFF185FA5)
-                                      .withOpacity(0.12),
-                                  borderRadius: BorderRadius.circular(20),
-                                ),
-                                child: Text(
-                                  '${lista.length}',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w600,
-                                    color: Color(0xFF185FA5),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-
-                        // Barra de Pesquisa + Ordenação
-                        Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _pesquisaCtrl,
-                                decoration: InputDecoration(
-                                  hintText: 'Pesquisar por nome ou email...',
-                                  prefixIcon: const Icon(Icons.search),
-                                  border: OutlineInputBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  isDense: true,
-                                  suffixIcon: _filtroPesquisa.isNotEmpty
-                                      ? IconButton(
-                                          icon: const Icon(Icons.clear),
-                                          onPressed: () {
-                                            _pesquisaCtrl.clear();
-                                            setState(
-                                                () => _filtroPesquisa = '');
-                                          },
-                                        )
-                                      : null,
-                                ),
-                                onChanged: (valor) =>
-                                    setState(() => _filtroPesquisa = valor),
-                              ),
+                  // Barra de Pesquisa + Ordenação
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _pesquisaCtrl,
+                          decoration: InputDecoration(
+                            hintText: 'Pesquisar por nome ou email...',
+                            prefixIcon: const Icon(Icons.search),
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
                             ),
-                            const SizedBox(width: 8),
-                            PopupMenuButton<_OrdemTipo>(
-                              tooltip: 'Ordenar',
-                              initialValue: _ordem,
-                              onSelected: (v) => setState(() => _ordem = v),
-                              icon: Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  border: Border.all(
-                                      color: isDark
-                                          ? Colors.grey.shade600
-                                          : Colors.grey.shade300),
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                child: const Icon(Icons.sort, size: 22),
-                              ),
-                              itemBuilder: (_) => const [
-                                PopupMenuItem(
-                                  value: _OrdemTipo.nomeAsc,
-                                  child: Row(children: [
-                                    Icon(Icons.sort_by_alpha, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Nome A→Z'),
-                                  ]),
-                                ),
-                                PopupMenuItem(
-                                  value: _OrdemTipo.nomeDesc,
-                                  child: Row(children: [
-                                    Icon(Icons.sort_by_alpha, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Nome Z→A'),
-                                  ]),
-                                ),
-                                PopupMenuItem(
-                                  value: _OrdemTipo.roleAsc,
-                                  child: Row(children: [
-                                    Icon(Icons.badge_outlined, size: 18),
-                                    SizedBox(width: 8),
-                                    Text('Por função'),
-                                  ]),
-                                ),
-                              ],
+                            isDense: true,
+                            suffixIcon: _filtroPesquisa.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.clear),
+                                    onPressed: () {
+                                      _pesquisaCtrl.clear();
+                                      setState(() => _filtroPesquisa = '');
+                                    },
+                                  )
+                                : null,
+                          ),
+                          onChanged: (valor) =>
+                              setState(() => _filtroPesquisa = valor),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      PopupMenuButton<_OrdemTipo>(
+                        tooltip: 'Ordenar',
+                        initialValue: _ordem,
+                        onSelected: (v) => setState(() => _ordem = v),
+                        icon: Container(
+                          padding: const EdgeInsets.all(10),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                                color: Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.grey.shade600
+                                    : Colors.grey.shade300),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Icon(Icons.sort, size: 22),
+                        ),
+                        itemBuilder: (_) => const [
+                          PopupMenuItem(
+                            value: _OrdemTipo.nomeAsc,
+                            child: Row(children: [
+                              Icon(Icons.sort_by_alpha, size: 18),
+                              SizedBox(width: 8),
+                              Text('Nome A→Z'),
+                            ]),
+                          ),
+                          PopupMenuItem(
+                            value: _OrdemTipo.nomeDesc,
+                            child: Row(children: [
+                              Icon(Icons.sort_by_alpha, size: 18),
+                              SizedBox(width: 8),
+                              Text('Nome Z→A'),
+                            ]),
+                          ),
+                          PopupMenuItem(
+                            value: _OrdemTipo.roleAsc,
+                            child: Row(children: [
+                              Icon(Icons.badge_outlined, size: 18),
+                              SizedBox(width: 8),
+                              Text('Por função'),
+                            ]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Carrossel de utilizadores ou estado vazio
+                  if (lista.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 40),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.person_search,
+                                size: 56, color: Colors.grey.shade400),
+                            const SizedBox(height: 12),
+                            Text(
+                              _filtroPesquisa.isEmpty
+                                  ? 'Nenhum utilizador encontrado'
+                                  : 'Nenhum resultado para "$_filtroPesquisa"',
+                              style: TextStyle(
+                                  color: Colors.grey.shade500, fontSize: 15),
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
-
-                        // Lista de utilizadores
-                        if (lista.isEmpty)
-                          Center(
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 40),
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.person_search,
-                                      size: 56,
-                                      color: Colors.grey.shade400),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    _filtroPesquisa.isEmpty
-                                        ? 'Nenhum utilizador encontrado'
-                                        : 'Nenhum resultado para "$_filtroPesquisa"',
-                                    style: TextStyle(
-                                        color: Colors.grey.shade500,
-                                        fontSize: 15),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          )
-                        else
-                          Column(
-                            children: List.generate(
-                              lista.length,
-                              (i) {
-                                final user = lista[i];
-                                final id = user['id'];
-                                final nome = user['nome'] ?? 'Sem nome';
-                                final email = user['email'] ?? '';
-                                final role =
-                                    (user['role'] ?? 'utilizador').toString();
-                                final isCurrentUser = id == currentUserId;
-                                final cor = _corRole(role);
-
-                                return Padding(
-                                  padding: const EdgeInsets.only(bottom: 10),
-                                  child: _UtilizadorCard(
-                                    nome: nome,
-                                    email: email,
-                                    role: role,
-                                    labelRole: _labelRole(role),
-                                    corRole: cor,
-                                    iconeRole: _iconeRole(role),
-                                    isCurrentUser: isCurrentUser,
-                                    onAlterarSenha: () => _alterarSenha(user),
-                                    onApagar: () => _apagarUtilizador(user),
-                                  ),
-                                );
-                              },
-                            ),
-                          ),
-                      ],
+                      ),
+                    )
+                  else
+                    _UtilizadoresCarrossel(
+                      utilizadores: lista,
+                      currentUserId: currentUserId,
+                      labelRole: _labelRole,
+                      corRole: _corRole,
+                      iconeRole: _iconeRole,
+                      onAlterarSenha: _alterarSenha,
+                      onApagar: _apagarUtilizador,
                     ),
-                  ),
-                ),
-              ],
+                ],
+              ),
             ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _abrirFormularioCriar,
@@ -584,243 +497,258 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
 enum _OrdemTipo { nomeAsc, nomeDesc, roleAsc }
 
-// ── Card de utilizador ───────────────────────────────────────────────────────
+// ── Carrossel de utilizadores ─────────────────────────────────────────────────
+//
+// Mostra os cards em scroll horizontal com peek do card seguinte (~20 px),
+// para que o utilizador perceba que há mais para deslizar.
 
-class _StatCard extends StatelessWidget {
-  const _StatCard({
-    required this.icon,
-    required this.label,
-    required this.valor,
-    required this.cor,
-    required this.isDark,
-  });
-
-  final IconData icon;
-  final String label;
-  final String valor;
-  final Color cor;
-  final bool isDark;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        color: cor.withOpacity(isDark ? 0.15 : 0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: cor.withOpacity(0.2)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, color: cor, size: 24),
-          const SizedBox(height: 8),
-          Text(
-            valor,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w700,
-              color: cor,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 11,
-              color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ── Card de utilizador ───────────────────────────────────────────────────────
-
-class _UtilizadorCard extends StatelessWidget {
-  const _UtilizadorCard({
-    required this.nome,
-    required this.email,
-    required this.role,
+class _UtilizadoresCarrossel extends StatelessWidget {
+  const _UtilizadoresCarrossel({
+    required this.utilizadores,
+    required this.currentUserId,
     required this.labelRole,
     required this.corRole,
     required this.iconeRole,
-    required this.isCurrentUser,
     required this.onAlterarSenha,
     required this.onApagar,
   });
 
-  final String nome;
-  final String email;
-  final String role;
-  final String labelRole;
-  final Color corRole;
-  final IconData iconeRole;
-  final bool isCurrentUser;
-  final VoidCallback onAlterarSenha;
-  final VoidCallback onApagar;
+  final List<dynamic> utilizadores;
+  final dynamic currentUserId;
+  final String Function(String) labelRole;
+  final Color Function(String) corRole;
+  final IconData Function(String) iconeRole;
+  final Future<void> Function(dynamic) onAlterarSenha;
+  final Future<void> Function(dynamic) onApagar;
 
   @override
   Widget build(BuildContext context) {
-    final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
-    final isDark = Theme.of(context).brightness == Brightness.dark;
+    // Largura do card: ocupa ~85 % do ecrã para mostrar o início do próximo
+    final cardWidth = MediaQuery.of(context).size.width * 0.80;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A38) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
-        ),
-      ),
-      child: Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: null,
-          borderRadius: BorderRadius.circular(14),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            child: Row(
-              children: [
-                // Avatar com cor dinamica
-                Container(
-                  width: 48,
-                  height: 48,
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [corRole, corRole.withOpacity(0.7)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Center(
-                    child: Text(
-                      inicial,
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 18,
-                      ),
-                    ),
-                  ),
+    return SizedBox(
+      // Altura fixa para o carrossel; o card cresce até este limite
+      height: 200,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        // Padding lateral: alinha o primeiro card com o resto do conteúdo
+        padding: EdgeInsets.zero,
+        clipBehavior: Clip.none,
+        itemCount: utilizadores.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 12),
+        itemBuilder: (context, i) {
+          final user = utilizadores[i];
+          final role = (user['role'] ?? 'utilizador').toString();
+          final cor = corRole(role);
+          final isCurrentUser = user['id'] == currentUserId;
+          final nome = user['nome'] ?? 'Sem nome';
+          final email = user['email'] ?? '';
+          final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
+          final isDark = Theme.of(context).brightness == Brightness.dark;
+
+          return SizedBox(
+            width: cardWidth,
+            child: Container(
+              decoration: BoxDecoration(
+                color: isDark ? const Color(0xFF1E2A38) : Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isDark
+                      ? const Color(0xFF374151)
+                      : const Color(0xFFDDE3ED),
                 ),
-                const SizedBox(width: 12),
-
-                // Info expandida
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+                boxShadow: [
+                  if (!isDark)
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 3),
+                    ),
+                ],
+              ),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Linha superior: avatar + nome + menu
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Flexible(
-                            child: Text(
-                              nome,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w700,
-                                fontSize: 14,
+                      // Avatar
+                      Container(
+                        width: 48,
+                        height: 48,
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [cor, cor.withOpacity(0.65)],
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                          ),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Center(
+                          child: Text(
+                            inicial,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 20,
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+
+                      // Nome + badge "Você"
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    nome,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 14,
+                                    ),
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                                if (isCurrentUser) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF185FA5)
+                                          .withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: const Text(
+                                      'Você',
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        color: Color(0xFF185FA5),
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              email,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isDark
+                                    ? Colors.grey.shade400
+                                    : Colors.grey.shade600,
                               ),
                               overflow: TextOverflow.ellipsis,
                             ),
+                          ],
+                        ),
+                      ),
+
+                      // Menu de ações (só se não for o utilizador atual)
+                      if (!isCurrentUser)
+                        PopupMenuButton(
+                          icon: Icon(
+                            Icons.more_vert,
+                            size: 20,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey,
                           ),
-                          if (isCurrentUser) ...[
-                            const SizedBox(width: 6),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF185FA5).withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(20),
+                          itemBuilder: (_) => [
+                            PopupMenuItem(
+                              onTap: () => onAlterarSenha(user),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.vpn_key,
+                                      size: 18, color: Colors.amber),
+                                  SizedBox(width: 8),
+                                  Text('Alterar senha'),
+                                ],
                               ),
-                              child: const Text(
-                                'Você',
-                                style: TextStyle(
-                                  fontSize: 10,
-                                  color: Color(0xFF185FA5),
-                                  fontWeight: FontWeight.w600,
-                                ),
+                            ),
+                            PopupMenuItem(
+                              onTap: () => onApagar(user),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.delete,
+                                      size: 18, color: Colors.red),
+                                  SizedBox(width: 8),
+                                  Text('Apagar',
+                                      style: TextStyle(color: Colors.red)),
+                                ],
                               ),
                             ),
                           ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        email,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
                         ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      const SizedBox(height: 6),
-                      // Badge de role com ícone
+                    ],
+                  ),
+
+                  const Spacer(),
+
+                  // Divisor subtil
+                  Divider(
+                    height: 1,
+                    color: isDark
+                        ? Colors.white.withOpacity(0.06)
+                        : Colors.grey.shade200,
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Badge de role + índice no carrossel
+                  Row(
+                    children: [
+                      // Badge de role
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                            horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
-                          color: corRole.withOpacity(0.12),
+                          color: cor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: corRole.withOpacity(0.3)),
+                          border:
+                              Border.all(color: cor.withOpacity(0.3)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(iconeRole, size: 12, color: corRole),
-                            const SizedBox(width: 4),
+                            Icon(iconeRole(role), size: 13, color: cor),
+                            const SizedBox(width: 5),
                             Text(
-                              labelRole,
+                              labelRole(role),
                               style: TextStyle(
-                                fontSize: 11,
+                                fontSize: 12,
                                 fontWeight: FontWeight.w600,
-                                color: corRole,
+                                color: cor,
                               ),
                             ),
                           ],
                         ),
                       ),
-                    ],
-                  ),
-                ),
-
-                // Ações
-                if (!isCurrentUser)
-                  PopupMenuButton(
-                    icon: Icon(Icons.more_vert,
-                        size: 20,
-                        color: isDark ? Colors.grey.shade400 : Colors.grey),
-                    itemBuilder: (_) => [
-                      PopupMenuItem(
-                        onTap: onAlterarSenha,
-                        child: const Row(
-                          children: [
-                            Icon(Icons.vpn_key, size: 18, color: Colors.amber),
-                            SizedBox(width: 8),
-                            Text('Alterar senha'),
-                          ],
-                        ),
-                      ),
-                      PopupMenuItem(
-                        onTap: onApagar,
-                        child: const Row(
-                          children: [
-                            Icon(Icons.delete, size: 18, color: Colors.red),
-                            SizedBox(width: 8),
-                            Text('Apagar',
-                                style: TextStyle(color: Colors.red)),
-                          ],
+                      const Spacer(),
+                      // Indicador de posição: "2 / 5"
+                      Text(
+                        '${i + 1} / ${utilizadores.length}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? Colors.grey.shade500
+                              : Colors.grey.shade400,
                         ),
                       ),
                     ],
                   ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ),
+          );
+        },
       ),
     );
   }
@@ -856,8 +784,7 @@ class _BannerLogs extends StatelessWidget {
                 color: Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.history,
-                  color: Colors.white, size: 20),
+              child: const Icon(Icons.history, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -907,13 +834,14 @@ class _SyncCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    
+
     return Container(
       decoration: BoxDecoration(
         color: isDark ? const Color(0xFF1E2A38) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+          color:
+              isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
         ),
         boxShadow: [
           if (!isDark)
@@ -983,7 +911,8 @@ class _SyncCard extends StatelessWidget {
                   _SyncInfoRow(
                     icon: Icons.schedule,
                     label: 'Próximo sync',
-                    valor: formatarData(syncStatus!['proximoSync'] as String?),
+                    valor:
+                        formatarData(syncStatus!['proximoSync'] as String?),
                     cor: Colors.orange.shade700,
                   ),
                   const SizedBox(height: 8),
@@ -1161,7 +1090,7 @@ class _FormularioCriarUtilizadorState
   Widget build(BuildContext context) {
     final bottomInset = MediaQuery.of(context).viewInsets.bottom;
     final bottomSafe = MediaQuery.of(context).padding.bottom;
-    
+
     return Padding(
       padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
       child: Form(
@@ -1211,7 +1140,6 @@ class _FormularioCriarUtilizadorState
               ),
               const SizedBox(height: 20),
 
-              // Campos do formulário
               TextFormField(
                 controller: _nomeCtrl,
                 textCapitalization: TextCapitalization.words,
@@ -1228,7 +1156,7 @@ class _FormularioCriarUtilizadorState
                     (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null,
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
@@ -1244,7 +1172,7 @@ class _FormularioCriarUtilizadorState
                 validator: _validarEmail,
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
                 controller: _senhaCtrl,
                 obscureText: _obscureSenha,
@@ -1268,7 +1196,7 @@ class _FormularioCriarUtilizadorState
                 validator: _validarSenha,
               ),
               const SizedBox(height: 16),
-              
+
               TextFormField(
                 controller: _confirmarSenhaCtrl,
                 obscureText: _obscureConfirmar,
@@ -1284,8 +1212,8 @@ class _FormularioCriarUtilizadorState
                     icon: Icon(_obscureConfirmar
                         ? Icons.visibility_off
                         : Icons.visibility),
-                    onPressed: () =>
-                        setState(() => _obscureConfirmar = !_obscureConfirmar),
+                    onPressed: () => setState(
+                        () => _obscureConfirmar = !_obscureConfirmar),
                     splashRadius: 20,
                   ),
                 ),
@@ -1296,7 +1224,7 @@ class _FormularioCriarUtilizadorState
                 },
               ),
               const SizedBox(height: 16),
-              
+
               DropdownButtonFormField<String>(
                 initialValue: _roleSeleccionado,
                 decoration: InputDecoration(
@@ -1322,8 +1250,8 @@ class _FormularioCriarUtilizadorState
                     value: 'gestor',
                     child: Row(
                       children: [
-                        Icon(Icons.manage_accounts, size: 18,
-                            color: Colors.deepPurple),
+                        Icon(Icons.manage_accounts,
+                            size: 18, color: Colors.deepPurple),
                         SizedBox(width: 8),
                         Text('Gestor'),
                       ],
@@ -1333,7 +1261,8 @@ class _FormularioCriarUtilizadorState
                     value: 'admin',
                     child: Row(
                       children: [
-                        Icon(Icons.shield, size: 18, color: Color(0xFF185FA5)),
+                        Icon(Icons.shield,
+                            size: 18, color: Color(0xFF185FA5)),
                         SizedBox(width: 8),
                         Text('Administrador'),
                       ],
@@ -1344,8 +1273,7 @@ class _FormularioCriarUtilizadorState
                     setState(() => _roleSeleccionado = v ?? 'utilizador'),
               ),
               const SizedBox(height: 24),
-              
-              // Botão de submissão
+
               SizedBox(
                 height: 48,
                 child: ElevatedButton.icon(
@@ -1358,8 +1286,8 @@ class _FormularioCriarUtilizadorState
                               strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.check),
-                  label: Text(
-                      _carregando ? 'A criar...' : 'Criar utilizador'),
+                  label:
+                      Text(_carregando ? 'A criar...' : 'Criar utilizador'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,
