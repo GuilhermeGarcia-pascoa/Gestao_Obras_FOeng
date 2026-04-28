@@ -16,14 +16,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   List<dynamic> _utilizadores = [];
   bool _loading = true;
 
-  // Pesquisa
   String _filtroPesquisa = '';
   final TextEditingController _pesquisaCtrl = TextEditingController();
 
-  // Ordenação
   _OrdemTipo _ordem = _OrdemTipo.nomeAsc;
 
-  // Sync
   Map<String, dynamic>? _syncStatus;
   bool _syncLoading = false;
 
@@ -40,8 +37,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     super.dispose();
   }
 
-  // ── Utilizadores ────────────────────────────────────────────────────────────
-
   Future<void> _carregar() async {
     setState(() => _loading = true);
     try {
@@ -53,14 +48,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     } on ApiException catch (e) {
       setState(() => _loading = false);
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.mensagem)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     }
   }
-
-  // ── Sync ────────────────────────────────────────────────────────────────────
 
   Future<void> _carregarSyncStatus() async {
     try {
@@ -100,7 +92,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     try {
       final resultado = await ApiService.sincronizarAgora();
       await _carregarSyncStatus();
-
       if (mounted) {
         final inseridas = resultado['inseridas'] ?? 0;
         final actualizadas = resultado['actualizadas'] ?? 0;
@@ -129,8 +120,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     }
   }
 
-  // ── Formatação de datas ──────────────────────────────────────────────────────
-
   String _formatarData(String? isoString) {
     if (isoString == null) return 'Nunca';
     try {
@@ -144,8 +133,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       return isoString;
     }
   }
-
-  // ── Utilizadores helpers ─────────────────────────────────────────────────────
 
   void _abrirFormularioCriar() {
     showModalBottomSheet(
@@ -185,9 +172,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.mensagem)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     }
   }
@@ -216,7 +202,6 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
     );
     if (ok != true) return;
-
     try {
       await ApiService.apagarUtilizador(user['id'] as int);
       await _carregar();
@@ -227,9 +212,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       }
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.mensagem)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     }
   }
@@ -237,7 +221,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   String _labelRole(String role) {
     switch (role) {
       case 'admin':
-        return 'Administrador';
+        return 'Admin';
       case 'gestor':
         return 'Gestor';
       case 'utilizador':
@@ -278,11 +262,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
-  // ── Filtro + Ordenação ────────────────────────────────────────────────────────
-
   List<dynamic> get _utilizadoresFiltrados {
     final filtro = _filtroPesquisa.toLowerCase();
-
     var lista = _utilizadores.where((u) {
       final nome = (u['nome'] ?? '').toString().toLowerCase();
       final email = (u['email'] ?? '').toString().toLowerCase();
@@ -291,26 +272,28 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
     switch (_ordem) {
       case _OrdemTipo.nomeAsc:
-        lista.sort((a, b) =>
-            (a['nome'] ?? '').toString().compareTo((b['nome'] ?? '').toString()));
+        lista.sort((a, b) => (a['nome'] ?? '')
+            .toString()
+            .compareTo((b['nome'] ?? '').toString()));
       case _OrdemTipo.nomeDesc:
-        lista.sort((a, b) =>
-            (b['nome'] ?? '').toString().compareTo((a['nome'] ?? '').toString()));
+        lista.sort((a, b) => (b['nome'] ?? '')
+            .toString()
+            .compareTo((a['nome'] ?? '').toString()));
       case _OrdemTipo.roleAsc:
-        lista.sort((a, b) =>
-            (a['role'] ?? '').toString().compareTo((b['role'] ?? '').toString()));
+        lista.sort((a, b) => (a['role'] ?? '')
+            .toString()
+            .compareTo((b['role'] ?? '').toString()));
     }
 
     return lista;
   }
-
-  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
     final currentUserId = auth.utilizador?['id'];
     final lista = _utilizadoresFiltrados;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
       appBar: AppBar(
@@ -331,7 +314,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   _BannerLogs(onTap: _abrirLogs),
                   const SizedBox(height: 14),
 
-                  // Secção Sincronização
+                  // Card de Sync
                   _SyncCard(
                     syncStatus: _syncStatus,
                     syncLoading: _syncLoading,
@@ -340,7 +323,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Cabeçalho da secção Utilizadores
+                  // Cabeçalho utilizadores
                   Row(
                     children: [
                       const Text(
@@ -355,8 +338,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                         padding: const EdgeInsets.symmetric(
                             horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
-                          color:
-                              const Color(0xFF185FA5).withOpacity(0.12),
+                          color: const Color(0xFF185FA5).withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
@@ -372,14 +354,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 12),
 
-                  // Barra de Pesquisa + Ordenação
+                  // Pesquisa + Ordenação
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
                           controller: _pesquisaCtrl,
                           decoration: InputDecoration(
-                            hintText: 'Pesquisar por nome ou email...',
+                            hintText: 'Pesquisar...',
                             prefixIcon: const Icon(Icons.search),
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(12),
@@ -395,8 +377,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                                   )
                                 : null,
                           ),
-                          onChanged: (valor) =>
-                              setState(() => _filtroPesquisa = valor),
+                          onChanged: (v) =>
+                              setState(() => _filtroPesquisa = v),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -408,10 +390,10 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             border: Border.all(
-                                color: Theme.of(context).brightness ==
-                                        Brightness.dark
-                                    ? Colors.grey.shade600
-                                    : Colors.grey.shade300),
+                              color: isDark
+                                  ? Colors.grey.shade600
+                                  : Colors.grey.shade300,
+                            ),
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: const Icon(Icons.sort, size: 22),
@@ -447,7 +429,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 16),
 
-                  // Carrossel de utilizadores ou estado vazio
+                  // Lista vertical com efeito de carrossel
                   if (lista.isEmpty)
                     Center(
                       child: Padding(
@@ -470,7 +452,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                       ),
                     )
                   else
-                    _UtilizadoresCarrossel(
+                    _ListaCarrossel(
                       utilizadores: lista,
                       currentUserId: currentUserId,
                       labelRole: _labelRole,
@@ -493,17 +475,19 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 }
 
-// ── Enum de ordenação ────────────────────────────────────────────────────────
+// ── Enum ordenação ────────────────────────────────────────────────────────────
 
 enum _OrdemTipo { nomeAsc, nomeDesc, roleAsc }
 
-// ── Carrossel de utilizadores ─────────────────────────────────────────────────
+// ── Lista vertical com efeito de carrossel ────────────────────────────────────
 //
-// Mostra os cards em scroll horizontal com peek do card seguinte (~20 px),
-// para que o utilizador perceba que há mais para deslizar.
+// Lista normal (vertical), mas os cards afastados do centro do viewport ficam
+// ligeiramente mais pequenos e transparentes — dá profundidade sem mover nada
+// para os lados. Usa NotificationListener para reagir ao scroll sem setState
+// desnecessário no pai.
 
-class _UtilizadoresCarrossel extends StatelessWidget {
-  const _UtilizadoresCarrossel({
+class _ListaCarrossel extends StatefulWidget {
+  const _ListaCarrossel({
     required this.utilizadores,
     required this.currentUserId,
     required this.labelRole,
@@ -522,208 +506,258 @@ class _UtilizadoresCarrossel extends StatelessWidget {
   final Future<void> Function(dynamic) onApagar;
 
   @override
+  State<_ListaCarrossel> createState() => _ListaCarrosselState();
+}
+
+class _ListaCarrosselState extends State<_ListaCarrossel> {
+  // Altura fixa do card compacto + espaço entre cards
+  static const double cardH = 68.0;
+  static const double gap = 8.0;
+  static const double itemH = cardH + gap;
+
+  final ScrollController _ctrl = ScrollController();
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl.addListener(_onScroll);
+  }
+
+  void _onScroll() => setState(() {});
+
+  @override
+  void dispose() {
+    _ctrl.removeListener(_onScroll);
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    // Largura do card: ocupa ~85 % do ecrã para mostrar o início do próximo
-    final cardWidth = MediaQuery.of(context).size.width * 0.80;
+    // Como estamos dentro de um ListView pai, não podemos usar um segundo
+    // ListView scrollável. Usamos um Column com altura calculada e deixamos
+    // o ListView pai fazer o scroll — assim o efeito aplica-se com base na
+    // posição de render de cada item no ecrã.
+    return Column(
+      children: List.generate(widget.utilizadores.length, (i) {
+        final user = widget.utilizadores[i];
 
-    return SizedBox(
-      // Altura fixa para o carrossel; o card cresce até este limite
-      height: 200,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        // Padding lateral: alinha o primeiro card com o resto do conteúdo
-        padding: EdgeInsets.zero,
-        clipBehavior: Clip.none,
-        itemCount: utilizadores.length,
-        separatorBuilder: (_, __) => const SizedBox(width: 12),
-        itemBuilder: (context, i) {
-          final user = utilizadores[i];
-          final role = (user['role'] ?? 'utilizador').toString();
-          final cor = corRole(role);
-          final isCurrentUser = user['id'] == currentUserId;
-          final nome = user['nome'] ?? 'Sem nome';
-          final email = user['email'] ?? '';
-          final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
-          final isDark = Theme.of(context).brightness == Brightness.dark;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: gap),
+          child: _CarrosselItem(
+            index: i,
+            itemHeight: cardH,
+            child: _UtilizadorCardCompacto(
+              user: user,
+              isCurrentUser: user['id'] == widget.currentUserId,
+              labelRole: widget.labelRole,
+              corRole: widget.corRole,
+              iconeRole: widget.iconeRole,
+              onAlterarSenha: () => widget.onAlterarSenha(user),
+              onApagar: () => widget.onApagar(user),
+            ),
+          ),
+        );
+      }),
+    );
+  }
+}
 
-          return SizedBox(
-            width: cardWidth,
-            child: Container(
+// Aplica escala + opacidade com base na distância ao centro do viewport
+class _CarrosselItem extends StatelessWidget {
+  const _CarrosselItem({
+    required this.index,
+    required this.itemHeight,
+    required this.child,
+  });
+
+  final int index;
+  final double itemHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (ctx, _) {
+        // Posição deste widget no ecrã
+        final box = ctx.findRenderObject() as RenderBox?;
+        double t = 0.0;
+
+        if (box != null && box.hasSize) {
+          final screenH = MediaQuery.of(ctx).size.height;
+          final itemY = box.localToGlobal(Offset.zero).dy;
+          final itemCenter = itemY + itemHeight / 2;
+          final screenCenter = screenH / 2;
+          final distancia = (itemCenter - screenCenter).abs();
+          // Normaliza: 0 = no centro, 1 = no limite do ecrã
+          t = (distancia / (screenH * 0.45)).clamp(0.0, 1.0);
+        }
+
+        final scale = 1.0 - t * 0.06;    // máx. 6 % de encolhimento
+        final opacity = 1.0 - t * 0.40;   // máx. 40 % de transparência
+
+        return Transform.scale(
+          scale: scale,
+          child: Opacity(
+            opacity: opacity.clamp(0.0, 1.0),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+}
+
+// ── Card compacto de utilizador ───────────────────────────────────────────────
+
+class _UtilizadorCardCompacto extends StatelessWidget {
+  const _UtilizadorCardCompacto({
+    required this.user,
+    required this.isCurrentUser,
+    required this.labelRole,
+    required this.corRole,
+    required this.iconeRole,
+    required this.onAlterarSenha,
+    required this.onApagar,
+  });
+
+  final dynamic user;
+  final bool isCurrentUser;
+  final String Function(String) labelRole;
+  final Color Function(String) corRole;
+  final IconData Function(String) iconeRole;
+  final VoidCallback onAlterarSenha;
+  final VoidCallback onApagar;
+
+  @override
+  Widget build(BuildContext context) {
+    final nome = user['nome'] ?? 'Sem nome';
+    final email = user['email'] ?? '';
+    final role = (user['role'] ?? 'utilizador').toString();
+    final cor = corRole(role);
+    final inicial = nome.isNotEmpty ? nome[0].toUpperCase() : '?';
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return Container(
+      height: _ListaCarrosselState.cardH,
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E2A38) : Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+        ),
+        boxShadow: [
+          if (!isDark)
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        child: Row(
+          children: [
+            // Avatar
+            Container(
+              width: 40,
+              height: 40,
               decoration: BoxDecoration(
-                color: isDark ? const Color(0xFF1E2A38) : Colors.white,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(
-                  color: isDark
-                      ? const Color(0xFF374151)
-                      : const Color(0xFFDDE3ED),
+                gradient: LinearGradient(
+                  colors: [cor, cor.withOpacity(0.65)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
                 ),
-                boxShadow: [
-                  if (!isDark)
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.05),
-                      blurRadius: 10,
-                      offset: const Offset(0, 3),
-                    ),
-                ],
+                borderRadius: BorderRadius.circular(11),
               ),
-              padding: const EdgeInsets.all(16),
+              child: Center(
+                child: Text(
+                  inicial,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+
+            // Info
+            Expanded(
               child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Linha superior: avatar + nome + menu
+                  // Nome + badge "Você"
                   Row(
                     children: [
-                      // Avatar
-                      Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [cor, cor.withOpacity(0.65)],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
+                      Flexible(
+                        child: Text(
+                          nome,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
                           ),
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        child: Center(
-                          child: Text(
-                            inicial,
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                              fontSize: 20,
-                            ),
-                          ),
+                          overflow: TextOverflow.ellipsis,
                         ),
                       ),
-                      const SizedBox(width: 12),
-
-                      // Nome + badge "Você"
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              children: [
-                                Flexible(
-                                  child: Text(
-                                    nome,
-                                    style: const TextStyle(
-                                      fontWeight: FontWeight.w700,
-                                      fontSize: 14,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                if (isCurrentUser) ...[
-                                  const SizedBox(width: 6),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                        horizontal: 6, vertical: 2),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF185FA5)
-                                          .withOpacity(0.15),
-                                      borderRadius: BorderRadius.circular(20),
-                                    ),
-                                    child: const Text(
-                                      'Você',
-                                      style: TextStyle(
-                                        fontSize: 10,
-                                        color: Color(0xFF185FA5),
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ],
-                            ),
-                            const SizedBox(height: 3),
-                            Text(
-                              email,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isDark
-                                    ? Colors.grey.shade400
-                                    : Colors.grey.shade600,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ],
-                        ),
-                      ),
-
-                      // Menu de ações (só se não for o utilizador atual)
-                      if (!isCurrentUser)
-                        PopupMenuButton(
-                          icon: Icon(
-                            Icons.more_vert,
-                            size: 20,
-                            color: isDark
-                                ? Colors.grey.shade400
-                                : Colors.grey,
+                      if (isCurrentUser) ...[
+                        const SizedBox(width: 5),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF185FA5).withOpacity(0.15),
+                            borderRadius: BorderRadius.circular(20),
                           ),
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              onTap: () => onAlterarSenha(user),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.vpn_key,
-                                      size: 18, color: Colors.amber),
-                                  SizedBox(width: 8),
-                                  Text('Alterar senha'),
-                                ],
-                              ),
+                          child: const Text(
+                            'Você',
+                            style: TextStyle(
+                              fontSize: 9,
+                              color: Color(0xFF185FA5),
+                              fontWeight: FontWeight.w600,
                             ),
-                            PopupMenuItem(
-                              onTap: () => onApagar(user),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.delete,
-                                      size: 18, color: Colors.red),
-                                  SizedBox(width: 8),
-                                  Text('Apagar',
-                                      style: TextStyle(color: Colors.red)),
-                                ],
-                              ),
-                            ),
-                          ],
+                          ),
                         ),
+                      ],
                     ],
                   ),
-
-                  const Spacer(),
-
-                  // Divisor subtil
-                  Divider(
-                    height: 1,
-                    color: isDark
-                        ? Colors.white.withOpacity(0.06)
-                        : Colors.grey.shade200,
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Badge de role + índice no carrossel
+                  const SizedBox(height: 3),
+                  // Email + badge role
                   Row(
                     children: [
-                      // Badge de role
+                      Flexible(
+                        child: Text(
+                          email,
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: isDark
+                                ? Colors.grey.shade400
+                                : Colors.grey.shade500,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 5),
+                            horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: cor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
-                          border:
-                              Border.all(color: cor.withOpacity(0.3)),
+                          border: Border.all(color: cor.withOpacity(0.25)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            Icon(iconeRole(role), size: 13, color: cor),
-                            const SizedBox(width: 5),
+                            Icon(iconeRole(role), size: 10, color: cor),
+                            const SizedBox(width: 3),
                             Text(
                               labelRole(role),
                               style: TextStyle(
-                                fontSize: 12,
+                                fontSize: 10,
                                 fontWeight: FontWeight.w600,
                                 color: cor,
                               ),
@@ -731,34 +765,55 @@ class _UtilizadoresCarrossel extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const Spacer(),
-                      // Indicador de posição: "2 / 5"
-                      Text(
-                        '${i + 1} / ${utilizadores.length}',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: isDark
-                              ? Colors.grey.shade500
-                              : Colors.grey.shade400,
-                        ),
-                      ),
                     ],
                   ),
                 ],
               ),
             ),
-          );
-        },
+
+            // Ações
+            if (!isCurrentUser)
+              PopupMenuButton(
+                icon: Icon(
+                  Icons.more_vert,
+                  size: 18,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey,
+                ),
+                itemBuilder: (_) => [
+                  PopupMenuItem(
+                    onTap: onAlterarSenha,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.vpn_key, size: 18, color: Colors.amber),
+                        SizedBox(width: 8),
+                        Text('Alterar senha'),
+                      ],
+                    ),
+                  ),
+                  PopupMenuItem(
+                    onTap: onApagar,
+                    child: const Row(
+                      children: [
+                        Icon(Icons.delete, size: 18, color: Colors.red),
+                        SizedBox(width: 8),
+                        Text('Apagar',
+                            style: TextStyle(color: Colors.red)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+          ],
+        ),
       ),
     );
   }
 }
 
-// ── Banner Logs ──────────────────────────────────────────────────────────────
+// ── Banner Logs ───────────────────────────────────────────────────────────────
 
 class _BannerLogs extends StatelessWidget {
   const _BannerLogs({required this.onTap});
-
   final VoidCallback onTap;
 
   @override
@@ -816,7 +871,7 @@ class _BannerLogs extends StatelessWidget {
   }
 }
 
-// ── Secção Sync ──────────────────────────────────────────────────────────────
+// ── Secção Sync ───────────────────────────────────────────────────────────────
 
 class _SyncCard extends StatelessWidget {
   const _SyncCard({
@@ -840,8 +895,7 @@ class _SyncCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1E2A38) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color:
-              isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
         ),
         boxShadow: [
           if (!isDark)
@@ -894,9 +948,7 @@ class _SyncCard extends StatelessWidget {
                 color: isDark ? Colors.transparent : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isDark
-                      ? Colors.transparent
-                      : Colors.grey.shade200,
+                  color: isDark ? Colors.transparent : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -949,14 +1001,13 @@ class _SyncCard extends StatelessWidget {
                           strokeWidth: 2, color: Colors.white),
                     )
                   : const Icon(Icons.sync, size: 18),
-              label:
-                  Text(syncLoading ? 'A sincronizar...' : 'Sincronizar agora'),
+              label: Text(
+                  syncLoading ? 'A sincronizar...' : 'Sincronizar agora'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: const Color(0xFF185FA5),
                 foregroundColor: Colors.white,
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                    borderRadius: BorderRadius.circular(10)),
               ),
             ),
           ),
@@ -965,8 +1016,6 @@ class _SyncCard extends StatelessWidget {
     );
   }
 }
-
-// ── Widget auxiliar para linhas de info do sync ──────────────────────────────
 
 class _SyncInfoRow extends StatelessWidget {
   const _SyncInfoRow({
@@ -1005,11 +1054,10 @@ class _SyncInfoRow extends StatelessWidget {
   }
 }
 
-// ── Formulário criar utilizador ──────────────────────────────────────────────
+// ── Formulário criar utilizador ───────────────────────────────────────────────
 
 class _FormularioCriarUtilizador extends StatefulWidget {
   const _FormularioCriarUtilizador({required this.onCriado});
-
   final VoidCallback onCriado;
 
   @override
@@ -1028,7 +1076,6 @@ class _FormularioCriarUtilizadorState
   bool _obscureSenha = true;
   bool _obscureConfirmar = true;
   bool _carregando = false;
-
   String _roleSeleccionado = 'utilizador';
 
   @override
@@ -1051,15 +1098,11 @@ class _FormularioCriarUtilizadorState
   String? _validarSenha(String? value) {
     final senha = value ?? '';
     if (senha.isEmpty) return 'Campo obrigatório';
-    if (senha.length < 8) {
-      return 'A password deve ter pelo menos 8 caracteres';
-    }
-    if (!RegExp(r'[a-zA-Z]').hasMatch(senha)) {
+    if (senha.length < 8) return 'A password deve ter pelo menos 8 caracteres';
+    if (!RegExp(r'[a-zA-Z]').hasMatch(senha))
       return 'A password deve conter pelo menos uma letra';
-    }
-    if (!RegExp(r'[0-9]').hasMatch(senha)) {
+    if (!RegExp(r'[0-9]').hasMatch(senha))
       return 'A password deve conter pelo menos um número';
-    }
     return null;
   }
 
@@ -1077,9 +1120,8 @@ class _FormularioCriarUtilizadorState
       widget.onCriado();
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.mensagem)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.mensagem)));
       }
     } finally {
       if (mounted) setState(() => _carregando = false);
@@ -1092,7 +1134,8 @@ class _FormularioCriarUtilizadorState
     final bottomSafe = MediaQuery.of(context).padding.bottom;
 
     return Padding(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
+      padding:
+          EdgeInsets.fromLTRB(24, 24, 24, 24 + bottomInset + bottomSafe),
       child: Form(
         key: _formKey,
         autovalidateMode: AutovalidateMode.onUserInteraction,
@@ -1101,7 +1144,6 @@ class _FormularioCriarUtilizadorState
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Cabeçalho do formulário
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -1148,12 +1190,12 @@ class _FormularioCriarUtilizadorState
                   hintText: 'ex: João Silva',
                   prefixIcon: const Icon(Icons.person_outline),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                 ),
-                validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Campo obrigatório' : null,
+                validator: (v) => (v == null || v.trim().isEmpty)
+                    ? 'Campo obrigatório'
+                    : null,
               ),
               const SizedBox(height: 16),
 
@@ -1165,8 +1207,7 @@ class _FormularioCriarUtilizadorState
                   hintText: 'ex: joao@example.com',
                   prefixIcon: const Icon(Icons.email_outlined),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                 ),
                 validator: _validarEmail,
@@ -1181,8 +1222,7 @@ class _FormularioCriarUtilizadorState
                   hintText: 'Mínimo 8 caracteres',
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                   suffixIcon: IconButton(
                     icon: Icon(_obscureSenha
@@ -1205,8 +1245,7 @@ class _FormularioCriarUtilizadorState
                   hintText: 'Repita a senha',
                   prefixIcon: const Icon(Icons.lock_outline),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                   suffixIcon: IconButton(
                     icon: Icon(_obscureConfirmar
@@ -1231,42 +1270,34 @@ class _FormularioCriarUtilizadorState
                   labelText: 'Função',
                   prefixIcon: const Icon(Icons.badge_outlined),
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
-                  ),
+                      borderRadius: BorderRadius.circular(10)),
                   isDense: true,
                 ),
                 items: const [
                   DropdownMenuItem(
                     value: 'utilizador',
-                    child: Row(
-                      children: [
-                        Icon(Icons.person, size: 18, color: Colors.teal),
-                        SizedBox(width: 8),
-                        Text('Utilizador'),
-                      ],
-                    ),
+                    child: Row(children: [
+                      Icon(Icons.person, size: 18, color: Colors.teal),
+                      SizedBox(width: 8),
+                      Text('Utilizador'),
+                    ]),
                   ),
                   DropdownMenuItem(
                     value: 'gestor',
-                    child: Row(
-                      children: [
-                        Icon(Icons.manage_accounts,
-                            size: 18, color: Colors.deepPurple),
-                        SizedBox(width: 8),
-                        Text('Gestor'),
-                      ],
-                    ),
+                    child: Row(children: [
+                      Icon(Icons.manage_accounts,
+                          size: 18, color: Colors.deepPurple),
+                      SizedBox(width: 8),
+                      Text('Gestor'),
+                    ]),
                   ),
                   DropdownMenuItem(
                     value: 'admin',
-                    child: Row(
-                      children: [
-                        Icon(Icons.shield,
-                            size: 18, color: Color(0xFF185FA5)),
-                        SizedBox(width: 8),
-                        Text('Administrador'),
-                      ],
-                    ),
+                    child: Row(children: [
+                      Icon(Icons.shield, size: 18, color: Color(0xFF185FA5)),
+                      SizedBox(width: 8),
+                      Text('Administrador'),
+                    ]),
                   ),
                 ],
                 onChanged: (v) =>
@@ -1286,14 +1317,13 @@ class _FormularioCriarUtilizadorState
                               strokeWidth: 2, color: Colors.white),
                         )
                       : const Icon(Icons.check),
-                  label:
-                      Text(_carregando ? 'A criar...' : 'Criar utilizador'),
+                  label: Text(
+                      _carregando ? 'A criar...' : 'Criar utilizador'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF185FA5),
                     foregroundColor: Colors.white,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(10),
-                    ),
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -1305,7 +1335,7 @@ class _FormularioCriarUtilizadorState
   }
 }
 
-// ── Prompt de texto ──────────────────────────────────────────────────────────
+// ── Prompt de texto ───────────────────────────────────────────────────────────
 
 Future<String?> _promptTexto(
   BuildContext context,
