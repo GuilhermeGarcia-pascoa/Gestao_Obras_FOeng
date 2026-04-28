@@ -310,11 +310,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                 children: [
-                  // Banner Logs
                   _BannerLogs(onTap: _abrirLogs),
                   const SizedBox(height: 14),
 
-                  // Card de Sync
                   _SyncCard(
                     syncStatus: _syncStatus,
                     syncLoading: _syncLoading,
@@ -323,144 +321,200 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Cabeçalho utilizadores
-                  Row(
-                    children: [
-                      const Text(
-                        'Utilizadores',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w700,
-                        ),
+                  // ── Caixa de utilizadores ─────────────────────────────
+                  Container(
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E2A38) : Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: isDark
+                            ? const Color(0xFF374151)
+                            : const Color(0xFFDDE3ED),
                       ),
-                      const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 10, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF185FA5).withOpacity(0.12),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          '${lista.length}',
-                          style: const TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF185FA5),
+                      boxShadow: [
+                        if (!isDark)
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.04),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
                           ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Pesquisa + Ordenação
-                  Row(
-                    children: [
-                      Expanded(
-                        child: TextField(
-                          controller: _pesquisaCtrl,
-                          decoration: InputDecoration(
-                            hintText: 'Pesquisar...',
-                            prefixIcon: const Icon(Icons.search),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            isDense: true,
-                            suffixIcon: _filtroPesquisa.isNotEmpty
-                                ? IconButton(
-                                    icon: const Icon(Icons.clear),
-                                    onPressed: () {
-                                      _pesquisaCtrl.clear();
-                                      setState(() => _filtroPesquisa = '');
-                                    },
-                                  )
-                                : null,
-                          ),
-                          onChanged: (v) =>
-                              setState(() => _filtroPesquisa = v),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      PopupMenuButton<_OrdemTipo>(
-                        tooltip: 'Ordenar',
-                        initialValue: _ordem,
-                        onSelected: (v) => setState(() => _ordem = v),
-                        icon: Container(
-                          padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: isDark
-                                  ? Colors.grey.shade600
-                                  : Colors.grey.shade300,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: const Icon(Icons.sort, size: 22),
-                        ),
-                        itemBuilder: (_) => const [
-                          PopupMenuItem(
-                            value: _OrdemTipo.nomeAsc,
-                            child: Row(children: [
-                              Icon(Icons.sort_by_alpha, size: 18),
-                              SizedBox(width: 8),
-                              Text('Nome A→Z'),
-                            ]),
-                          ),
-                          PopupMenuItem(
-                            value: _OrdemTipo.nomeDesc,
-                            child: Row(children: [
-                              Icon(Icons.sort_by_alpha, size: 18),
-                              SizedBox(width: 8),
-                              Text('Nome Z→A'),
-                            ]),
-                          ),
-                          PopupMenuItem(
-                            value: _OrdemTipo.roleAsc,
-                            child: Row(children: [
-                              Icon(Icons.badge_outlined, size: 18),
-                              SizedBox(width: 8),
-                              Text('Por função'),
-                            ]),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Lista vertical com efeito de carrossel
-                  if (lista.isEmpty)
-                    Center(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 40),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(Icons.person_search,
-                                size: 56, color: Colors.grey.shade400),
-                            const SizedBox(height: 12),
-                            Text(
-                              _filtroPesquisa.isEmpty
-                                  ? 'Nenhum utilizador encontrado'
-                                  : 'Nenhum resultado para "$_filtroPesquisa"',
-                              style: TextStyle(
-                                  color: Colors.grey.shade500, fontSize: 15),
-                            ),
-                          ],
-                        ),
-                      ),
-                    )
-                  else
-                    _ListaCarrossel(
-                      utilizadores: lista,
-                      currentUserId: currentUserId,
-                      labelRole: _labelRole,
-                      corRole: _corRole,
-                      iconeRole: _iconeRole,
-                      onAlterarSenha: _alterarSenha,
-                      onApagar: _apagarUtilizador,
+                      ],
                     ),
+                    child: Column(
+                      children: [
+                        // Cabeçalho da caixa
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(14, 14, 8, 10),
+                          child: Row(
+                            children: [
+                              const Text(
+                                'Utilizadores',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 8, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF185FA5)
+                                      .withOpacity(0.12),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  '${lista.length}',
+                                  style: const TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF185FA5),
+                                  ),
+                                ),
+                              ),
+                              const Spacer(),
+                              // Ordenação
+                              PopupMenuButton<_OrdemTipo>(
+                                tooltip: 'Ordenar',
+                                initialValue: _ordem,
+                                onSelected: (v) =>
+                                    setState(() => _ordem = v),
+                                icon: Icon(
+                                  Icons.sort,
+                                  size: 20,
+                                  color: isDark
+                                      ? Colors.grey.shade400
+                                      : Colors.grey.shade600,
+                                ),
+                                itemBuilder: (_) => const [
+                                  PopupMenuItem(
+                                    value: _OrdemTipo.nomeAsc,
+                                    child: Row(children: [
+                                      Icon(Icons.sort_by_alpha, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Nome A→Z'),
+                                    ]),
+                                  ),
+                                  PopupMenuItem(
+                                    value: _OrdemTipo.nomeDesc,
+                                    child: Row(children: [
+                                      Icon(Icons.sort_by_alpha, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Nome Z→A'),
+                                    ]),
+                                  ),
+                                  PopupMenuItem(
+                                    value: _OrdemTipo.roleAsc,
+                                    child: Row(children: [
+                                      Icon(Icons.badge_outlined, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('Por função'),
+                                    ]),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Barra de pesquisa dentro da caixa
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(12, 0, 12, 10),
+                          child: TextField(
+                            controller: _pesquisaCtrl,
+                            decoration: InputDecoration(
+                              hintText: 'Pesquisar...',
+                              hintStyle: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.grey.shade400),
+                              prefixIcon: Icon(Icons.search,
+                                  size: 18,
+                                  color: Colors.grey.shade400),
+                              filled: true,
+                              fillColor: isDark
+                                  ? Colors.white.withOpacity(0.05)
+                                  : Colors.grey.shade50,
+                              border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(10),
+                                borderSide: BorderSide.none,
+                              ),
+                              isDense: true,
+                              contentPadding:
+                                  const EdgeInsets.symmetric(vertical: 10),
+                              suffixIcon: _filtroPesquisa.isNotEmpty
+                                  ? IconButton(
+                                      icon: const Icon(Icons.clear, size: 16),
+                                      onPressed: () {
+                                        _pesquisaCtrl.clear();
+                                        setState(() => _filtroPesquisa = '');
+                                      },
+                                    )
+                                  : null,
+                            ),
+                            onChanged: (v) =>
+                                setState(() => _filtroPesquisa = v),
+                          ),
+                        ),
+
+                        // Divisor
+                        Divider(
+                          height: 1,
+                          color: isDark
+                              ? Colors.white.withOpacity(0.06)
+                              : Colors.grey.shade100,
+                        ),
+
+                        // Lista com altura fixa e scroll interno
+                        if (lista.isEmpty)
+                          Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 36),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(Icons.person_search,
+                                    size: 40,
+                                    color: Colors.grey.shade300),
+                                const SizedBox(height: 8),
+                                Text(
+                                  _filtroPesquisa.isEmpty
+                                      ? 'Nenhum utilizador encontrado'
+                                      : 'Sem resultados para "$_filtroPesquisa"',
+                                  style: TextStyle(
+                                      color: Colors.grey.shade400,
+                                      fontSize: 13),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          SizedBox(
+                            // Mostra ~3.5 cards para dar dica visual de scroll
+                            height: 268,
+                            child: ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                              itemCount: lista.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (ctx, i) {
+                                final user = lista[i];
+                                return _UtilizadorCardCompacto(
+                                  user: user,
+                                  isCurrentUser:
+                                      user['id'] == currentUserId,
+                                  labelRole: _labelRole,
+                                  corRole: _corRole,
+                                  iconeRole: _iconeRole,
+                                  onAlterarSenha: () =>
+                                      _alterarSenha(user),
+                                  onApagar: () =>
+                                      _apagarUtilizador(user),
+                                );
+                              },
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -479,136 +533,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
 enum _OrdemTipo { nomeAsc, nomeDesc, roleAsc }
 
-// ── Lista vertical com efeito de carrossel ────────────────────────────────────
-//
-// Lista normal (vertical), mas os cards afastados do centro do viewport ficam
-// ligeiramente mais pequenos e transparentes — dá profundidade sem mover nada
-// para os lados. Usa NotificationListener para reagir ao scroll sem setState
-// desnecessário no pai.
-
-class _ListaCarrossel extends StatefulWidget {
-  const _ListaCarrossel({
-    required this.utilizadores,
-    required this.currentUserId,
-    required this.labelRole,
-    required this.corRole,
-    required this.iconeRole,
-    required this.onAlterarSenha,
-    required this.onApagar,
-  });
-
-  final List<dynamic> utilizadores;
-  final dynamic currentUserId;
-  final String Function(String) labelRole;
-  final Color Function(String) corRole;
-  final IconData Function(String) iconeRole;
-  final Future<void> Function(dynamic) onAlterarSenha;
-  final Future<void> Function(dynamic) onApagar;
-
-  @override
-  State<_ListaCarrossel> createState() => _ListaCarrosselState();
-}
-
-class _ListaCarrosselState extends State<_ListaCarrossel> {
-  // Altura fixa do card compacto + espaço entre cards
-  static const double cardH = 68.0;
-  static const double gap = 8.0;
-  static const double itemH = cardH + gap;
-
-  final ScrollController _ctrl = ScrollController();
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl.addListener(_onScroll);
-  }
-
-  void _onScroll() => setState(() {});
-
-  @override
-  void dispose() {
-    _ctrl.removeListener(_onScroll);
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // Como estamos dentro de um ListView pai, não podemos usar um segundo
-    // ListView scrollável. Usamos um Column com altura calculada e deixamos
-    // o ListView pai fazer o scroll — assim o efeito aplica-se com base na
-    // posição de render de cada item no ecrã.
-    return Column(
-      children: List.generate(widget.utilizadores.length, (i) {
-        final user = widget.utilizadores[i];
-
-        return Padding(
-          padding: const EdgeInsets.only(bottom: gap),
-          child: _CarrosselItem(
-            index: i,
-            itemHeight: cardH,
-            child: _UtilizadorCardCompacto(
-              user: user,
-              isCurrentUser: user['id'] == widget.currentUserId,
-              labelRole: widget.labelRole,
-              corRole: widget.corRole,
-              iconeRole: widget.iconeRole,
-              onAlterarSenha: () => widget.onAlterarSenha(user),
-              onApagar: () => widget.onApagar(user),
-            ),
-          ),
-        );
-      }),
-    );
-  }
-}
-
-// Aplica escala + opacidade com base na distância ao centro do viewport
-class _CarrosselItem extends StatelessWidget {
-  const _CarrosselItem({
-    required this.index,
-    required this.itemHeight,
-    required this.child,
-  });
-
-  final int index;
-  final double itemHeight;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (ctx, _) {
-        // Posição deste widget no ecrã
-        final box = ctx.findRenderObject() as RenderBox?;
-        double t = 0.0;
-
-        if (box != null && box.hasSize) {
-          final screenH = MediaQuery.of(ctx).size.height;
-          final itemY = box.localToGlobal(Offset.zero).dy;
-          final itemCenter = itemY + itemHeight / 2;
-          final screenCenter = screenH / 2;
-          final distancia = (itemCenter - screenCenter).abs();
-          // Normaliza: 0 = no centro, 1 = no limite do ecrã
-          t = (distancia / (screenH * 0.45)).clamp(0.0, 1.0);
-        }
-
-        final scale = 1.0 - t * 0.06;    // máx. 6 % de encolhimento
-        final opacity = 1.0 - t * 0.40;   // máx. 40 % de transparência
-
-        return Transform.scale(
-          scale: scale,
-          child: Opacity(
-            opacity: opacity.clamp(0.0, 1.0),
-            child: child,
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ── Card compacto de utilizador ───────────────────────────────────────────────
+// ── Card compacto ─────────────────────────────────────────────────────────────
 
 class _UtilizadorCardCompacto extends StatelessWidget {
   const _UtilizadorCardCompacto({
@@ -639,37 +564,33 @@ class _UtilizadorCardCompacto extends StatelessWidget {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: _ListaCarrosselState.cardH,
+      height: 64,
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E2A38) : Colors.white,
-        borderRadius: BorderRadius.circular(14),
+        color: isDark
+            ? Colors.white.withOpacity(0.04)
+            : Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+          color: isDark
+              ? Colors.white.withOpacity(0.06)
+              : Colors.grey.shade100,
         ),
-        boxShadow: [
-          if (!isDark)
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 6,
-              offset: const Offset(0, 2),
-            ),
-        ],
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10),
         child: Row(
           children: [
             // Avatar
             Container(
-              width: 40,
-              height: 40,
+              width: 38,
+              height: 38,
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [cor, cor.withOpacity(0.65)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
-                borderRadius: BorderRadius.circular(11),
+                borderRadius: BorderRadius.circular(10),
               ),
               child: Center(
                 child: Text(
@@ -677,20 +598,19 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                   style: const TextStyle(
                     color: Colors.white,
                     fontWeight: FontWeight.w700,
-                    fontSize: 16,
+                    fontSize: 15,
                   ),
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 10),
 
-            // Info
+            // Nome + email + badge
             Expanded(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Nome + badge "Você"
                   Row(
                     children: [
                       Flexible(
@@ -704,12 +624,13 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                         ),
                       ),
                       if (isCurrentUser) ...[
-                        const SizedBox(width: 5),
+                        const SizedBox(width: 4),
                         Container(
                           padding: const EdgeInsets.symmetric(
                               horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF185FA5).withOpacity(0.15),
+                            color:
+                                const Color(0xFF185FA5).withOpacity(0.15),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
@@ -725,7 +646,6 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 3),
-                  // Email + badge role
                   Row(
                     children: [
                       Flexible(
@@ -743,11 +663,12 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 7, vertical: 2),
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: cor.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: cor.withOpacity(0.25)),
+                          border:
+                              Border.all(color: cor.withOpacity(0.25)),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -771,7 +692,7 @@ class _UtilizadorCardCompacto extends StatelessWidget {
               ),
             ),
 
-            // Ações
+            // Menu ações
             if (!isCurrentUser)
               PopupMenuButton(
                 icon: Icon(
@@ -782,24 +703,20 @@ class _UtilizadorCardCompacto extends StatelessWidget {
                 itemBuilder: (_) => [
                   PopupMenuItem(
                     onTap: onAlterarSenha,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.vpn_key, size: 18, color: Colors.amber),
-                        SizedBox(width: 8),
-                        Text('Alterar senha'),
-                      ],
-                    ),
+                    child: const Row(children: [
+                      Icon(Icons.vpn_key, size: 18, color: Colors.amber),
+                      SizedBox(width: 8),
+                      Text('Alterar senha'),
+                    ]),
                   ),
                   PopupMenuItem(
                     onTap: onApagar,
-                    child: const Row(
-                      children: [
-                        Icon(Icons.delete, size: 18, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Apagar',
-                            style: TextStyle(color: Colors.red)),
-                      ],
-                    ),
+                    child: const Row(children: [
+                      Icon(Icons.delete, size: 18, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('Apagar',
+                          style: TextStyle(color: Colors.red)),
+                    ]),
                   ),
                 ],
               ),
@@ -839,7 +756,8 @@ class _BannerLogs extends StatelessWidget {
                 color: Colors.white.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: const Icon(Icons.history, color: Colors.white, size: 20),
+              child:
+                  const Icon(Icons.history, color: Colors.white, size: 20),
             ),
             const SizedBox(width: 12),
             const Expanded(
@@ -895,7 +813,8 @@ class _SyncCard extends StatelessWidget {
         color: isDark ? const Color(0xFF1E2A38) : Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
+          color:
+              isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED),
         ),
         boxShadow: [
           if (!isDark)
@@ -948,7 +867,9 @@ class _SyncCard extends StatelessWidget {
                 color: isDark ? Colors.transparent : Colors.grey.shade50,
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: isDark ? Colors.transparent : Colors.grey.shade200,
+                  color: isDark
+                      ? Colors.transparent
+                      : Colors.grey.shade200,
                 ),
               ),
               child: Column(
@@ -956,15 +877,16 @@ class _SyncCard extends StatelessWidget {
                   _SyncInfoRow(
                     icon: Icons.check_circle_outline,
                     label: 'Último sync',
-                    valor: formatarData(syncStatus!['ultimoSync'] as String?),
+                    valor:
+                        formatarData(syncStatus!['ultimoSync'] as String?),
                     cor: Colors.green.shade600,
                   ),
                   const SizedBox(height: 8),
                   _SyncInfoRow(
                     icon: Icons.schedule,
                     label: 'Próximo sync',
-                    valor:
-                        formatarData(syncStatus!['proximoSync'] as String?),
+                    valor: formatarData(
+                        syncStatus!['proximoSync'] as String?),
                     cor: Colors.orange.shade700,
                   ),
                   const SizedBox(height: 8),
@@ -1294,7 +1216,8 @@ class _FormularioCriarUtilizadorState
                   DropdownMenuItem(
                     value: 'admin',
                     child: Row(children: [
-                      Icon(Icons.shield, size: 18, color: Color(0xFF185FA5)),
+                      Icon(Icons.shield,
+                          size: 18, color: Color(0xFF185FA5)),
                       SizedBox(width: 8),
                       Text('Administrador'),
                     ]),
