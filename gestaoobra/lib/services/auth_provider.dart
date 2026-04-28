@@ -11,6 +11,11 @@ class AuthProvider extends ChangeNotifier {
   bool get estaAutenticado => _utilizador != null;
   bool get loading => _loading;
   String? get erro => _erro;
+  String get role => (_utilizador?['role'] ?? '').toString();
+  bool get isAdmin => role == 'admin';
+  bool get isGestor => role == 'gestor';
+  bool get podeGerirRecursos => isAdmin || isGestor;
+  bool get podeAcederAdmin => isAdmin;
 
   // ── 1. Verificar sessão ao abrir a app ─────────────────────────────────────
   Future<void> verificarLoginInicial() async {

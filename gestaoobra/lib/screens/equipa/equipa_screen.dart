@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 import '../../models/pessoa_tipo_vinculo.dart';
 import '../../services/api_service.dart';
+import '../../services/auth_provider.dart';
 import '../../widgets/search_bar_widget.dart';
 
 class EquipaScreen extends StatefulWidget {
@@ -33,11 +35,18 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
 
   bool _loading = true;
 
+  bool get _temPermissaoGestao =>
+      context.read<AuthProvider>().podeGerirRecursos;
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: 3, vsync: this);
-    _carregar();
+    if (_temPermissaoGestao) {
+      _carregar();
+    } else {
+      _loading = false;
+    }
   }
 
   @override
@@ -288,6 +297,39 @@ class _EquipaScreenState extends State<EquipaScreen> with SingleTickerProviderSt
 
   @override
   Widget build(BuildContext context) {
+    final podeGerirRecursos = context.watch<AuthProvider>().podeGerirRecursos;
+
+    if (!podeGerirRecursos) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Equipa'),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.lock_outline, size: 42, color: Colors.grey),
+                SizedBox(height: 12),
+                Text(
+                  'Apenas gestores e administradores podem gerir pessoas, maquinas e viaturas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Os utilizadores normais continuam a usar estes dados dentro das obras.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Equipa'),

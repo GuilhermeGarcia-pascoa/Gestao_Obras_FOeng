@@ -134,7 +134,25 @@ class ConfigScreen extends StatelessWidget {
             ),
           ),
 
-          if (user?['role'] == 'admin') ...[
+          if (auth.podeGerirRecursos) ...[
+            const SizedBox(height: 10),
+            Center(
+              child: TextButton.icon(
+                onPressed: () => showModalBottomSheet(
+                  context: context,
+                  isScrollControlled: true,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                  ),
+                  builder: (_) => const _SyncManagerSheet(),
+                ),
+                icon: Icon(Icons.sync_outlined, size: 16, color: txtSub),
+                label: Text('Sincronizar obras', style: TextStyle(fontSize: 13, color: txtSub)),
+              ),
+            ),
+          ],
+
+          if (auth.podeAcederAdmin) ...[
             const SizedBox(height: 10),
             Center(
               child: TextButton.icon(
@@ -466,4 +484,247 @@ class ConfigScreen extends StatelessWidget {
 
   String _fmtApi(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+}
+
+class _SyncManagerSheet extends StatefulWidget {
+  const _SyncManagerSheet();
+
+  @override
+  State<_SyncManagerSheet> createState() => _SyncManagerSheetState();
+}
+
+class _SyncManagerSheetState extends State<_SyncManagerSheet> {
+  Map<String, dynamic>? _syncStatus;
+  bool _loading = true;
+  bool _syncLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _carregar();
+  }
+
+  Future<void> _carregar() async {
+    setState(() => _loading = true);
+    try {
+      final status = await ApiService.getSyncStatus();
+      if (!mounted) return;
+      setState(() {
+        _syncStatus = status;
+        _loading = false;
+      });
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(e.mensagem)),
+      );
+    }
+  }
+
+  Future<void> _sincronizarAgora() async {
+    final confirmado = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Sincronizar obras'),
+        content: const Text(
+          'Vai importar todas as obras do fo_panel para esta aplicacao.\n\nDeseja continuar?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF185FA5),
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('Sincronizar'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmado != true) return;
+
+    setState(() => _syncLoading = true);
+    try {
+      final resultado = await ApiService.sincronizarAgora();
+      await _carregar();
+      if (!mounted) return;
+
+      final inseridas = resultado['inseridas'] ?? 0;
+      final actualizadas = resultado['actualizadas'] ?? 0;
+      final ignoradas = resultado['ignoradas'] ?? 0;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Sync concluido: $inseridas novas, $actualizadas actualizadas, $ignoradas sem alteracoes.',
+          ),
+          backgroundColor: Colors.green.shade700,
+        ),
+      );
+    } on ApiException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(e.mensagem),
+          backgroundColor: Colors.red.shade700,
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _syncLoading = false);
+    }
+  }
+
+  String _formatarData(String? isoString) {
+    if (isoString == null) return 'Nunca';
+    try {
+      final dt = DateTime.parse(isoString).toLocal();
+      final dia = dt.day.toString().padLeft(2, '0');
+      final mes = dt.month.toString().padLeft(2, '0');
+      final hora = dt.hour.toString().padLeft(2, '0');
+      final min = dt.minute.toString().padLeft(2, '0');
+      return '$dia/$mes/${dt.year} $hora:$min';
+    } catch (_) {
+      return isoString;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final bottomInset = MediaQuery.of(context).viewInsets.bottom;
+    final bottomSafe = MediaQuery.of(context).padding.bottom;
+    final border = isDark ? const Color(0xFF374151) : const Color(0xFFDDE3ED);
+    final bg = isDark ? const Color(0xFF252D3A) : Colors.white;
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottomInset + bottomSafe),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Sincronizar obras',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              IconButton(
+                onPressed: () => Navigator.pop(context),
+                icon: const Icon(Icons.close),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          if (_loading)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 24),
+              child: Center(child: CircularProgressIndicator()),
+            )
+          else
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: border),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _syncInfoRow(
+                    icon: Icons.check_circle_outline,
+                    label: 'Ultimo sync',
+                    valor: _formatarData(_syncStatus?['ultimoSync'] as String?),
+                    cor: Colors.green.shade600,
+                  ),
+                  const SizedBox(height: 10),
+                  _syncInfoRow(
+                    icon: Icons.schedule,
+                    label: 'Proximo sync',
+                    valor: _formatarData(_syncStatus?['proximoSync'] as String?),
+                    cor: Colors.orange.shade700,
+                  ),
+                  const SizedBox(height: 10),
+                  _syncInfoRow(
+                    icon: Icons.add_circle_outline,
+                    label: 'Total importadas',
+                    valor: '${_syncStatus?['totalInseridas'] ?? 0} obras',
+                    cor: const Color(0xFF185FA5),
+                  ),
+                  if (_syncStatus?['ultimoErro'] != null) ...[
+                    const SizedBox(height: 10),
+                    _syncInfoRow(
+                      icon: Icons.error_outline,
+                      label: 'Ultimo erro',
+                      valor: _syncStatus!['ultimoErro'] as String,
+                      cor: Colors.red.shade600,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          const SizedBox(height: 16),
+          SizedBox(
+            height: 48,
+            child: ElevatedButton.icon(
+              onPressed: _loading || _syncLoading ? null : _sincronizarAgora,
+              icon: _syncLoading
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : const Icon(Icons.sync, size: 18),
+              label: Text(_syncLoading ? 'A sincronizar...' : 'Sincronizar agora'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF185FA5),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _syncInfoRow({
+    required IconData icon,
+    required String label,
+    required String valor,
+    required Color cor,
+  }) {
+    return Row(
+      children: [
+        Icon(icon, size: 15, color: cor),
+        const SizedBox(width: 8),
+        Text(
+          '$label: ',
+          style: const TextStyle(fontSize: 12, color: Colors.grey),
+        ),
+        Expanded(
+          child: Text(
+            valor,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: cor,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import '../services/auth_provider.dart';
 import 'config_screen.dart';
 import 'dashboard_screen.dart';
 import 'equipa/equipa_screen.dart';
@@ -15,22 +17,32 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _tab = 0;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    ObrasListScreen(),
-    EquipaScreen(),
-    ConfigScreen(),
-  ];
-
-  static const _items = [
-    _ShellItem('Inicio', Icons.space_dashboard_outlined, Icons.space_dashboard),
-    _ShellItem('Obras', Icons.domain_add_outlined, Icons.domain_add),
-    _ShellItem('Equipa', Icons.groups_2_outlined, Icons.groups_2),
-    _ShellItem('Config', Icons.tune_outlined, Icons.tune),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final podeGerirRecursos = auth.podeGerirRecursos;
+    final screens = <Widget>[
+      const DashboardScreen(),
+      const ObrasListScreen(),
+      if (podeGerirRecursos) const EquipaScreen(),
+      const ConfigScreen(),
+    ];
+    final items = <_ShellItem>[
+      const _ShellItem('Inicio', Icons.space_dashboard_outlined, Icons.space_dashboard),
+      const _ShellItem('Obras', Icons.domain_add_outlined, Icons.domain_add),
+      if (podeGerirRecursos)
+        const _ShellItem('Equipa', Icons.groups_2_outlined, Icons.groups_2),
+      const _ShellItem('Config', Icons.tune_outlined, Icons.tune),
+    ];
+    final maxIndex = screens.length - 1;
+    final tabAtual = _tab > maxIndex ? maxIndex : _tab;
+
+    if (tabAtual != _tab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(() => _tab = tabAtual);
+      });
+    }
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final useRail = constraints.maxWidth >= 900;
@@ -42,19 +54,19 @@ class _MainShellState extends State<MainShell> {
             child: useRail
                 ? Row(
                     children: [
-                      _buildRail(context, extendedRail),
+                      _buildRail(context, extendedRail, items),
                       Expanded(
                         child: Padding(
                           padding: const EdgeInsets.all(16),
                           child: ClipRRect(
                             borderRadius: BorderRadius.circular(16),
-                            child: IndexedStack(index: _tab, children: _screens),
+                            child: IndexedStack(index: tabAtual, children: screens),
                           ),
                         ),
                       ),
                     ],
                   )
-                : IndexedStack(index: _tab, children: _screens),
+                : IndexedStack(index: tabAtual, children: screens),
           ),
           bottomNavigationBar: useRail ? null : _buildBottomBar(context),
         );
@@ -62,7 +74,7 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
-  Widget _buildRail(BuildContext context, bool extended) {
+  Widget _buildRail(BuildContext context, bool extended, List<_ShellItem> items) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
     const seed = Color(0xFF185FA5);
@@ -128,9 +140,9 @@ class _MainShellState extends State<MainShell> {
           Expanded(
             child: ListView.builder(
               padding: EdgeInsets.symmetric(horizontal: extended ? 12 : 8, vertical: 4),
-              itemCount: _items.length,
+              itemCount: items.length,
               itemBuilder: (context, i) {
-                final item = _items[i];
+                final item = items[i];
                 final active = _tab == i;
 
                 return Padding(
@@ -181,8 +193,17 @@ class _MainShellState extends State<MainShell> {
   }
 
   Widget _buildBottomBar(BuildContext context) {
+    final auth = context.watch<AuthProvider>();
+    final items = <_ShellItem>[
+      const _ShellItem('Inicio', Icons.space_dashboard_outlined, Icons.space_dashboard),
+      const _ShellItem('Obras', Icons.domain_add_outlined, Icons.domain_add),
+      if (auth.podeGerirRecursos)
+        const _ShellItem('Equipa', Icons.groups_2_outlined, Icons.groups_2),
+      const _ShellItem('Config', Icons.tune_outlined, Icons.tune),
+    ];
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
+    final selectedIndex = _tab >= items.length ? items.length - 1 : _tab;
 
     return Container(
       decoration: BoxDecoration(
@@ -190,12 +211,12 @@ class _MainShellState extends State<MainShell> {
         border: Border(top: BorderSide(color: theme.dividerColor)),
       ),
       child: NavigationBar(
-        selectedIndex: _tab,
+        selectedIndex: selectedIndex,
         onDestinationSelected: (i) => setState(() => _tab = i),
         backgroundColor: Colors.transparent,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        destinations: _items.map((item) {
+        destinations: items.map((item) {
           return NavigationDestination(
             icon: Icon(item.icon),
             selectedIcon: Icon(item.selectedIcon),

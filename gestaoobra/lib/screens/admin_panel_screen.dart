@@ -24,11 +24,17 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   Map<String, dynamic>? _syncStatus;
   bool _syncLoading = false;
 
+  bool get _temPermissaoAdmin => context.read<AuthProvider>().podeAcederAdmin;
+
   @override
   void initState() {
     super.initState();
-    _carregar();
-    _carregarSyncStatus();
+    if (_temPermissaoAdmin) {
+      _carregar();
+      _carregarSyncStatus();
+    } else {
+      _loading = false;
+    }
   }
 
   @override
@@ -409,6 +415,39 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   @override
   Widget build(BuildContext context) {
     final auth = Provider.of<AuthProvider>(context);
+    final podeAcederAdmin = auth.podeAcederAdmin;
+
+    if (!podeAcederAdmin) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Painel de Administracao'),
+        ),
+        body: const Center(
+          child: Padding(
+            padding: EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.admin_panel_settings_outlined, size: 44, color: Colors.grey),
+                SizedBox(height: 12),
+                Text(
+                  'Este painel esta disponivel apenas para administradores.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+                ),
+                SizedBox(height: 8),
+                Text(
+                  'Gestores mantem acesso operacional, mas sem permissao para administracao de contas.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
+
     final currentUserId = auth.utilizador?['id'];
     final lista = _utilizadoresFiltrados;
     final isDark = Theme.of(context).brightness == Brightness.dark;
@@ -1177,10 +1216,12 @@ class _FormularioCriarUtilizadorState
     final senha = value ?? '';
     if (senha.isEmpty) return 'Campo obrigatório';
     if (senha.length < 8) return 'A password deve ter pelo menos 8 caracteres';
-    if (!RegExp(r'[a-zA-Z]').hasMatch(senha))
+    if (!RegExp(r'[a-zA-Z]').hasMatch(senha)) {
       return 'A password deve conter pelo menos uma letra';
-    if (!RegExp(r'[0-9]').hasMatch(senha))
+    }
+    if (!RegExp(r'[0-9]').hasMatch(senha)) {
       return 'A password deve conter pelo menos um número';
+    }
     return null;
   }
 
