@@ -320,5 +320,5 @@ class _CustomExcelImportDialogState extends State<CustomExcelImportDialog> {
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-print('Exemplos de integração do sistema de importação Excel');
-print('Ver comentários acima para diferentes casos de uso');
+// print('Exemplos de integração do sistema de importação Excel');
+// print('Ver comentários acima para diferentes casos de uso');

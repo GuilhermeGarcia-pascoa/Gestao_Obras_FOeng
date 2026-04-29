@@ -181,7 +181,7 @@ class _ExcelUploadDialogState extends State<ExcelUploadDialog> {
                 ),
                 items: meses
                     .map((mes) => DropdownMenuItem(
-                          value: mes['num'],
+                          value: (mes['num'] as int),
                           child: Text(mes['nome']),
                         ))
                     .toList(),
