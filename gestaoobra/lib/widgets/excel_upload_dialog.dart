@@ -20,7 +20,7 @@ class ExcelUploadDialog extends StatefulWidget {
 class _ExcelUploadDialogState extends State<ExcelUploadDialog> {
   int? selectedAno;
   int? selectedMes;
-  String? selectedFilePath;
+  List<int>? selectedFileBytes;
   String? selectedFileName;
   bool isLoading = false;
   String? errorMessage;
@@ -55,11 +55,11 @@ class _ExcelUploadDialogState extends State<ExcelUploadDialog> {
 
   Future<void> _selecionarFicheiro() async {
     try {
-      final path = await ExcelService.selecionarFicheiro();
-      if (path != null) {
+      final result = await ExcelService.selecionarFicheiro();
+      if (result != null) {
         setState(() {
-          selectedFilePath = path;
-          selectedFileName = path.split('/').last;
+          selectedFileBytes = result.bytes;
+          selectedFileName = result.fileName;
           errorMessage = null;
         });
       }
@@ -71,7 +71,7 @@ class _ExcelUploadDialogState extends State<ExcelUploadDialog> {
   }
 
   Future<void> _realizarImportacao() async {
-    if (selectedFilePath == null || selectedAno == null || selectedMes == null) {
+    if (selectedFileBytes == null || selectedAno == null || selectedMes == null) {
       setState(() {
         errorMessage = 'Preencha todos os campos: ficheiro, ano e mês';
       });
@@ -86,7 +86,8 @@ class _ExcelUploadDialogState extends State<ExcelUploadDialog> {
     try {
       final result = await ExcelService.importarExcel(
         obraId: widget.obraId,
-        filePath: selectedFilePath!,
+        fileName: selectedFileName!,
+        bytes: selectedFileBytes!,
         ano: selectedAno!,
         mes: selectedMes!,
       );

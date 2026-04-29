@@ -1,6 +1,16 @@
 import 'package:file_picker/file_picker.dart';
 import 'api_service.dart';
 
+class FilePickerResult {
+  final String fileName;
+  final List<int> bytes;
+
+  FilePickerResult({
+    required this.fileName,
+    required this.bytes,
+  });
+}
+
 class ExcelUploadResult {
   final bool sucesso;
   final String? mensagem;
@@ -46,8 +56,8 @@ class ExcelUploadResult {
 
 class ExcelService {
   /// Seleciona um ficheiro Excel (.xlsx ou .xlsm)
-  /// Retorna o caminho do ficheiro ou null se cancelado
-  static Future<String?> selecionarFicheiro() async {
+  /// Retorna o ficheiro com nome e bytes, ou null se cancelado
+  static Future<FilePickerResult?> selecionarFicheiro() async {
     try {
       final result = await FilePicker.platform.pickFiles(
         type: FileType.custom,
@@ -56,7 +66,14 @@ class ExcelService {
         lockParentWindow: true,
       );
 
-      return result?.files.single.path;
+      if (result?.files.single.bytes == null) {
+        throw Exception('Erro ao obter bytes do ficheiro');
+      }
+
+      return FilePickerResult(
+        fileName: result!.files.single.name,
+        bytes: result.files.single.bytes!,
+      );
     } catch (e) {
       throw Exception('Erro ao selecionar ficheiro: $e');
     }
@@ -65,12 +82,13 @@ class ExcelService {
   /// Importa um ficheiro Excel para uma obra
   static Future<ExcelUploadResult> importarExcel({
     required int obraId,
-    required String filePath,
+    required String fileName,
+    required List<int> bytes,
     required int ano,
     required int mes,
   }) async {
     try {
-      if (!_validarFicheiro(filePath)) {
+      if (!_validarFicheiro(fileName)) {
         return ExcelUploadResult.erro('Ficheiro não é um Excel válido (.xlsx ou .xlsm)');
       }
 
@@ -81,7 +99,8 @@ class ExcelService {
       // Envia para o backend
       final response = await ApiService.importarExcel(
         obraId: obraId,
-        filePath: filePath,
+        fileName: fileName,
+        bytes: bytes,
         ano: ano,
         mes: mes,
       );

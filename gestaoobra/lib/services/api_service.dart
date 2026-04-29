@@ -264,7 +264,8 @@ class ApiService {
   /// Returns: { ok, obra, periodo, resumo }
   static Future<Map<String, dynamic>> importarExcel({
     required int obraId,
-    required String filePath,
+    required String fileName,
+    required List<int> bytes,
     required int ano,
     required int mes,
     Function(int, int)? onProgress,
@@ -280,9 +281,9 @@ class ApiService {
       request.headers['Authorization'] = 'Bearer $token';
     }
 
-    // Adiciona o ficheiro
+    // Adiciona o ficheiro usando bytes
     request.files.add(
-      await http.MultipartFile.fromPath('file', filePath),
+      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
     );
 
     // Envia
