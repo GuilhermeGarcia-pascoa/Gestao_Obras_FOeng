@@ -1,8 +1,13 @@
 const router = require('express').Router();
 const { z }  = require('zod');
+const multer = require('multer');
+const ExcelJS = require('exceljs');
 const pool   = require('../db/pool');
 const { auth, soGestor, soAdmin } = require('../middleware/auth');
 const { logAction, reqMeta } = require('../utils/logger');
+
+// Multer para ficheiros em memória
+const upload = multer({ storage: multer.memoryStorage() });
 
 router.use(auth);
 
@@ -236,6 +241,224 @@ router.delete('/:id', soAdmin, async (req, res) => {
   } catch (err) {
     await conn.rollback();
     res.status(500).json({ erro: 'Erro interno no servidor' });
+  } finally {
+    conn.release();
+  }
+});
+
+// ── POST /api/obras/:id/import-excel ───────────────────────────────────────
+router.post('/:id/import-excel', upload.single('file'), soGestor, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    const obraId = parseInt(req.params.id);
+    const { ano, mes } = req.query;
+
+    // Validações
+    if (!ano || !mes || !req.file) {
+      return res.status(400).json({ erro: 'Ficheiro, ano e mês são obrigatórios' });
+    }
+
+    const anoNum = parseInt(ano);
+    const mesNum = parseInt(mes);
+
+    if (anoNum < 2020 || anoNum > 2100 || mesNum < 1 || mesNum > 12) {
+      return res.status(400).json({ erro: 'Ano ou mês inválido' });
+    }
+
+    // Verifica se obra existe
+    const [[obra]] = await conn.query('SELECT id FROM obras WHERE id = ?', [obraId]);
+    if (!obra) {
+      return res.status(404).json({ erro: 'Obra não encontrada' });
+    }
+
+    // Processa Excel
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(req.file.buffer);
+
+    await conn.beginTransaction();
+
+    const resumo = {
+      dias_importados: 0,
+      dias_atualizados: 0,
+      pessoas_criadas: 0,
+      maquinas_criadas: 0,
+      viaturas_criadas: 0,
+      erros: []
+    };
+
+    // Processa a primeira worksheet (Dias)
+    const wsData = workbook.getWorksheet(1);
+    if (!wsData) {
+      await conn.rollback();
+      return res.status(400).json({ erro: 'Ficheiro Excel inválido (sem dados)' });
+    }
+
+    // Estrutura esperada: Data, Estado, Valor T&O, Combustível, Estadias, Materiais, Refeições
+    const rowsData = wsData.getRows(2, wsData.rowCount - 1) || [];
+
+    for (const row of rowsData) {
+      try {
+        const data = row.getCell('A').value; // Data
+        const estado = row.getCell('B').value || null;
+        const valorTO = parseFloat(row.getCell('C').value) || 0;
+        const combustivel = parseFloat(row.getCell('D').value) || 0;
+        const estadias = parseFloat(row.getCell('E').value) || 0;
+        const materiais = parseFloat(row.getCell('F').value) || 0;
+        const refeicoes = parseFloat(row.getCell('G').value) || 0;
+
+        if (!data) continue; // Salta linhas vazias
+
+        // Trata data (pode ser Date ou string)
+        let dataFormatada;
+        if (data instanceof Date) {
+          dataFormatada = data.toISOString().split('T')[0];
+        } else {
+          dataFormatada = new Date(data).toISOString().split('T')[0];
+        }
+
+        // Verifica se dia já existe
+        const [[diaExistente]] = await conn.query(
+          'SELECT id FROM dias WHERE obra_id = ? AND data = ?',
+          [obraId, dataFormatada]
+        );
+
+        if (diaExistente) {
+          // Atualiza
+          await conn.query(
+            `UPDATE dias 
+             SET estado = ?, valor_to = ?, valor_combustivel = ?, 
+                 valor_estadias = ?, valor_materiais = ?, valor_refeicoes = ?
+             WHERE id = ?`,
+            [estado, valorTO, combustivel, estadias, materiais, refeicoes, diaExistente.id]
+          );
+          resumo.dias_atualizados++;
+        } else {
+          // Insere novo
+          const faturado = 0; // Padrão
+          await conn.query(
+            `INSERT INTO dias (obra_id, data, estado, faturado, valor_to, valor_combustivel, 
+                               valor_estadias, valor_materiais, valor_refeicoes)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [obraId, dataFormatada, estado, faturado, valorTO, combustivel, estadias, materiais, refeicoes]
+          );
+          resumo.dias_importados++;
+        }
+      } catch (err) {
+        resumo.erros.push(`Erro na linha ${row.number}: ${err.message}`);
+      }
+    }
+
+    // Processa pessoas (worksheet 2)
+    const wsPessoas = workbook.getWorksheet(2);
+    if (wsPessoas) {
+      const rowsPessoas = wsPessoas.getRows(2, wsPessoas.rowCount - 1) || [];
+      
+      for (const row of rowsPessoas) {
+        try {
+          const nome = row.getCell('A').value;
+          const cargo = row.getCell('B').value || null;
+
+          if (!nome) continue;
+
+          // Verifica se pessoa já existe
+          const [[pessoaExistente]] = await conn.query(
+            'SELECT id FROM operadores WHERE nome = ?',
+            [nome]
+          );
+
+          if (!pessoaExistente) {
+            await conn.query(
+              'INSERT INTO operadores (nome, cargo) VALUES (?, ?)',
+              [nome, cargo]
+            );
+            resumo.pessoas_criadas++;
+          }
+        } catch (err) {
+          resumo.erros.push(`Erro na pessoa (linha ${row.number}): ${err.message}`);
+        }
+      }
+    }
+
+    // Processa máquinas (worksheet 3)
+    const wsMaquinas = workbook.getWorksheet(3);
+    if (wsMaquinas) {
+      const rowsMaquinas = wsMaquinas.getRows(2, wsMaquinas.rowCount - 1) || [];
+      
+      for (const row of rowsMaquinas) {
+        try {
+          const nome = row.getCell('A').value;
+          const tipo = row.getCell('B').value || null;
+          const matricula = row.getCell('C').value || null;
+
+          if (!nome) continue;
+
+          const [[maquinaExistente]] = await conn.query(
+            'SELECT id FROM maquinas WHERE nome = ?',
+            [nome]
+          );
+
+          if (!maquinaExistente) {
+            await conn.query(
+              'INSERT INTO maquinas (nome, tipo, matricula) VALUES (?, ?, ?)',
+              [nome, tipo, matricula]
+            );
+            resumo.maquinas_criadas++;
+          }
+        } catch (err) {
+          resumo.erros.push(`Erro na máquina (linha ${row.number}): ${err.message}`);
+        }
+      }
+    }
+
+    // Processa viaturas (worksheet 4)
+    const wsViaturas = workbook.getWorksheet(4);
+    if (wsViaturas) {
+      const rowsViaturas = wsViaturas.getRows(2, wsViaturas.rowCount - 1) || [];
+      
+      for (const row of rowsViaturas) {
+        try {
+          const modelo = row.getCell('A').value;
+          const matricula = row.getCell('B').value || null;
+
+          if (!modelo) continue;
+
+          const [[viaturaExistente]] = await conn.query(
+            'SELECT id FROM viaturas WHERE modelo = ?',
+            [modelo]
+          );
+
+          if (!viaturaExistente) {
+            await conn.query(
+              'INSERT INTO viaturas (modelo, matricula) VALUES (?, ?)',
+              [modelo, matricula]
+            );
+            resumo.viaturas_criadas++;
+          }
+        } catch (err) {
+          resumo.erros.push(`Erro na viatura (linha ${row.number}): ${err.message}`);
+        }
+      }
+    }
+
+    await conn.commit();
+
+    await logAction({
+      userId:   req.user.id,
+      action:   'IMPORT',
+      entity:   'obras',
+      entityId: obraId,
+      details:  { ano: anoNum, mes: mesNum, ...resumo },
+      ...reqMeta(req),
+    });
+
+    res.json({ 
+      ok: true, 
+      resumo 
+    });
+  } catch (err) {
+    await conn.rollback();
+    console.error('[IMPORT] Erro:', err);
+    res.status(500).json({ erro: 'Erro ao importar ficheiro: ' + err.message });
   } finally {
     conn.release();
   }
