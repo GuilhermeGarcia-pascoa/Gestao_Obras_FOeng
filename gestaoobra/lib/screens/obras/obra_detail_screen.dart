@@ -8,6 +8,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:table_calendar/table_calendar.dart';
  
 import '../../services/api_service.dart';
+import '../../services/excel_service.dart';
+import '../../widgets/excel_upload_dialog.dart';
 import '../dias/dia_registo_screen.dart';
 import '../graficos/graficos_screen.dart';
 import 'obra_form_screen.dart';
@@ -185,6 +187,18 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
                               ),
                             ),
                           ],
+                        ),
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.icon(
+                            onPressed: () => _mostrarDialogoImportacao(context, obra),
+                            icon: const Icon(Icons.upload_file),
+                            label: const Text('Importar dados de Excel'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: Colors.amber.shade700,
+                            ),
+                          ),
                         ),
                       ],
                     ),
@@ -510,6 +524,31 @@ class _ObraDetailScreenState extends State<ObraDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg), backgroundColor: const Color(0xFFE53935)));
 
+  Future<void> _mostrarDialogoImportacao(BuildContext context, Map<String, dynamic> obra) async {
+    final resultado = await showDialog<ExcelUploadResult>(
+      context: context,
+      builder: (_) => ExcelUploadDialog(
+        obraId: obra['id'] as int,
+        obraNome: obra['nome']?.toString() ?? 'Obra desconhecida',
+        onImportSuccess: () {
+          if (mounted) {
+            _carregarMes(_focusedDay);
+          }
+        },
+      ),
+    );
+
+    if (resultado != null && resultado.sucesso && context.mounted) {
+      final resumo = ExcelService.gerarResumo(resultado);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Importação concluída! $resumo'),
+          backgroundColor: const Color(0xFF0F9D8A),
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
 
   String _fmtApi(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';

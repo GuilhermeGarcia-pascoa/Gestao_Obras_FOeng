@@ -250,6 +250,56 @@ class ApiService {
     final data = await post('/sync/agora', {});
     return data as Map<String, dynamic>;
   }
+
+  // ── IMPORT Excel ───────────────────────────────────────────────────────────
+
+  /// Upload de ficheiro Excel para importação de dias, pessoas, máquinas, etc.
+  /// 
+  /// Parameters:
+  ///   - obraId: ID da obra
+  ///   - filePath: caminho do ficheiro no dispositivo
+  ///   - ano: ano do período (ex: 2024)
+  ///   - mes: mês do período (ex: 3 para março)
+  /// 
+  /// Returns: { ok, obra, periodo, resumo }
+  static Future<Map<String, dynamic>> importarExcel({
+    required int obraId,
+    required String fileName,
+    required List<int> bytes,
+    required int ano,
+    required int mes,
+    Function(int, int)? onProgress,
+  }) async {
+    final token = await SecureStorage.getToken();
+    
+    final request = http.MultipartRequest(
+      'POST',
+      Uri.parse('${ApiConfig.baseUrl}/obras/$obraId/import-excel?ano=$ano&mes=$mes'),
+    );
+
+    if (token != null) {
+      request.headers['Authorization'] = 'Bearer $token';
+    }
+
+    // Adiciona o ficheiro usando bytes
+    request.files.add(
+      http.MultipartFile.fromBytes('file', bytes, filename: fileName),
+    );
+
+    // Envia
+    final streamResponse = await request.send();
+    final response = await http.Response.fromStream(streamResponse);
+
+    // Parse resposta
+    final data = jsonDecode(response.body) as Map<String, dynamic>;
+
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return data;
+    }
+
+    final erro = data['erro'] ?? 'Erro ao importar o ficheiro';
+    throw ApiException(erro, response.statusCode);
+  }
 }
 
 class ApiException implements Exception {
